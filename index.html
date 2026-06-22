@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a12" />
+  <title>Aether Sand — Falling Sand Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Simulation canvas stack -->
+  <div id="stage">
+    <canvas id="sim"></canvas>
+    <canvas id="glow"></canvas>
+    <div id="vignette"></div>
+    <div id="cursor-ring"></div>
+  </div>
+
+  <!-- Top brand bar -->
+  <header id="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="brand-text">
+        <h1>Aether&nbsp;Sand</h1>
+        <p>a living particle playground</p>
+      </div>
+    </div>
+    <div class="stats" id="stats">
+      <div class="stat"><span class="stat-val" id="fps">60</span><span class="stat-label">fps</span></div>
+      <div class="stat"><span class="stat-val" id="count">0</span><span class="stat-label">particles</span></div>
+    </div>
+  </header>
+
+  <!-- Material palette -->
+  <aside id="palette" class="panel">
+    <div class="panel-title">Materials</div>
+    <div id="material-grid" class="material-grid"></div>
+  </aside>
+
+  <!-- Control dock -->
+  <nav id="dock" class="panel">
+    <div class="dock-group">
+      <button class="ctrl" id="btn-play" title="Play / Pause (Space)">
+        <svg viewBox="0 0 24 24" class="ic-pause"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        <svg viewBox="0 0 24 24" class="ic-play"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="ctrl" id="btn-step" title="Step one frame (→)">
+        <svg viewBox="0 0 24 24"><path d="M7 5v14l9-7zM17 5h2v14h-2z"/></svg>
+      </button>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <div class="dock-group brush-group">
+      <span class="dock-label">Brush</span>
+      <input type="range" id="brush" min="1" max="40" value="9" />
+      <span class="dock-readout" id="brush-readout">9</span>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <div class="dock-group">
+      <button class="ctrl ctrl-text" id="btn-clear" title="Clear (C)">
+        <svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7zm3-3h6l1 2H8l1-2z"/></svg>
+        <span>Clear</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- First-run hint -->
+  <div id="hint">
+    <kbd>Click + drag</kbd> to pour · <kbd>Right-click</kbd> to erase · <kbd>Space</kbd> to pause
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
