@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#0a0a12" />
+  <meta name="theme-color" content="#07070d" />
   <title>Aether Sand — Falling Sand Simulator</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -39,6 +39,43 @@
     <div id="material-grid" class="material-grid"></div>
   </aside>
 
+  <!-- Forces + scene panel -->
+  <aside id="sidepanel" class="panel">
+    <div class="panel-title">Forces</div>
+
+    <div class="field">
+      <span class="field-label">Gravity</span>
+      <div class="compass" id="compass">
+        <button class="cmp" data-gx="0"  data-gy="-1" title="Gravity up">↑</button>
+        <button class="cmp" data-gx="-1" data-gy="0"  title="Gravity left">←</button>
+        <button class="cmp cmp-zero" data-gx="0" data-gy="0" title="Zero-G">○</button>
+        <button class="cmp" data-gx="1"  data-gy="0"  title="Gravity right">→</button>
+        <button class="cmp active" data-gx="0" data-gy="1" title="Gravity down">↓</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Wind <em id="wind-readout">0</em></span>
+      <input type="range" id="wind" min="-100" max="100" value="0" />
+    </div>
+
+    <div class="panel-title" style="margin-top:6px">Scene</div>
+    <div class="btn-col">
+      <button class="mini" id="btn-heat" title="Toggle heat-map (H)">
+        <svg viewBox="0 0 24 24"><path d="M12 2s5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 1-3s-1 4 2 4 2-4 2-4 0-4-2-7z"/></svg>
+        <span>Heat&nbsp;map</span>
+      </button>
+      <button class="mini" id="btn-snap" title="Download a PNG snapshot">
+        <svg viewBox="0 0 24 24"><path d="M9 4l-1 2H4v14h16V6h-4l-1-2H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/></svg>
+        <span>Snapshot</span>
+      </button>
+      <div class="btn-row">
+        <button class="mini" id="btn-save" title="Save scene">Save</button>
+        <button class="mini" id="btn-load" title="Load saved scene">Load</button>
+      </div>
+    </div>
+  </aside>
+
   <!-- Control dock -->
   <nav id="dock" class="panel">
     <div class="dock-group">
@@ -55,8 +92,8 @@
 
     <div class="dock-group brush-group">
       <span class="dock-label">Brush</span>
-      <input type="range" id="brush" min="1" max="40" value="9" />
-      <span class="dock-readout" id="brush-readout">9</span>
+      <input type="range" id="brush" min="1" max="48" value="10" />
+      <span class="dock-readout" id="brush-readout">10</span>
     </div>
 
     <div class="dock-divider"></div>
@@ -71,7 +108,7 @@
 
   <!-- First-run hint -->
   <div id="hint">
-    <kbd>Click + drag</kbd> to pour · <kbd>Right-click</kbd> to erase · <kbd>Space</kbd> to pause
+    <kbd>Click + drag</kbd> to pour · <kbd>Right-click</kbd> to erase · <kbd>Space</kbd> pause · <kbd>H</kbd> heat-map
   </div>
 
   <script src="script.js"></script>
