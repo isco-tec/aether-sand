@@ -19,8 +19,8 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 - **Cellular-automata core** on typed-array grids with density-based displacement (sand sinks through water, water floats on oil, gases rise) and bias-free alternating scan order.
 - **Real thermodynamics** — a per-cell temperature field with heat diffusion drives emergent phase changes (water ⇄ ice ⇄ steam, sand → glass, stone ⇄ lava, metal melting, ignition).
 - **Blackbody incandescence** — anything hot enough glows on its own, so heated metal and stone smoulder red → orange → yellow → white as the temperature climbs.
-- **27+ materials & tools** with distinct behaviour: sand, rainbow sand, water, ice, snow, salt, oil, acid, lava, fire, coal, gunpowder, fireworks, electric spark, wood, plant, metal, stone, glass, smoke, wall — plus a **Cloner** that duplicates whatever it touches and a **Void** that devours it.
-- **Alchemy & transmutation** — **Mercury** is a dense, shimmering, conductive liquid that *amalgamates* metal (slowly dissolving it into more mercury) and boils to vapour when heated; **Thermite** ignites into a blinding white-hot reaction that melts metal, stone, glass and sand into molten slag; and a slow-burning **Fuse** crawls flame along its length to set off gunpowder and thermite on a timer.
+- **31+ materials & tools** with distinct behaviour: sand, rainbow sand, water, ice, snow, salt, oil, acid, lava, fire, coal, gunpowder, fireworks, electric spark, wood, plant, metal, stone, glass, smoke, wall — plus a **Cloner** that duplicates whatever it touches and a **Void** that devours it.
+- **Alchemy & transmutation** — **Mercury** amalgamates metal into quicksilver; **acid + mercury precipitates gold** (the philosopher's transmutation); **Sulfur + Saltpeter + Coal** craft into gunpowder when mixed; **Thermite** melts metal and stone into molten slag; a slow-burning **Fuse** crawls flame to detonate caches; and **Nitro** is an unstable liquid that explodes on impact, heat, or spark.
 - **Heat & Freeze brushes** — paint temperature straight onto the world with a torch and a cryo tool to ignite, melt, or flash-freeze on demand.
 - **Ballistic particle system** for fireworks, explosions and embers — buttery floating-point motion layered on top of the grid.
 - **Gravity & wind controls** — point gravity in any direction (or zero-G) and blow particles around with adjustable wind.
@@ -73,6 +73,9 @@ A.paint(x, y, "heat", 8);     // torch (or "freeze") to paint temperature
 A.line(x0, y0, x1, y1, "metal", 2);
 A.paint(x, y, "cloner");      // duplicates whatever it touches ("void" devours)
 A.paint(x, y, "mercury", 5);  // dense shimmering liquid that amalgamates metal
+A.paint(x, y, "acid", 4);     // pour onto mercury to precipitate gold
+A.paint(x, y, "sulfur", 3);   // mix sulfur + saltpeter + coal → gunpowder
+A.paint(x, y, "nitro", 4);    // unstable — explodes on impact, heat, or spark
 A.paint(x, y, "thermite", 4); // ignite it (heat/fire/spark) to melt through metal
 A.line(x0, y0, x1, y1, "fuse"); // a slow-burning cord to a gunpowder cache
 A.firework(x, y);             // launch a firework rocket
