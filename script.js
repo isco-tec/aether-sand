@@ -246,6 +246,29 @@
   // recipes the player has already viewed in the book — drives the "NEW" badge
   let seenRecipes = new Set(JSON.parse(localStorage.getItem("aether-seen")||"[]"));
 
+  /* ============================ Challenges ======================== */
+  // Each test receives a live snapshot of the world: { cells, litBulbs, minTemp,
+  // maxTemp, maxPres, count(id), disc(recipeSet) }.
+  const CHALLENGES = [
+    { id:"first_pour", icon:"🪣", title:"First Pour", desc:"Place your very first material.", test:s=>s.cells>0 },
+    { id:"glass", icon:"🔷", title:"Glassblower", desc:"Fuse sand into glass with fierce heat.", test:s=>s.disc.has("sand_glass")||s.count(GLASS)>=20 },
+    { id:"gold", icon:"🪙", title:"Transmuter", desc:"Turn mercury into gold.", test:s=>s.disc.has("acid_gold")||s.disc.has("philosopher_gold")||s.count(GOLD)>=8 },
+    { id:"diamond", icon:"💎", title:"Diamond Hands", desc:"Forge a diamond from coal under furious heat.", test:s=>s.disc.has("diamond")||s.count(DIAMOND)>=1 },
+    { id:"obsidian", icon:"🪨", title:"Quenched", desc:"Quench lava in water to make obsidian.", test:s=>s.disc.has("obsidian")||s.count(OBSIDIAN)>=10 },
+    { id:"powered", icon:"🔋", title:"Power Grid", desc:"Run a battery-powered circuit.", test:s=>s.disc.has("battery_power") },
+    { id:"lights", icon:"💡", title:"Let There Be Light", desc:"Light up 5 bulbs at once.", test:s=>s.litBulbs>=5 },
+    { id:"logic", icon:"🔌", title:"Logician", desc:"Build any logic gate that fires.", test:s=>s.disc.has("logic_gates") },
+    { id:"storm", icon:"⛈️", title:"Storm Chaser", desc:"Summon a lightning strike.", test:s=>s.disc.has("lightning") },
+    { id:"acidrain", icon:"☣️", title:"Acid Rain", desc:"Pollute a cloud until it rains acid.", test:s=>s.disc.has("acid_rain") },
+    { id:"boom", icon:"💥", title:"Demolitions", desc:"Set off a proper explosion.", test:s=>s.disc.has("nitro_blast")||s.disc.has("gunpowder_boom") },
+    { id:"pressure", icon:"🎈", title:"Pressure Cooker", desc:"Build up serious pressure (200+).", test:s=>s.maxPres>=200 },
+    { id:"freeze", icon:"❄️", title:"Deep Freeze", desc:"Chill the world below −20°.", test:s=>s.minTemp<=-20 },
+    { id:"inferno", icon:"🔥", title:"Inferno", desc:"Heat something past 1500°.", test:s=>s.maxTemp>=1500 },
+    { id:"antimatter", icon:"🌀", title:"Annihilation", desc:"Witness an antimatter reaction.", test:s=>s.disc.has("antimatter") },
+  ];
+  let challengesDone = new Set(JSON.parse(localStorage.getItem("aether-challenges")||"[]"));
+  let challengesUnseen = false;  // a challenge completed since the panel was last opened
+
   function isRecipeKnown(id){ return revealAll || RECIPE_BY_ID[id]?.starter || discoveries.has(id); }
   function discoverRecipe(id){
     if(!RECIPE_BY_ID[id] || discoveries.has(id)) return;
@@ -1472,6 +1495,7 @@
       fpsEl.textContent=Math.round((frames*1000)/(now-fpsT)); frames=0; fpsT=now;
       let c=0; for(let i=0;i<N;i++) if(grid[i]!==EMPTY) c++;
       countEl.textContent=(c+pn).toLocaleString();
+      checkChallenges();
     }
     requestAnimationFrame(loop);
   }
@@ -1698,6 +1722,74 @@
     document.getElementById("about-close")?.addEventListener("click",closeAbout);
     document.getElementById("about-backdrop")?.addEventListener("click",closeAbout);
   }
+
+  /* ---- challenges ---- */
+  function challengeStats(){
+    const counts=new Int32Array(MAXID);
+    let cells=0, litBulbs=0, minT=AMBIENT, maxT=AMBIENT, maxP=0;
+    for(let i=0;i<N;i++){
+      const m=grid[i];
+      if(m!==EMPTY){ cells++; if(m<MAXID)counts[m]++; if(m===BULB&&life[i]>0)litBulbs++; }
+      const t=temp[i]; if(t<minT)minT=t; else if(t>maxT)maxT=t;
+      const p=pres[i]; if(p>maxP)maxP=p;
+    }
+    return { cells, litBulbs, minTemp:minT, maxTemp:maxT, maxPres:maxP, count:(id)=>counts[id]||0, disc:discoveries };
+  }
+  function celebrateChallenge(c){
+    toast("🏆 "+c.title+" — complete!");
+    for(let k=0;k<3;k++){ const x=(W*(0.28+rnd()*0.44))|0; burst(x,(H*0.32)|0); }
+  }
+  function checkChallenges(){
+    if(challengesDone.size>=CHALLENGES.length) return;
+    const s=challengeStats();
+    const newly=[];
+    for(const c of CHALLENGES){ if(!challengesDone.has(c.id) && c.test(s)){ challengesDone.add(c.id); newly.push(c); } }
+    if(newly.length){
+      try{ localStorage.setItem("aether-challenges", JSON.stringify([...challengesDone])); }catch(_){}
+      const open = !document.getElementById("challenges")?.classList.contains("hidden");
+      if(!open) challengesUnseen=true;
+      newly.forEach(celebrateChallenge);
+      renderChallenges(); updateChallengeBadge();
+    }
+  }
+  function updateChallengeBadge(){
+    const el=document.getElementById("challenge-count");
+    if(el) el.textContent=challengesDone.size+"/"+CHALLENGES.length;
+    const btn=document.getElementById("btn-challenges");
+    if(btn) btn.classList.toggle("has-new", challengesUnseen);
+  }
+  function renderChallenges(){
+    const body=document.getElementById("challenge-list"); if(!body) return;
+    const done=challengesDone.size, total=CHALLENGES.length;
+    const txt=document.getElementById("challenge-progress-text"); if(txt) txt.textContent=done+" / "+total+" complete";
+    const bar=document.getElementById("challenge-bar"); if(bar) bar.style.width=Math.round(done/total*100)+"%";
+    body.innerHTML="";
+    CHALLENGES.forEach(c=>{
+      const ok=challengesDone.has(c.id);
+      const row=document.createElement("div");
+      row.className="challenge"+(ok?" done":"");
+      row.innerHTML='<div class="challenge-icon">'+c.icon+'</div>'+
+        '<div class="challenge-main"><div class="challenge-title">'+c.title+'</div>'+
+        '<div class="challenge-desc">'+c.desc+'</div></div>'+
+        '<div class="challenge-check">'+(ok?"✓":"")+'</div>';
+      body.appendChild(row);
+    });
+  }
+  function openChallenges(){
+    const el=document.getElementById("challenges"); if(!el) return;
+    checkChallenges(); challengesUnseen=false; renderChallenges(); updateChallengeBadge();
+    el.classList.remove("hidden"); el.setAttribute("aria-hidden","false");
+  }
+  function closeChallenges(){
+    const el=document.getElementById("challenges"); if(!el) return;
+    el.classList.add("hidden"); el.setAttribute("aria-hidden","true");
+  }
+  function setupChallenges(){
+    document.getElementById("btn-challenges")?.addEventListener("click",openChallenges);
+    document.getElementById("challenges-close")?.addEventListener("click",closeChallenges);
+    document.getElementById("challenges-backdrop")?.addEventListener("click",closeChallenges);
+    renderChallenges(); updateChallengeBadge();
+  }
   function setupUI(){
     fpsEl=document.getElementById("fps"); countEl=document.getElementById("count");
     const playBtn=document.getElementById("btn-play");
@@ -1742,7 +1834,8 @@
       else if(e.code==="KeyH") heatBtn.click();
       else if(e.code==="KeyL"){ lighting=!lighting; syncLightUI(); toast(lighting?"Lighting on":"Lighting off"); }
       else if(e.code==="KeyB"){ const b=document.getElementById("booklet"); if(b&&b.classList.contains("hidden")) openBooklet(); else closeBooklet(); }
-      else if(e.code==="Escape"){ closeBooklet(); closeAbout(); }
+      else if(e.code==="KeyG"){ const c=document.getElementById("challenges"); if(c&&c.classList.contains("hidden")) openChallenges(); else closeChallenges(); }
+      else if(e.code==="Escape"){ closeBooklet(); closeAbout(); closeChallenges(); }
       else if(e.code==="KeyP") pressBtn.click();
       else if(e.code==="ArrowRight") stepOnce=true;
       else if(e.code==="BracketRight"||e.key==="]"){ brushEl.value=Math.min(48,brush+2); syncBrush(); }
@@ -1832,6 +1925,7 @@
     buildPalette();
     setupBooklet();
     setupAbout();
+    setupChallenges();
     const {ring,syncBrush}=setupUI();
     setupPointer(ring);
     window.addEventListener("resize",()=>{ resize(); setGravity(GX,GY); syncBrush(); });

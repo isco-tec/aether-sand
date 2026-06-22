@@ -33,6 +33,7 @@ Aether Sand is a physics-rich **falling-sand simulator** written from scratch in
 - **Dynamic lighting.** Every emitter — fire, lava, red-hot metal, sparks, fireworks, bulbs — casts coloured light onto the matter around it, layered over emissive bloom, so a stone wall beside a lava pool actually warms to orange. Tune it with the Light slider (defaults to ~54%) or toggle with `L`.
 - **Ballistic particles & screen-shake.** A floating-point particle layer drives fireworks, embers and explosions with smooth motion on top of the grid — and a big blast punches the whole screen.
 - **Gravity & wind.** Point gravity in any of 8 directions, flip to zero-G, and blow particles around with adjustable wind, all from a compact compass.
+- **Challenges.** A set of bite-sized objectives — *light 5 bulbs at once, forge a diamond, quench obsidian, build serious pressure, run a circuit* — that tick off as you play, with progress saved locally and a little confetti when you nail one. Open them from the trophy in the top bar.
 - **Snapshot & save / load.** Export a PNG of your creation, or save and restore whole scenes from local storage.
 - **A genuinely good UI.** A **tabbed, searchable material palette** (Natural / Reactive / Alchemy / Tools / All) with full-width readable buttons and a live description of whatever you've selected; live FPS + particle counters; heat-map and pressure-map overlays; and an **Alchemy Book** that reveals recipes as you discover them through play — ingredient swatch-chips, a discovery progress bar, **NEW** badges, and a sandbox "reveal all" toggle. Plus an elegant About panel, full keyboard shortcuts, mouse + touch, and responsive resize that preserves your artwork.
 
@@ -55,6 +56,8 @@ Aether Sand is a physics-rich **falling-sand simulator** written from scratch in
 | Pressure-map overlay | `P` |
 | Toggle dynamic lighting | `L` |
 | Open alchemy book | `B` |
+| Challenges | `G` or the trophy |
+| Toggle a switch / press a button | Click it |
 | About panel | Click the title |
 | Brush size | `[` / `]` or the slider |
 | Pick material | `1`–`9` or the palette |

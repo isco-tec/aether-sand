@@ -139,6 +139,27 @@ html, body {
 .stat-val { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: .12em; color: var(--text-dim); }
 
+.topbar-right { display: flex; align-items: center; gap: 10px; pointer-events: auto; }
+.trophy-btn {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 13px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--panel-brd);
+  color: var(--accent); cursor: pointer;
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  transition: background .14s ease, border-color .14s ease, transform .1s ease;
+}
+.trophy-btn:hover { background: rgba(255,180,84,0.14); border-color: rgba(255,180,84,0.4); }
+.trophy-btn:active { transform: scale(0.96); }
+.trophy-btn svg { width: 16px; height: 16px; fill: currentColor; }
+.trophy-count { font-size: 13px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.trophy-btn.has-new::after {
+  content: ""; position: absolute; top: -3px; right: -3px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--accent-2); border: 2px solid var(--bg);
+  box-shadow: 0 0 8px var(--accent-2);
+}
+
 .panel-title {
   font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
   color: var(--text-dim); text-align: center; margin-bottom: 10px;
@@ -548,6 +569,33 @@ input[type="range"]::-moz-range-thumb {
 }
 .mat-entry-name { font-size: 12px; font-weight: 700; color: var(--text); }
 .mat-entry-desc { font-size: 10px; color: var(--text-dim); line-height: 1.4; margin-top: 2px; }
+
+/* ---------- Challenges modal ---------- */
+.challenges-panel {
+  position: relative; z-index: 1;
+  width: min(440px, 92vw); max-height: min(80vh, 720px);
+  display: flex; flex-direction: column; padding: 0; overflow: hidden;
+}
+.challenge {
+  display: grid; grid-template-columns: 36px 1fr 26px;
+  gap: 11px; align-items: center;
+  padding: 11px 12px; margin-bottom: 7px;
+  border-radius: 12px; border: 1px solid var(--panel-brd);
+  background: rgba(255,255,255,0.03);
+  transition: border-color .15s ease, background .15s ease;
+}
+.challenge.done { border-color: rgba(108,229,255,0.3); background: rgba(108,229,255,0.06); }
+.challenge-icon { font-size: 21px; text-align: center; filter: grayscale(0.65); opacity: .75; }
+.challenge.done .challenge-icon { filter: none; opacity: 1; }
+.challenge-title { font-size: 13px; font-weight: 700; color: var(--text); }
+.challenge.done .challenge-title { color: var(--accent-2); }
+.challenge-desc { font-size: 11px; color: var(--text-dim); line-height: 1.35; margin-top: 2px; }
+.challenge-check {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13px; font-weight: 800;
+  border: 1.5px solid var(--panel-brd); color: transparent;
+}
+.challenge.done .challenge-check { background: var(--accent-2); color: #04222b; border-color: var(--accent-2); }
 
 /* ---------- About modal ---------- */
 .modal {
