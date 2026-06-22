@@ -12,7 +12,8 @@
         PLANT=15, GLASS=16, STONE=17, METAL=18, GUNPOWDER=19, FIREWORK=20,
         SPARK=21, COAL=22, HEAT=23, COOL=24, CLONER=25, VOID=26,
         MERCURY=27, THERMITE=28, FUSE=29,
-        GOLD=30, NITRO=31, SULFUR=32, SALTPETER=33;
+        GOLD=30, NITRO=31, SULFUR=32, SALTPETER=33,
+        CRYSTAL=34, PHILOSOPHER=35, AQUA=36;
 
   // cell types
   const STATIC=0, POWDER=1, LIQUID=2, GAS=3, TOOL=4;
@@ -69,10 +70,13 @@
     [NITRO]:    { name:"Nitro",  type:LIQUID, d:95,  disp:3, c1:[180,255,90], c2:[120,210,50], a:220, k:0.04, flam:1 },
     [SULFUR]:   { name:"Sulfur", type:POWDER, d:180, c1:[255,228,48], c2:[210,178,24], k:0.05, flam:1 },
     [SALTPETER]:{ name:"Saltpeter",type:POWDER,d:170, c1:[248,248,255], c2:[210,208,228], k:0.05 },
+    [CRYSTAL]:  { name:"Crystal", type:STATIC, d:1e4, c1:[190,150,255], c2:[130,96,220], a:215, k:0.08, emit:0.18 },
+    [PHILOSOPHER]:{ name:"Philosopher",type:STATIC,d:1e4,c1:[255,130,210],c2:[180,70,255],k:0.06,emit:0.45 },
+    [AQUA]:     { name:"Aqua Regia",type:LIQUID,d:108,disp:4,c1:[255,205,255],c2:[205,125,255],a:215,k:0.06,emit:0.38 },
   };
 
   // fast lookup arrays
-  const MAXID = 34;
+  const MAXID = 37;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -88,10 +92,11 @@
   WINDF[SAND]=0.08; WINDF[SALT]=0.08; WINDF[GUNPOWDER]=0.08; WINDF[RAINBOW]=0.08; WINDF[COAL]=0.06;
   WINDF[THERMITE]=0.06; WINDF[MERCURY]=0.04; WINDF[NITRO]=0.2;
   WINDF[SULFUR]=0.07; WINDF[SALTPETER]=0.07; WINDF[GOLD]=0.04;
-  CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1;
+  WINDF[AQUA]=0.22;
+  CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
 
   // palette shown in UI
-  const PALETTE = [SAND, RAINBOW, WATER, ICE, SNOW, SALT, OIL, ACID, MERCURY, GOLD, LAVA, FIRE,
+  const PALETTE = [SAND, RAINBOW, WATER, ICE, SNOW, SALT, OIL, ACID, AQUA, MERCURY, GOLD, CRYSTAL, PHILOSOPHER, LAVA, FIRE,
                    COAL, SULFUR, SALTPETER, GUNPOWDER, NITRO, THERMITE, FUSE, FIREWORK, SPARK,
                    HEAT, COOL, WOOD, PLANT, METAL, STONE, GLASS, CLONER, VOID, SMOKE, WALL, EMPTY];
 
@@ -101,6 +106,7 @@
     [ICE]:1,[WOOD]:1,[PLANT]:1,[METAL]:1,[STONE]:1,[GLASS]:1,[WALL]:1,
     [FIREWORK]:0.5,[EMPTY]:1,[MERCURY]:0.95,[THERMITE]:0.9,[FUSE]:1,
     [GOLD]:0.9,[NITRO]:0.85,[SULFUR]:0.88,[SALTPETER]:0.88,
+    [CRYSTAL]:1,[PHILOSOPHER]:1,[AQUA]:0.88,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -112,7 +118,20 @@
   let grid,shade,life,vel,charge,moved,temp,tempB;
   let simImg,sim32,glowImg,glow32;
   let LS,LW,LH,LN,lightR,lightG,lightB,lightT;
-  let lighting=true;
+  let lighting=true, lightLevel=0.72;
+  function lightFX(){ return lighting ? lightLevel : 0; }
+  function syncLightUI(){
+    const fx=lightFX(), out=document.getElementById("light-readout");
+    if(out) out.textContent=Math.round(lightLevel*100);
+    glow.style.opacity=String(fx*0.92);
+    glow.style.filter="blur("+(1.5+fx*3.5)+"px) brightness("+(0.82+fx*0.42)+")";
+    const btn=document.getElementById("btn-light");
+    if(btn){
+      btn.classList.toggle("on",lighting);
+      const lbl=btn.querySelector("span");
+      if(lbl) lbl.textContent=lighting?"Light on":"Light off";
+    }
+  }
 
   function allocate(w,h){
     const old = grid ? {grid,temp,W,H} : null;
@@ -343,14 +362,18 @@
   }
   function upSmoke(x,y,i){
     if(--life[i]<=0 || (y===0&&rnd()<0.08)){ grid[i]=EMPTY; return; }
+    forN8(x,i,(ni,nm)=>{ if(nm===SULFUR && rnd()<0.007){ convert(ni,ACID); } return false; });
     moveGas(x,y,i,SMOKE); applyWind(x,i,SMOKE);
   }
   function upAcid(x,y,i){
-    let gone=false;
+    let gone=false, phil=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===PHILOSOPHER) phil=true; return false; });
     forN8(x,i,(ni,nm)=>{
       // philosopher's transmutation — acid + mercury precipitates gold
-      if(nm===MERCURY && rnd()<0.015){ convert(ni,GOLD); temp[ni]=temp[i]; grid[i]=EMPTY; gone=true; return true; }
-      if(nm!==EMPTY&&nm!==ACID&&nm!==WALL&&nm!==GLASS&&nm!==GOLD&&TYPE[nm]!==GAS && rnd()<0.05){
+      if(nm===MERCURY && rnd()<(phil?0.04:0.015)){ convert(ni,GOLD); temp[ni]=temp[i]; grid[i]=EMPTY; gone=true; return true; }
+      // nitric path — acid + saltpeter brews aqua regia
+      if(nm===SALTPETER && rnd()<0.012){ convert(i,AQUA); grid[ni]=EMPTY; gone=true; return true; }
+      if(nm!==EMPTY&&nm!==ACID&&nm!==WALL&&nm!==GLASS&&nm!==GOLD&&nm!==AQUA&&TYPE[nm]!==GAS && rnd()<0.05){
         grid[ni]=EMPTY;
         if(rnd()<0.4){ grid[i]=EMPTY; gone=true; return true; }
       }
@@ -438,10 +461,12 @@
     });
   }
   function upMercury(x,y,i){
+    let phil=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===PHILOSOPHER) phil=true; return false; });
     // amalgamation — quicksilver slowly transmutes touching metal into more mercury
     forN8(x,i,(ni,nm)=>{
-      if(nm===ACID && rnd()<0.01){ convert(i,GOLD); return true; }
-      if(nm===METAL && rnd()<0.0035){ convert(ni,MERCURY); temp[ni]=temp[i]; }
+      if(nm===ACID && rnd()<(phil?0.035:0.01)){ convert(i,GOLD); return true; }
+      if(nm===METAL && rnd()<(phil?0.012:0.0035)){ convert(ni,MERCURY); temp[ni]=temp[i]; }
       return false;
     });
     moveLiquid(x,y,i,MERCURY,M[MERCURY].disp); applyWind(x,i,MERCURY);
@@ -495,6 +520,32 @@
     let ignite = temp[i]>=160 || charge[i]>0;
     if(!ignite) forN8(x,i,(ni,nm)=>{ if(nm===FIRE||nm===LAVA||(nm===FUSE&&life[ni]>0)){ ignite=true; return true; } return false; });
     if(ignite) life[i]=18+(rnd()*8|0);
+  }
+  function upCrystal(x,y,i){
+    forN8(x,i,(ni,nm)=>{ if(nm===WATER && rnd()<0.04){ grid[ni]=EMPTY; } return false; });
+    if(rnd()<0.09){ const e=emptyNeighbor(x,i); if(e>=0) convert(e,CRYSTAL); }
+  }
+  function upPhilosopher(x,y,i){
+    forN8(x,i,(ni,nm)=>{
+      if(nm===MERCURY && rnd()<0.025){ convert(ni,GOLD); temp[ni]=temp[i]+40; }
+      else if(nm===METAL && rnd()<0.01){ convert(ni,MERCURY); temp[ni]=temp[i]; }
+      else if(nm===SAND && rnd()<0.004){ convert(ni,GOLD); }
+      return false;
+    });
+  }
+  function upAqua(x,y,i){
+    let gone=false;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===GOLD && rnd()<0.09){ convert(ni,MERCURY); temp[ni]=temp[i]; }
+      else if(nm===METAL && rnd()<0.07){ grid[ni]=EMPTY; }
+      else if(nm!==EMPTY&&nm!==AQUA&&nm!==WALL&&nm!==GLASS&&TYPE[nm]!==GAS && rnd()<0.08){
+        grid[ni]=EMPTY;
+        if(rnd()<0.35){ grid[i]=EMPTY; gone=true; return true; }
+      }
+      return false;
+    });
+    if(gone) return;
+    moveLiquid(x,y,i,AQUA,M[AQUA].disp); applyWind(x,i,AQUA);
   }
   function emptyNeighbor(x,i){
     const c=[[-W,0,-1],[W,0,1],[-1,-1,0],[1,1,0]];
@@ -639,6 +690,9 @@
           case NITRO: upNitro(x,y,i); break;
           case SULFUR: upSulfur(x,y,i); break;
           case SALTPETER: upSaltpeter(x,y,i); break;
+          case CRYSTAL: upCrystal(x,y,i); break;
+          case PHILOSOPHER: upPhilosopher(x,y,i); break;
+          case AQUA: upAqua(x,y,i); break;
           // WOOD, GLASS, STONE, METAL: thermal only
         }
       }
@@ -692,7 +746,7 @@
     for(let p=0;p<4;p++){ blurChan(lightR,lightT,2); blurChan(lightG,lightT,2); blurChan(lightB,lightT,2); }
   }
   function applyLight(){
-    const GAIN=0.62;
+    const GAIN=0.62*lightLevel;
     for(let i=0;i<N;i++){
       if(grid[i]===EMPTY) continue;
       const li=((((i/W)|0)/LS|0)*LW)+(((i%W)/LS)|0);
@@ -706,9 +760,15 @@
   }
 
   let heatMap=false;
+  function scaleGlow(ge,lf){
+    if(!ge||lf>=0.999) return ge;
+    if(lf<=0) return 0;
+    return (((ge>>>24)*lf|0)<<24)|(ge&0xffffff);
+  }
   function render(now){
     const t=now*0.012;
-    const lit = lighting && !heatMap;
+    const lf=lightFX();
+    const lit = lf>0.01 && !heatMap;
     if(lit){ lightR.fill(0); lightG.fill(0); lightB.fill(0); }
     for(let i=0;i<N;i++){
       const m=grid[i];
@@ -751,6 +811,19 @@
         r=(lerp(mat.c2[0],mat.c1[0],sh)*pulse)|0;
         g=(lerp(mat.c2[1],mat.c1[1],sh)*pulse)|0;
         b=(lerp(mat.c2[2],mat.c1[2],sh)*pulse)|0;
+      } else if(m===CRYSTAL){
+        const h=((shade[i]*2+t*25+i*0.12)%360)/360;
+        const c=hsl(h,0.78,0.64); r=c[0];g=c[1];b=c[2];
+      } else if(m===PHILOSOPHER){
+        const pulse=0.72+0.28*Math.sin(t*2.4+i*0.55);
+        r=(lerp(mat.c2[0],mat.c1[0],sh)*pulse)|0;
+        g=(lerp(mat.c2[1],mat.c1[1],sh)*pulse)|0;
+        b=(lerp(mat.c2[2],mat.c1[2],sh)*pulse)|0;
+      } else if(m===AQUA){
+        const pulse=0.9+0.1*Math.sin(t*3.2+i*0.4);
+        r=(lerp(mat.c2[0],mat.c1[0],sh)*pulse)|0;
+        g=(lerp(mat.c2[1],mat.c1[1],sh)*pulse)|0;
+        b=(lerp(mat.c2[2],mat.c1[2],sh)*pulse)|0;
       } else {
         r=lerp(mat.c1[0],mat.c2[0],sh); g=lerp(mat.c1[1],mat.c2[1],sh); b=lerp(mat.c1[2],mat.c2[2],sh);
         if(charge[i]>0){ const u=clamp(charge[i]/10,0,1);
@@ -776,12 +849,16 @@
         else if(temp[i]>560){ const gi=clamp((temp[i]-560)/640,0,1); ge=((gi*235|0)<<24)|(b<<16)|(g<<8)|r; }
         else if(charge[i]>0){ const u=(clamp(charge[i]/8,0,1)*255)|0; ge=(u<<24)|(255<<16)|(235<<8)|120; }
         else if(m===ACID){ ge=(120<<24)|(40<<16)|(220<<8)|110; }
+        else if(m===AQUA){ ge=(130<<24)|(180<<16)|(120<<8)|255; }
         else if(m===GOLD){ ge=(70<<24)|(50<<16)|(170<<8)|255; }
+        else if(m===CRYSTAL){ ge=(100<<24)|(b<<16)|(g<<8)|r; }
+        else if(m===PHILOSOPHER){ ge=(150<<24)|(120<<16)|(200<<8)|255; }
         else if(m===NITRO && vel[i]>4){ const u=clamp((vel[i]-4)/5,0,1); ge=((u*170|0)<<24)|(50<<16)|(220<<8)|160; }
+        ge=scaleGlow(ge,lf);
       }
       glow32[i]=ge;
       if(lit && ge){
-        const a=(ge>>>24)*0.00392, li=((((i/W)|0)/LS|0)*LW)+(((i%W)/LS)|0);
+        const a=(ge>>>24)*0.00392*lightLevel, li=((((i/W)|0)/LS|0)*LW)+(((i%W)/LS)|0);
         lightR[li]+=(ge&255)*a; lightG[li]+=((ge>>8)&255)*a; lightB[li]+=((ge>>16)&255)*a;
       }
     }
@@ -789,7 +866,7 @@
       for(let k=0;k<pn;k++){
         const lx=(PX[k]/LS)|0, ly=(PY[k]/LS)|0;
         if(lx<0||lx>=LW||ly<0||ly>=LH) continue;
-        const li=ly*LW+lx, a=clamp(PL[k]/PM[k],0,1)*0.6;
+        const li=ly*LW+lx, a=clamp(PL[k]/PM[k],0,1)*0.6*lightLevel;
         lightR[li]+=PR[k]*a; lightG[li]+=PG[k]*a; lightB[li]+=PB[k]*a;
       }
       blurLight(); applyLight();
@@ -800,16 +877,19 @@
   }
   function drawParticles(){
     if(pn===0) return;
-    gctx.save(); gctx.globalCompositeOperation="lighter";
+    const lf=lightFX();
+    if(lf>0) gctx.save(), gctx.globalCompositeOperation="lighter";
     for(let k=0;k<pn;k++){
       const a=clamp(PL[k]/PM[k],0,1), r=PR[k],g=PG[k],b=PB[k];
       const sz=PK[k]===KROCKET?1.7:1.2;
       sctx.fillStyle="rgba("+r+","+g+","+b+","+a+")";
       sctx.fillRect(PX[k]-sz*0.5,PY[k]-sz*0.5,sz,sz);
-      gctx.fillStyle="rgba("+r+","+g+","+b+","+(a*0.85)+")";
-      gctx.fillRect(PX[k]-sz,PY[k]-sz,sz*2,sz*2);
+      if(lf>0){
+        gctx.fillStyle="rgba("+r+","+g+","+b+","+(a*0.85*lf)+")";
+        gctx.fillRect(PX[k]-sz,PY[k]-sz,sz*2,sz*2);
+      }
     }
-    gctx.restore();
+    if(lf>0) gctx.restore();
   }
 
   /* ============================ Painting ========================== */
@@ -944,6 +1024,9 @@
   function swatchBg(m){
     if(m===EMPTY) return "repeating-linear-gradient(45deg,#2a2a36 0 5px,#1c1c26 5px 10px)";
     if(m===SPARK) return "linear-gradient(160deg,#bfefff,#5db8ff)";
+    if(m===CRYSTAL) return "linear-gradient(135deg,#c8a0ff,#8060e8,#b0f0ff)";
+    if(m===PHILOSOPHER) return "linear-gradient(160deg,#ffb0e8,#a050ff,#ffd0f0)";
+    if(m===AQUA) return "linear-gradient(160deg,#ffd0ff,#c080ff,#ffa0ff)";
     const a=M[m].c1,b=M[m].c2;
     return "linear-gradient(160deg,rgb("+a[0]+","+a[1]+","+a[2]+"),rgb("+b[0]+","+b[1]+","+b[2]+"))";
   }
@@ -986,6 +1069,11 @@
     // scene buttons
     const heatBtn=document.getElementById("btn-heat");
     heatBtn.addEventListener("click",()=>{ heatMap=!heatMap; heatBtn.classList.toggle("on",heatMap); });
+    const lightBtn=document.getElementById("btn-light");
+    lightBtn.addEventListener("click",()=>{ lighting=!lighting; syncLightUI(); toast(lighting?"Lighting on":"Lighting off"); });
+    const lightEl=document.getElementById("light"), lightOut=document.getElementById("light-readout");
+    lightEl.addEventListener("input",()=>{ lightLevel=(+lightEl.value)/100; syncLightUI(); });
+    syncLightUI();
     document.getElementById("btn-snap").addEventListener("click",snapshot);
     document.getElementById("btn-save").addEventListener("click",saveScene);
     document.getElementById("btn-load").addEventListener("click",loadScene);
@@ -994,7 +1082,7 @@
       if(e.code==="Space"){ e.preventDefault(); playBtn.click(); }
       else if(e.code==="KeyC") document.getElementById("btn-clear").click();
       else if(e.code==="KeyH") heatBtn.click();
-      else if(e.code==="KeyL"){ lighting=!lighting; toast(lighting?"Lighting on":"Lighting off"); }
+      else if(e.code==="KeyL"){ lighting=!lighting; syncLightUI(); toast(lighting?"Lighting on":"Lighting off"); }
       else if(e.code==="ArrowRight") stepOnce=true;
       else if(e.code==="BracketRight"){ brushEl.value=Math.min(48,brush+2); syncBrush(); }
       else if(e.code==="BracketLeft"){ brushEl.value=Math.max(1,brush-2); syncBrush(); }
@@ -1033,7 +1121,8 @@
   const ALIAS={ gunpowder:GUNPOWDER, "rainbow sand":RAINBOW, electric:SPARK, electricity:SPARK, rocket:FIREWORK, empty:EMPTY,
                 torch:HEAT, warm:HEAT, cool:COOL, cryo:COOL, freeze:COOL, clone:CLONER, sink:VOID,
                 quicksilver:MERCURY, hg:MERCURY, amalgam:MERCURY,
-                nitroglycerin:NITRO, tnt:NITRO, niter:SALTPETER, charcoal:COAL };
+                nitroglycerin:NITRO, tnt:NITRO, niter:SALTPETER, charcoal:COAL,
+                "aqua regia":AQUA, aqua:AQUA, catalyst:PHILOSOPHER, philosopher:PHILOSOPHER };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach((n,idx)=>n.classList.toggle("active", PALETTE[idx]===currentMat));
@@ -1041,7 +1130,7 @@
   window.AetherSand={
     EMPTY,WALL,SAND,RAINBOW,WATER,ICE,SNOW,SALT,OIL,ACID,LAVA,FIRE,SMOKE,STEAM,
     WOOD,PLANT,GLASS,STONE,METAL,GUNPOWDER,FIREWORK,SPARK,COAL,HEAT,COOL,CLONER,VOID,
-    MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,
+    MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
@@ -1054,7 +1143,8 @@
     burst(x,y){ burst(x|0,y|0); },
     pause(p){ paused=(p==null)?!paused:!!p; const b=document.getElementById("btn-play"); if(b)b.classList.toggle("paused",paused); return paused; },
     heatMap(on){ heatMap=on==null?!heatMap:!!on; document.getElementById("btn-heat").classList.toggle("on",heatMap); },
-    lights(on){ lighting=on==null?!lighting:!!on; return lighting; },
+    lights(on){ lighting=on==null?!lighting:!!on; syncLightUI(); return lighting; },
+    lightLevel(v){ if(v!=null){ lightLevel=clamp(v>1?v/100:v,0,1); const el=document.getElementById("light"); if(el) el.value=Math.round(lightLevel*100); syncLightUI(); } return lightLevel; },
     snapshot, save:saveScene, load:loadScene, stopAttract,
     info(){ let c=0; for(let i=0;i<N;i++) if(grid[i]!==EMPTY) c++; return {W,H,SCALE,cells:c,particles:pn,gravity:[GX,GY],wind:WIND,heatMap}; },
   };

@@ -20,11 +20,11 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 - **Real thermodynamics** — a per-cell temperature field with heat diffusion drives emergent phase changes (water ⇄ ice ⇄ steam, sand → glass, stone ⇄ lava, metal melting, ignition).
 - **Blackbody incandescence** — anything hot enough glows on its own, so heated metal and stone smoulder red → orange → yellow → white as the temperature climbs.
 - **31+ materials & tools** with distinct behaviour: sand, rainbow sand, water, ice, snow, salt, oil, acid, lava, fire, coal, gunpowder, fireworks, electric spark, wood, plant, metal, stone, glass, smoke, wall — plus a **Cloner** that duplicates whatever it touches and a **Void** that devours it.
-- **Alchemy & transmutation** — **Mercury** amalgamates metal into quicksilver; **acid + mercury precipitates gold** (the philosopher's transmutation); **Sulfur + Saltpeter + Coal** craft into gunpowder when mixed; **Thermite** melts metal and stone into molten slag; a slow-burning **Fuse** crawls flame to detonate caches; and **Nitro** is an unstable liquid that explodes on impact, heat, or spark.
+- **Alchemy & transmutation** — **Mercury** amalgamates metal; **acid + mercury → gold**; **Aqua Regia** (brewed from acid + saltpeter) dissolves gold back into mercury; a **Philosopher's Stone** catalyst accelerates transmutations; **Crystal** grows by consuming water; **Smoke + Sulfur → Acid**; **Sulfur + Saltpeter + Coal → Gunpowder**; **Thermite**, **Fuse**, and **Nitro** for pyrotechnics.
 - **Heat & Freeze brushes** — paint temperature straight onto the world with a torch and a cryo tool to ignite, melt, or flash-freeze on demand.
 - **Ballistic particle system** for fireworks, explosions and embers — buttery floating-point motion layered on top of the grid.
 - **Gravity & wind controls** — point gravity in any direction (or zero-G) and blow particles around with adjustable wind.
-- **Dynamic lighting** — every emitter (fire, lava, red-hot metal, sparks, fireworks) projects coloured light onto the matter around it, so a stone wall beside a lava pool actually warms to orange. Layered on top of the emissive bloom for true depth.
+- **Dynamic lighting** — every emitter (fire, lava, red-hot metal, sparks, fireworks) projects coloured light onto the matter around it, so a stone wall beside a lava pool actually warms to orange. Layered on top of the emissive bloom for true depth. **Adjust intensity** with the Light slider in the side panel, or toggle off entirely with `L`.
 - **Snapshot & save/load** — export a PNG of your creation or save/restore scenes.
 - **World-class UI** — glassmorphism panels, live FPS + particle counters, an optional heat-map overlay, full keyboard shortcuts, mouse + touch support, and responsive resize that preserves your artwork.
 
@@ -45,6 +45,7 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 | Clear | `C` |
 | Heat-map overlay | `H` |
 | Toggle dynamic lighting | `L` |
+| Light intensity | Side panel slider (bloom + coloured light) |
 | Brush size | `[` / `]` or the slider |
 | Pick material | `1`–`9` or the palette |
 
@@ -73,6 +74,9 @@ A.paint(x, y, "heat", 8);     // torch (or "freeze") to paint temperature
 A.line(x0, y0, x1, y1, "metal", 2);
 A.paint(x, y, "cloner");      // duplicates whatever it touches ("void" devours)
 A.paint(x, y, "mercury", 5);  // dense shimmering liquid that amalgamates metal
+A.paint(x, y, "philosopher"); // catalyst — accelerates transmutations nearby
+A.paint(x, y, "aqua", 4);     // aqua regia — dissolves gold back into mercury
+A.paint(x, y, "crystal", 3);  // grows by consuming adjacent water
 A.paint(x, y, "acid", 4);     // pour onto mercury to precipitate gold
 A.paint(x, y, "sulfur", 3);   // mix sulfur + saltpeter + coal → gunpowder
 A.paint(x, y, "nitro", 4);    // unstable — explodes on impact, heat, or spark
@@ -83,6 +87,7 @@ A.gravity(0, -1);             // flip gravity up (8-way + 0,0 for zero-G)
 A.wind(0.8);                  // -1..1
 A.heatMap(true);              // toggle the temperature overlay
 A.lights(false);              // toggle dynamic lighting on/off
+A.lightLevel(0.4);            // dim bloom + coloured light (0..1 or 0..100)
 A.clear(); A.save(); A.load(); A.snapshot();
 A.info();                     // { cells, particles, gravity, wind, ... }
 ```
