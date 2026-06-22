@@ -18,10 +18,12 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 
 - **Cellular-automata core** on typed-array grids with density-based displacement (sand sinks through water, water floats on oil, gases rise) and bias-free alternating scan order.
 - **Real thermodynamics** — a per-cell temperature field with heat diffusion drives emergent phase changes (water ⇄ ice ⇄ steam, sand → glass, stone ⇄ lava, metal melting, ignition).
-- **20+ materials** with distinct behaviour: sand, rainbow sand, water, ice, snow, salt, oil, acid, lava, fire, coal, gunpowder, fireworks, electric spark, wood, plant, metal, stone, glass, smoke, wall.
+- **Blackbody incandescence** — anything hot enough glows on its own, so heated metal and stone smoulder red → orange → yellow → white as the temperature climbs.
+- **24+ materials & tools** with distinct behaviour: sand, rainbow sand, water, ice, snow, salt, oil, acid, lava, fire, coal, gunpowder, fireworks, electric spark, wood, plant, metal, stone, glass, smoke, wall — plus a **Cloner** that duplicates whatever it touches and a **Void** that devours it.
+- **Heat & Freeze brushes** — paint temperature straight onto the world with a torch and a cryo tool to ignite, melt, or flash-freeze on demand.
 - **Ballistic particle system** for fireworks, explosions and embers — buttery floating-point motion layered on top of the grid.
 - **Gravity & wind controls** — point gravity in any direction (or zero-G) and blow particles around with adjustable wind.
-- **Emissive bloom** — fire, lava, sparks and fireworks cast real light via a blurred screen-blended glow pass.
+- **Emissive bloom** — fire, lava, sparks, fireworks and red-hot solids cast real light via a blurred screen-blended glow pass.
 - **Snapshot & save/load** — export a PNG of your creation or save/restore scenes.
 - **World-class UI** — glassmorphism panels, live FPS + particle counters, an optional heat-map overlay, full keyboard shortcuts, mouse + touch support, and responsive resize that preserves your artwork.
 
@@ -64,7 +66,9 @@ The simulator exposes a small `window.AetherSand` API so you can script, automat
 const A = window.AetherSand;
 A.setMaterial("lava");        // by name (or A.LAVA)
 A.paint(x, y, "water", 6);    // paint a disc (material + brush optional)
+A.paint(x, y, "heat", 8);     // torch (or "freeze") to paint temperature
 A.line(x0, y0, x1, y1, "metal", 2);
+A.paint(x, y, "cloner");      // duplicates whatever it touches ("void" devours)
 A.firework(x, y);             // launch a firework rocket
 A.gravity(0, -1);             // flip gravity up (8-way + 0,0 for zero-G)
 A.wind(0.8);                  // -1..1
