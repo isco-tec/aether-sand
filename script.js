@@ -18,7 +18,8 @@
         RUST=42, CLOUD=43, LIGHTNING=44, ANTIMATTER=45,
         SLIME=46, HONEY=47, ACIDCLOUD=48, BULB=49,
         BATTERY=50, WIRE=51, SWITCH=52, BUTTON=53,
-        GATE_AND=54, GATE_OR=55, GATE_NOT=56, GATE_XOR=57;
+        GATE_AND=54, GATE_OR=55, GATE_NOT=56, GATE_XOR=57,
+        VINE=58, MOLD=59;
 
   // cell types
   const STATIC=0, POWDER=1, LIQUID=2, GAS=3, TOOL=4;
@@ -101,10 +102,14 @@
     [GATE_OR]:  { name:"OR Gate", type:STATIC, d:1e4, c1:[110,214,255], c2:[58,140,200], k:0.05 },
     [GATE_NOT]: { name:"NOT Gate",type:STATIC, d:1e4, c1:[255,140,162], c2:[200,76,110], k:0.05 },
     [GATE_XOR]: { name:"XOR Gate",type:STATIC, d:1e4, c1:[198,150,255], c2:[136,86,210], k:0.05 },
+    [VINE]:     { name:"Vine",    type:STATIC, d:1e4, c1:[82,166,68], c2:[48,118,46], k:0.03, flam:1,
+                  trans:[{c:1,t:200,to:FIRE,p:0.4}] },
+    [MOLD]:     { name:"Mold",    type:STATIC, d:1e4, c1:[124,150,98], c2:[78,108,70], k:0.04, flam:1,
+                  trans:[{c:1,t:165,to:FIRE,p:0.35}] },
   };
 
   // fast lookup arrays
-  const MAXID = 58;
+  const MAXID = 60;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -129,7 +134,7 @@
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
-    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,GLASS,OBSIDIAN,METAL,WOOD,PLANT,WALL] },
+    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,GLASS,OBSIDIAN,METAL,WOOD,PLANT,VINE,MOLD,WALL] },
     { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,SLIME,HONEY,LAVA,FIRE,SMOKE,HYDROGEN,OXYGEN,NITRO] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Circuits", icon:"⚡", mats:[BATTERY,WIRE,SWITCH,BUTTON,BULB,GATE_AND,GATE_OR,GATE_NOT,GATE_XOR,SPARK] },
@@ -151,6 +156,8 @@
     [WOOD]:"Flammable static block.",
     [PLANT]:"Grows into empty cells when touching water.",
     [WALL]:"Immovable barrier.",
+    [VINE]:"Climbing plant — creeps up surfaces and across open space. Flammable.",
+    [MOLD]:"Creeping rot — spreads over wood, plant and damp stone, then crumbles to ash.",
     [OIL]:"Flammable liquid lighter than water.",
     [SLIME]:"Bouncy viscous goo — oozes slowly and springs back particles.",
     [HONEY]:"Thick amber syrup — barely flows, and burns when heated.",
@@ -219,6 +226,9 @@
     { id:"charcoal", cat:"Crafting", name:"Charcoal", in:[WOOD], out:[COAL], note:"Wood heated slowly chars into charcoal instead of burning away.", hint:"Wood, heated gently…" },
     { id:"crystal_grow", cat:"Growth", name:"Crystal garden", in:[CRYSTAL,WATER], out:[CRYSTAL], note:"Crystals drink water to spread.", hint:"A prism beside water…" },
     { id:"plant_grow", cat:"Growth", name:"Verdant spread", in:[PLANT,WATER], out:[PLANT], note:"Plants drink water to grow into open space.", hint:"Life needs water…" },
+    { id:"vine_grow", cat:"Growth", name:"Climbing vines", in:[VINE], out:[VINE], note:"Vines creep up surfaces and reach across open space.", hint:"Tendrils seeking a wall…" },
+    { id:"mold_spread", cat:"Growth", name:"Creeping rot", in:[MOLD,WOOD], out:[MOLD], note:"Mold spreads over wood, plant and damp stone, then crumbles to ash.", hint:"Decay finds the damp…" },
+    { id:"wildfire", cat:"Growth", name:"Wildfire", in:[FIRE,WOOD], out:[FIRE], note:"Flame races through connected forests of wood, plant and vine.", hint:"One spark in a dry forest…" },
     { id:"obsidian", cat:"Phase", name:"Obsidian quench", in:[LAVA,WATER], out:[OBSIDIAN], note:"Molten rock quenched in water freezes into volcanic glass.", hint:"Fire-rock meets water…" },
     { id:"rust", cat:"Phase", name:"Oxidation", in:[METAL,WATER], out:[RUST], note:"Iron left in water slowly oxidises to flaky rust.", hint:"Metal left wet too long…" },
     { id:"ash", cat:"Phase", name:"Ashes to ashes", in:[COAL], out:[ASH], note:"Spent fuel crumbles into light grey ash.", hint:"What remains when fuel dies…" },
@@ -265,6 +275,8 @@
     { id:"freeze", icon:"❄️", title:"Deep Freeze", desc:"Chill the world below −20°.", test:s=>s.minTemp<=-20 },
     { id:"inferno", icon:"🔥", title:"Inferno", desc:"Heat something past 1500°.", test:s=>s.maxTemp>=1500 },
     { id:"antimatter", icon:"🌀", title:"Annihilation", desc:"Witness an antimatter reaction.", test:s=>s.disc.has("antimatter") },
+    { id:"garden", icon:"🌿", title:"Green Thumb", desc:"Grow a sprawling vine.", test:s=>s.disc.has("vine_grow")||s.count(VINE)>=45 },
+    { id:"wildfire", icon:"🌲", title:"Wildfire", desc:"Burn a forest of wood, plant or vine.", test:s=>s.disc.has("wildfire") },
   ];
   let challengesDone = new Set(JSON.parse(localStorage.getItem("aether-challenges")||"[]"));
   let challengesUnseen = false;  // a challenge completed since the panel was last opened
@@ -290,6 +302,7 @@
     [SLIME]:0.92,[HONEY]:0.95,[ACIDCLOUD]:0.55,[BULB]:1,
     [BATTERY]:1,[WIRE]:1,[SWITCH]:1,[BUTTON]:1,
     [GATE_AND]:1,[GATE_OR]:1,[GATE_NOT]:1,[GATE_XOR]:1,
+    [VINE]:1,[MOLD]:1,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -356,6 +369,7 @@
       case HYDROGEN: return 150+(rnd()*120|0);
       case OXYGEN: return 220+(rnd()*180|0);
       case SWITCH: return 1;  // switches start closed (on)
+      case VINE: return 24+(rnd()*18|0);  // growth energy
       default: return 0;
     }
   }
@@ -564,6 +578,14 @@
   /* ============================ Per-material ====================== */
   function upFire(x,y,i){
     applySrc(i,650,0.5); heatN(i,18);
+    // wildfire — flame leaps cell-to-cell through connected flammable solids (forests)
+    forN8(x,i,(ni,nm)=>{
+      if(FLAM[nm] && TYPE[nm]===STATIC){
+        temp[ni]+=42;
+        if(temp[ni]>140 && rnd()<0.07){ convert(ni,FIRE); discoverRecipe("wildfire"); }
+      }
+      return false;
+    });
     if(--life[i]<=0){ if(rnd()<0.5) convert(i,SMOKE); else grid[i]=EMPTY; return; }
     if(applyPressure(x,y,i,FIRE)) return;
     moveGas(x,y,i,FIRE); applyWind(x,i,FIRE);
@@ -656,6 +678,40 @@
       const tgt = rnd()<0.7?empties[0]:empties[(rnd()*empties.length)|0];
       convert(tgt,PLANT); temp[tgt]=temp[i]; grid[water]=EMPTY; discoverRecipe("plant_grow");
     }
+  }
+  // an empty cell can host a vine if it clings to any solid/powder/vine surface
+  function touchesSurface(x,y){
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dy) continue;
+      const nx=x+dx, ny=y+dy; if(nx<0||nx>=W||ny<0||ny>=H) continue;
+      const m=grid[ny*W+nx];
+      if(m!==EMPTY && TYPE[m]!==GAS && TYPE[m]!==LIQUID) return true;
+    }
+    return false;
+  }
+  function upVine(x,y,i){
+    if(life[i]<=0) return;                       // tendril spent — it just clings
+    if(rnd()>0.06) return;
+    const dirs=[[0,-1],[-1,-1],[1,-1],[-1,0],[1,0]];   // climb up & sideways
+    const cands=[];
+    for(const d of dirs){
+      const nx=x+d[0], ny=y+d[1]; if(nx<0||nx>=W||ny<0||ny>=H) continue;
+      const ni=ny*W+nx; if(grid[ni]!==EMPTY) continue;
+      if(touchesSurface(nx,ny)) cands.push(ni);
+    }
+    if(!cands.length) return;
+    const tgt=cands[(rnd()*cands.length)|0];
+    convert(tgt,VINE); life[tgt]=life[i]-1; temp[tgt]=temp[i];
+    life[i]-=2;
+    discoverRecipe("vine_grow");
+  }
+  function upMold(x,y,i){
+    forN8(x,i,(ni,nm)=>{
+      if((nm===WOOD||nm===PLANT||nm===VINE||nm===STONE) && rnd()<0.018){ convert(ni,MOLD); temp[ni]=temp[i]; discoverRecipe("mold_spread"); }
+      return false;
+    });
+    if(temp[i]>120 && rnd()<0.25){ grid[i]=EMPTY; return; }   // dries / burns off when warm
+    if(rnd()<0.0016){ convert(i, rnd()<0.5?ASH:EMPTY); }      // eventually crumbles to ash
   }
   function upGunpowder(x,y,i){
     if(temp[i]>=200){ explode(x,y,6); grid[i]=EMPTY; discoverRecipe("gunpowder_boom"); return; }
@@ -1104,6 +1160,8 @@
           case GATE_OR: upGate(i,1); break;
           case GATE_NOT: upGate(i,2); break;
           case GATE_XOR: upGate(i,3); break;
+          case VINE: upVine(x,y,i); break;
+          case MOLD: upMold(x,y,i); break;
           // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND, WIRE, SWITCH: thermal/conduction only
         }
       }
@@ -1952,7 +2010,8 @@
                 smog:ACIDCLOUD, "acid rain":ACIDCLOUD, lamp:BULB, light:BULB,
                 copper:WIRE, cable:WIRE, cell:BATTERY, power:BATTERY, toggle:SWITCH, push:BUTTON,
                 and:GATE_AND, or:GATE_OR, not:GATE_NOT, xor:GATE_XOR, inverter:GATE_NOT,
-                "and gate":GATE_AND, "or gate":GATE_OR, "not gate":GATE_NOT, "xor gate":GATE_XOR };
+                "and gate":GATE_AND, "or gate":GATE_OR, "not gate":GATE_NOT, "xor gate":GATE_XOR,
+                ivy:VINE, creeper:VINE, moss:MOLD, rot:MOLD, fungus:MOLD };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach(n=>n.classList.toggle("active", +n.dataset.mat===currentMat));
@@ -1963,7 +2022,7 @@
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
     SLIME,HONEY,ACIDCLOUD,BULB,BATTERY,WIRE,SWITCH,BUTTON,
-    GATE_AND,GATE_OR,GATE_NOT,GATE_XOR,
+    GATE_AND,GATE_OR,GATE_NOT,GATE_XOR,VINE,MOLD,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
