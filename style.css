@@ -322,6 +322,17 @@ html, body {
 .cmp:nth-child(4){ grid-area: 2 / 3; }
 .cmp:nth-child(5){ grid-area: 3 / 2; }
 
+.seg { display: flex; gap: 4px; }
+.seg button {
+  flex: 1; padding: 7px 3px; border-radius: 8px;
+  border: 1px solid var(--panel-brd); background: rgba(255,255,255,0.03);
+  color: var(--text-dim); font: 700 10px var(--font); letter-spacing: .02em;
+  text-transform: uppercase; cursor: pointer;
+  transition: background .14s ease, color .14s ease, border-color .14s ease;
+}
+.seg button:hover { background: rgba(255,255,255,0.09); color: var(--text); }
+.seg button.active { background: var(--accent-2); color: #04222b; border-color: var(--accent-2); }
+
 .btn-col { display: flex; flex-direction: column; gap: 7px; }
 .btn-row { display: flex; gap: 7px; }
 .btn-row .mini { flex: 1; justify-content: center; }

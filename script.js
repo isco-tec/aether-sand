@@ -349,9 +349,19 @@
       }
     }
   }
+  // world size: bigger index → smaller cells → more cells → a larger, finer world
+  let worldSize = clampInt(+(localStorage.getItem("aether-world")||1), 0, 2);
+  const WORLD_DIV=[430,560,820], WORLD_MINSCALE=[4,3,2];
+  function clampInt(v,a,b){ v=v|0; return v<a?a:v>b?b:v; }
   function resize(){
-    SCALE=Math.max(3,Math.ceil(window.innerWidth/560));
+    const idx=clampInt(worldSize,0,2);
+    SCALE=Math.max(WORLD_MINSCALE[idx], Math.ceil(window.innerWidth/WORLD_DIV[idx]));
     allocate(Math.ceil(window.innerWidth/SCALE), Math.ceil(window.innerHeight/SCALE));
+  }
+  function setWorldSize(n){
+    worldSize=clampInt(n,0,2);
+    try{ localStorage.setItem("aether-world", String(worldSize)); }catch(_){}
+    resize(); setGravity(GX,GY);
   }
 
   /* ============================ Helpers ============================ */
@@ -1050,48 +1060,86 @@
   }
 
   /* ============================ Heat diffusion ==================== */
-  function diffuse(){
+  // ---- active-region tracking ----------------------------------------
+  // Only the region that actually contains matter / off-ambient heat /
+  // pressure needs the heavy passes. A single conservative bounding box
+  // (recomputed every frame, with a margin wider than the fastest mover)
+  // is safe by construction: every active cell is always inside it.
+  let bx0=0,by0=0,bx1=0,by1=0,boxFull=true;
+  const BOX_MARGIN=10, TEMP_EPS=0.6, PRES_EPS=0.6;
+  function computeActiveBox(){
+    let minx=W,miny=H,maxx=-1,maxy=-1;
+    const lo=AMBIENT-TEMP_EPS, hi=AMBIENT+TEMP_EPS;
     for(let y=0;y<H;y++){
       const row=y*W;
       for(let x=0;x<W;x++){
-        const i=row+x, t=temp[i];
-        let sum=0,cnt=0;
-        if(y>0){sum+=temp[i-W];cnt++;}
-        if(y<H-1){sum+=temp[i+W];cnt++;}
-        if(x>0){sum+=temp[i-1];cnt++;}
-        if(x<W-1){sum+=temp[i+1];cnt++;}
-        const avg=sum/cnt;
-        let nt=t+(avg-t)*COND[grid[i]];
-        if(grid[i]===EMPTY) nt+=(AMBIENT-nt)*0.02;
-        tempB[i]= nt<-60?-60: nt>2200?2200: nt;
+        const i=row+x;
+        if(grid[i]!==EMPTY || temp[i]>hi || temp[i]<lo || pres[i]>PRES_EPS || pres[i]<-PRES_EPS){
+          if(x<minx)minx=x; if(x>maxx)maxx=x;
+          if(y<miny)miny=y; if(y>maxy)maxy=y;
+        }
       }
     }
-    const tmp=temp; temp=tempB; tempB=tmp;
+    if(maxx<0){ bx0=0;by0=0;bx1=-1;by1=-1; boxFull=false; return; }   // empty world
+    bx0=Math.max(0,minx-BOX_MARGIN); by0=Math.max(0,miny-BOX_MARGIN);
+    bx1=Math.min(W-1,maxx+BOX_MARGIN); by1=Math.min(H-1,maxy+BOX_MARGIN);
+    boxFull = ((bx1-bx0+1)*(by1-by0+1)) > N*0.72;   // mostly active → full passes are cheaper
+  }
+  function diffuseCell(x,y,i){
+    const t=temp[i]; let sum=0,cnt=0;
+    if(y>0){sum+=temp[i-W];cnt++;}
+    if(y<H-1){sum+=temp[i+W];cnt++;}
+    if(x>0){sum+=temp[i-1];cnt++;}
+    if(x<W-1){sum+=temp[i+1];cnt++;}
+    let nt=t+(sum/cnt-t)*COND[grid[i]];
+    if(grid[i]===EMPTY) nt+=(AMBIENT-nt)*0.02;
+    return nt<-60?-60: nt>2200?2200: nt;
+  }
+  function diffuse(){
+    if(boxFull){
+      for(let y=0;y<H;y++){ const row=y*W;
+        for(let x=0;x<W;x++){ const i=row+x; tempB[i]=diffuseCell(x,y,i); } }
+      const tmp=temp; temp=tempB; tempB=tmp;
+      return;
+    }
+    if(bx1<bx0) return;                       // nothing active
+    for(let y=by0;y<=by1;y++){ const row=y*W;
+      for(let x=bx0;x<=bx1;x++){ const i=row+x; tempB[i]=diffuseCell(x,y,i); } }
+    for(let y=by0;y<=by1;y++){ const row=y*W;   // copy back only the box (rest is ambient, untouched)
+      for(let x=bx0;x<=bx1;x++){ const i=row+x; temp[i]=tempB[i]; } }
   }
 
   /* ============================ Pressure ========================== */
   // A coarse pressure field: gases generate pressure, open space bleeds it,
   // and it diffuses into gradients so confined gas jets out through any gap.
+  function pressureCell(x,y,i){
+    const m=grid[i];
+    let sum=0,cnt=0;
+    if(y>0){sum+=pres[i-W];cnt++;}
+    if(y<H-1){sum+=pres[i+W];cnt++;}
+    if(x>0){sum+=pres[i-1];cnt++;}
+    if(x<W-1){sum+=pres[i+1];cnt++;}
+    let np = pres[i] + (sum/cnt - pres[i])*0.28;
+    if(m===EMPTY) np*=0.84;            // open space relieves pressure
+    else if(TYPE[m]===GAS) np+=0.9;     // gases push outward
+    else np*=0.97;                      // solids/liquids hold, then decay
+    np = np<-40?-40: np>600?600: np;
+    // a strong pressure wave (a blast, or an over-pressured vessel) shatters glass back to sand
+    if(m===GLASS && np>90 && rnd()<0.06){ grid[i]=SAND; shade[i]=r255(); discoverRecipe("glass_shatter"); }
+    return np;
+  }
   function pressureStep(){
-    for(let y=0;y<H;y++){
-      const row=y*W;
-      for(let x=0;x<W;x++){
-        const i=row+x, m=grid[i];
-        let sum=0,cnt=0;
-        if(y>0){sum+=pres[i-W];cnt++;}
-        if(y<H-1){sum+=pres[i+W];cnt++;}
-        if(x>0){sum+=pres[i-1];cnt++;}
-        if(x<W-1){sum+=pres[i+1];cnt++;}
-        let np = pres[i] + (sum/cnt - pres[i])*0.28;
-        if(m===EMPTY) np*=0.84;            // open space relieves pressure
-        else if(TYPE[m]===GAS) np+=0.9;     // gases push outward
-        else np*=0.97;                      // solids/liquids hold, then decay
-        presB[i] = np<-40?-40: np>600?600: np;
-        // a strong pressure wave (a blast, or an over-pressured vessel) shatters glass back to sand
-        if(m===GLASS && np>90 && rnd()<0.06){ grid[i]=SAND; shade[i]=r255(); discoverRecipe("glass_shatter"); }
-      }
+    if(boxFull){
+      for(let y=0;y<H;y++){ const row=y*W;
+        for(let x=0;x<W;x++){ const i=row+x; presB[i]=pressureCell(x,y,i); } }
+      const tmp=pres; pres=presB; presB=tmp;
+      return;
     }
-    const tmp=pres; pres=presB; presB=tmp;
+    if(bx1<bx0) return;
+    for(let y=by0;y<=by1;y++){ const row=y*W;
+      for(let x=bx0;x<=bx1;x++){ const i=row+x; presB[i]=pressureCell(x,y,i); } }
+    for(let y=by0;y<=by1;y++){ const row=y*W;
+      for(let x=bx0;x<=bx1;x++){ const i=row+x; pres[i]=presB[i]; } }
   }
   function applyPressure(x,y,i,m){
     const p=pres[i];
@@ -1107,12 +1155,16 @@
 
   /* ============================ Simulation step =================== */
   function step(){
+    computeActiveBox();
     moved.fill(0);
     const ltr = rnd()<0.5;
-    for(let y=H-1;y>=0;y--){
+    const yLo = boxFull?0:by0, yHi = boxFull?H-1:by1;
+    const xLo = boxFull?0:bx0, xHi = boxFull?W-1:bx1;
+    for(let y=yHi;y>=yLo;y--){
       const row=y*W;
-      for(let n=0;n<W;n++){
-        const x=ltr?n:W-1-n;
+      const w=xHi-xLo+1;
+      for(let n=0;n<w;n++){
+        const x=ltr?xLo+n:xHi-n;
         const i=row+x, m=grid[i];
         if(m===EMPTY||m===WALL||moved[i]) continue;
         if(tryThermal(i,m)) continue;
@@ -1945,6 +1997,17 @@
     const lightEl=document.getElementById("light"), lightOut=document.getElementById("light-readout");
     lightEl.addEventListener("input",()=>{ lightLevel=(+lightEl.value)/100; syncLightUI(); });
     syncLightUI();
+
+    const worldSeg=document.getElementById("world-seg");
+    if(worldSeg){
+      const worldBtns=worldSeg.querySelectorAll("button");
+      const syncWorld=()=>worldBtns.forEach(b=>b.classList.toggle("active", +b.dataset.world===worldSize));
+      worldBtns.forEach(b=>b.addEventListener("click",()=>{
+        setWorldSize(+b.dataset.world); syncWorld(); syncBrush();
+        toast("World: "+["Cozy","Balanced","Grand"][worldSize]);
+      }));
+      syncWorld();
+    }
     document.getElementById("btn-snap").addEventListener("click",snapshot);
     document.getElementById("btn-share").addEventListener("click",shareScene);
     document.getElementById("btn-save").addEventListener("click",saveScene);
