@@ -15,7 +15,8 @@
         GOLD=30, NITRO=31, SULFUR=32, SALTPETER=33,
         CRYSTAL=34, PHILOSOPHER=35, AQUA=36,
         OBSIDIAN=37, DIAMOND=38, HYDROGEN=39, OXYGEN=40, ASH=41,
-        RUST=42, CLOUD=43, LIGHTNING=44, ANTIMATTER=45;
+        RUST=42, CLOUD=43, LIGHTNING=44, ANTIMATTER=45,
+        SLIME=46, HONEY=47, ACIDCLOUD=48, BULB=49;
 
   // cell types
   const STATIC=0, POWDER=1, LIQUID=2, GAS=3, TOOL=4;
@@ -85,10 +86,15 @@
     [CLOUD]:    { name:"Cloud",   type:GAS,    d:1,   c1:[126,130,148], c2:[80,84,100], a:180, k:0.04 },
     [LIGHTNING]:{ name:"Lightning",type:TOOL,  d:0,   c1:[210,230,255], c2:[150,190,255] },
     [ANTIMATTER]:{name:"Antimatter",type:STATIC,d:1e5,c1:[255,96,212], c2:[150,30,160], a:255, k:0.02, emit:0.55 },
+    [SLIME]:    { name:"Slime",   type:LIQUID, d:130, disp:1, c1:[126,222,96], c2:[78,168,58], a:235, k:0.05 },
+    [HONEY]:    { name:"Honey",   type:LIQUID, d:148, disp:1, c1:[236,176,52], c2:[182,120,22], a:242, k:0.04, flam:1,
+                  trans:[{c:1,t:210,to:FIRE,p:0.3}] },
+    [ACIDCLOUD]:{ name:"Acid Cloud",type:GAS,  d:1,   c1:[156,176,82], c2:[104,124,52], a:185, k:0.04, emit:0.12 },
+    [BULB]:     { name:"Bulb",    type:STATIC, d:1e4, c1:[206,206,184], c2:[150,150,128], a:205, k:0.08 },
   };
 
   // fast lookup arrays
-  const MAXID = 46;
+  const MAXID = 50;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -106,15 +112,16 @@
   WINDF[SULFUR]=0.07; WINDF[SALTPETER]=0.07; WINDF[GOLD]=0.04;
   WINDF[AQUA]=0.22;
   WINDF[HYDROGEN]=1.3; WINDF[OXYGEN]=1; WINDF[ASH]=0.5; WINDF[RUST]=0.08;
+  WINDF[SLIME]=0.04; WINDF[HONEY]=0.02;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; // gold is an excellent conductor
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
     { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,GLASS,OBSIDIAN,METAL,WOOD,PLANT,WALL] },
-    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,LAVA,FIRE,SMOKE,HYDROGEN,OXYGEN,NITRO] },
+    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,SLIME,HONEY,LAVA,FIRE,SMOKE,HYDROGEN,OXYGEN,NITRO] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
-    { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,CLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
+    { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
   ];
   const PALETTE = MAT_GROUPS.flatMap(g=>g.mats);
 
@@ -133,6 +140,8 @@
     [PLANT]:"Grows into empty cells when touching water.",
     [WALL]:"Immovable barrier.",
     [OIL]:"Flammable liquid lighter than water.",
+    [SLIME]:"Bouncy viscous goo — oozes slowly and springs back particles.",
+    [HONEY]:"Thick amber syrup — barely flows, and burns when heated.",
     [ACID]:"Corrosive liquid. Transmutes mercury into gold.",
     [AQUA]:"Royal water — brew with acid + saltpeter. Dissolves gold to mercury.",
     [MERCURY]:"Dense liquid metal. Spreads into metal; reacts with acid.",
@@ -157,7 +166,9 @@
     [FIREWORK]:"Rocket powder — launches sky bursts.",
     [SPARK]:"Electric brush — energizes conductors.",
     [LIGHTNING]:"Calls down a lightning bolt that scorches and electrifies.",
+    [BULB]:"Light bulb — glows warm when a charged wire reaches it.",
     [CLOUD]:"Storm cloud — drifts on the wind, rains water, and strikes lightning.",
+    [ACIDCLOUD]:"Acid-rain cloud — born of pollution; rains corrosive acid below.",
     [HEAT]:"Torch tool — paints heat onto matter.",
     [COOL]:"Cryo tool — flash-freezes an area.",
     [CLONER]:"Copies whatever material touches it.",
@@ -179,6 +190,7 @@
     { id:"diamond", cat:"Transmutation", name:"Diamond synthesis", in:[COAL], out:[DIAMOND], note:"Carbon crystallises into diamond under furious heat (thermite or lava).", hint:"Coal, fiercely heated…" },
     { id:"smoke_acid", cat:"Crafting", name:"Sulfurous acid", in:[SMOKE,SULFUR], out:[ACID], note:"Gas and yellow powder brew a corrosive liquid.", hint:"Smoke meets yellow powder…" },
     { id:"electrolysis", cat:"Crafting", name:"Electrolysis", in:[WATER,SPARK], out:[HYDROGEN,OXYGEN], note:"A current splits water into hydrogen and oxygen gas.", hint:"Charge run through water…" },
+    { id:"bulb_light", cat:"Electrical", name:"Light bulb", in:[SPARK,BULB], out:[BULB], note:"Spark a conductive wire beside a bulb and it glows warm.", hint:"Charge reaching glass and filament…" },
     { id:"acid_metal", cat:"Crafting", name:"Acid corrosion", in:[ACID,METAL], out:[HYDROGEN], note:"Acid eating metal releases flammable hydrogen.", hint:"Acid eats steel…" },
     { id:"charcoal", cat:"Crafting", name:"Charcoal", in:[WOOD], out:[COAL], note:"Wood heated slowly chars into charcoal instead of burning away.", hint:"Wood, heated gently…" },
     { id:"crystal_grow", cat:"Growth", name:"Crystal garden", in:[CRYSTAL,WATER], out:[CRYSTAL], note:"Crystals drink water to spread.", hint:"A prism beside water…" },
@@ -189,6 +201,7 @@
     { id:"salt_melt", cat:"Phase", name:"Brine dissolve", in:[SALT,WATER], out:[WATER], note:"Salt vanishes into the water it touches.", hint:"Crystal and liquid…" },
     { id:"lava_stone", cat:"Phase", name:"Igneous cooling", in:[LAVA], out:[STONE], note:"Cooling molten rock solidifies to stone.", hint:"Molten rock cooling…" },
     { id:"sand_glass", cat:"Phase", name:"Vitric fusion", in:[SAND], out:[GLASS], note:"Fierce heat fuses sand grains into glass.", hint:"Sand under fierce heat…" },
+    { id:"glass_shatter", cat:"Phase", name:"Shatter", in:[GLASS], out:[SAND], note:"A blast's pressure wave shatters glass back into sand.", hint:"Glass under sudden pressure…" },
     { id:"thermite_slag", cat:"Pyrotechnics", name:"Thermite slag", in:[THERMITE,METAL], out:[LAVA], note:"White-hot thermite melts straight through metal and stone.", hint:"Incendiary beside steel…" },
     { id:"hydrogen_boom", cat:"Pyrotechnics", name:"Knallgas", in:[HYDROGEN,FIRE], out:[FIRE], note:"Hydrogen ignites violently — far fiercer beside oxygen.", hint:"The lightest gas meets flame…" },
     { id:"oxy_fire", cat:"Pyrotechnics", name:"Oxygen feed", in:[OXYGEN,FIRE], out:[FIRE], note:"Oxygen makes flames burn hotter and longer.", hint:"Fire that can breathe…" },
@@ -196,6 +209,7 @@
     { id:"fuse_chain", cat:"Pyrotechnics", name:"Fuse chain", in:[FUSE], out:[FIRE], note:"Flame crawls the cord to whatever it feeds.", hint:"A slow burning cord…" },
     { id:"gunpowder_boom", cat:"Pyrotechnics", name:"Powder keg", in:[GUNPOWDER,FIRE], out:[FIRE], note:"Fire or heat detonates a powder cache.", hint:"Powder meets flame…" },
     { id:"rain", cat:"Weather", name:"Rainfall", in:[CLOUD], out:[WATER], note:"Storm clouds drift and shed rain below.", hint:"Grey clouds gather…" },
+    { id:"acid_rain", cat:"Weather", name:"Acid rain", in:[CLOUD,SMOKE], out:[ACIDCLOUD], note:"Smoke pollutes a cloud until it rains corrosive acid.", hint:"Smoke poisons the clouds…" },
     { id:"lightning", cat:"Weather", name:"Lightning strike", in:[CLOUD], out:[LIGHTNING], note:"A charged cloud — or the lightning tool — hurls a scorching bolt.", hint:"When the storm builds…" },
     { id:"cloner_copy", cat:"Special", name:"Replication", in:[CLONER], out:[CLONER], note:"Duplicates whatever material touches it.", hint:"A mirror block…" },
     { id:"void_hunger", cat:"Special", name:"The void", in:[VOID], out:[EMPTY], note:"Annihilates every neighbour it can reach.", hint:"Purple hunger…" },
@@ -226,6 +240,7 @@
     [CRYSTAL]:1,[PHILOSOPHER]:1,[AQUA]:0.88,
     [OBSIDIAN]:1,[DIAMOND]:1,[HYDROGEN]:0.85,[OXYGEN]:0.85,[ASH]:0.85,
     [RUST]:0.9,[CLOUD]:0.55,[ANTIMATTER]:1,
+    [SLIME]:0.92,[HONEY]:0.95,[ACIDCLOUD]:0.55,[BULB]:1,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -234,10 +249,10 @@
   sctx.imageSmoothingEnabled=false; gctx.imageSmoothingEnabled=false;
 
   let SCALE,W,H,N;
-  let grid,shade,life,vel,charge,moved,temp,tempB;
+  let grid,shade,life,vel,charge,moved,temp,tempB,pres,presB;
   let simImg,sim32,glowImg,glow32;
   let LS,LW,LH,LN,lightR,lightG,lightB,lightT;
-  let lighting=true, lightLevel=0.72;
+  let lighting=true, lightLevel=0.54;
   function lightFX(){ return lighting ? lightLevel : 0; }
   function syncLightUI(){
     const fx=lightFX(), out=document.getElementById("light-readout");
@@ -258,6 +273,7 @@
     grid=new Uint8Array(N); shade=new Uint8Array(N); life=new Int16Array(N);
     vel=new Float32Array(N); charge=new Int8Array(N); moved=new Uint8Array(N);
     temp=new Float32Array(N).fill(AMBIENT); tempB=new Float32Array(N);
+    pres=new Float32Array(N); presB=new Float32Array(N);
     sim.width=W; sim.height=H; glow.width=W; glow.height=H;
     simImg=sctx.createImageData(W,H); glowImg=gctx.createImageData(W,H);
     sim32=new Uint32Array(simImg.data.buffer); glow32=new Uint32Array(glowImg.data.buffer);
@@ -465,6 +481,20 @@
       const ang=rnd()*6.2832, spd=0.8+rnd()*3.2;
       addP(cx,cy,Math.cos(ang)*spd,Math.sin(ang)*spd,22+rnd()*26,255,150+(rnd()*80|0),40,KSPARK);
     }
+    // pressure shockwave — spike the field, then physically shove loose matter outward
+    for(let dy=-r;dy<=r;dy++){ const ny=cy+dy; if(ny<0||ny>=H)continue;
+      for(let dx=-r;dx<=r;dx++){ const nx=cx+dx; if(nx<0||nx>=W)continue;
+        const dd=dx*dx+dy*dy; if(dd>r2)continue;
+        pres[ny*W+nx]+=power*7*(1-dd/r2);
+      } }
+    for(let dy=-r;dy<=r;dy++){ const ny=cy+dy; if(ny<1||ny>=H-1)continue;
+      for(let dx=-r;dx<=r;dx++){ const nx=cx+dx; if(nx<1||nx>=W-1)continue;
+        const dd=dx*dx+dy*dy; if(dd>r2||dd<1)continue;
+        const i=ny*W+nx, mm=grid[i];
+        if(mm===EMPTY||mm===WALL||TYPE[mm]===STATIC) continue;
+        const sx=dx>0?1:(dx<0?-1:0), sy=dy>0?1:(dy<0?-1:0), ti=i+sy*W+sx;
+        if(ti>=0&&ti<N && canDisplace(mm,ti)) swap(i,ti);
+      } }
     shakeScreen(power*1.1);
   }
 
@@ -485,6 +515,7 @@
   function upFire(x,y,i){
     applySrc(i,650,0.5); heatN(i,18);
     if(--life[i]<=0){ if(rnd()<0.5) convert(i,SMOKE); else grid[i]=EMPTY; return; }
+    if(applyPressure(x,y,i,FIRE)) return;
     moveGas(x,y,i,FIRE); applyWind(x,i,FIRE);
   }
   function upLava(x,y,i){
@@ -508,11 +539,13 @@
   }
   function upSteam(x,y,i){
     if(--life[i]<=0){ convert(i, rnd()<0.4?WATER:EMPTY); return; }
+    if(applyPressure(x,y,i,STEAM)) return;
     moveGas(x,y,i,STEAM); applyWind(x,i,STEAM);
   }
   function upSmoke(x,y,i){
     if(--life[i]<=0 || (y===0&&rnd()<0.08)){ grid[i]=EMPTY; return; }
     forN8(x,i,(ni,nm)=>{ if(nm===SULFUR && rnd()<0.007){ convert(ni,ACID); discoverRecipe("smoke_acid"); } return false; });
+    if(applyPressure(x,y,i,SMOKE)) return;
     moveGas(x,y,i,SMOKE); applyWind(x,i,SMOKE);
   }
   function upAcid(x,y,i){
@@ -720,6 +753,7 @@
       else { convert(i,FIRE); temp[i]=Math.max(temp[i],460); }
       return;
     }
+    if(applyPressure(x,y,i,HYDROGEN)) return;
     moveGas(x,y,i,HYDROGEN); applyWind(x,i,HYDROGEN);
   }
   function upOxygen(x,y,i){
@@ -729,16 +763,23 @@
       else if(FLAM[nm] && temp[ni]>120 && rnd()<0.04){ temp[ni]+=60; }
       return false;
     });
+    if(applyPressure(x,y,i,OXYGEN)) return;
     moveGas(x,y,i,OXYGEN); applyWind(x,i,OXYGEN);
   }
-  function upCloud(x,y,i){
+  function cloudBehavior(x,y,i,m,rainMat){
     // shed rain into open air below
     if(rnd()<0.010){
       for(let dy=1;dy<=3;dy++){ const ny=y+dy; if(ny>=H) break; const bi=ny*W+x;
-        if(grid[bi]===EMPTY){ spawn(bi,WATER); discoverRecipe("rain"); break; } }
+        if(grid[bi]===EMPTY){ spawn(bi,rainMat); discoverRecipe(rainMat===ACID?"acid_rain":"rain"); break; } }
     }
     // a brooding storm occasionally hurls a bolt
     if(rnd()<0.0010) strikeLightning(x,y);
+    // smoke pollution turns a storm cloud sour — it becomes an acid cloud
+    if(m===CLOUD){
+      let smog=false;
+      forN8(x,i,(ni,nm)=>{ if(nm===SMOKE||nm===ACIDCLOUD){ smog=true; return true; } return false; });
+      if(smog && rnd()<0.02){ convert(i,ACIDCLOUD); discoverRecipe("acid_rain"); return; }
+    }
     // drift with the wind (or a gentle wander when still)
     const dir = WIND>0?1:(WIND<0?-1:(rnd()<0.5?1:-1));
     if(rnd()<0.35){ const nx=x+dir; if(nx>0&&nx<W-1 && grid[i+dir]===EMPTY){ swap(i,i+dir); return; } }
@@ -746,6 +787,15 @@
     const band=(H*0.22)|0;
     if(y>band && rnd()<0.05){ if(i-W>=0 && grid[i-W]===EMPTY) swap(i,i-W); }
     else if(y<band-2 && rnd()<0.03){ if(i+W<N && grid[i+W]===EMPTY) swap(i,i+W); }
+  }
+  function moveViscous(x,y,i,m,p,disp){ if(rnd()>p) return false; return moveLiquid(x,y,i,m,disp); }
+  function upSlime(x,y,i){ moveViscous(x,y,i,SLIME,0.5,1); applyWind(x,i,SLIME); }
+  function upHoney(x,y,i){ moveViscous(x,y,i,HONEY,0.16,1); }
+  function upBulb(x,y,i){
+    let powered = charge[i]>0;
+    if(!powered) forCard(i,(ni)=>{ if(charge[ni]>0) powered=true; });
+    if(powered){ life[i]=24; discoverRecipe("bulb_light"); }
+    else if(life[i]>0) life[i]--;
   }
   function upAntimatter(x,y,i){
     let reacted=false;
@@ -863,8 +913,11 @@
         if(gx<0||gx>=W||gy<0||gy>=H){ killP(k); continue; }
         const ci=gy*W+gx, cell=grid[ci];
         if(cell!==EMPTY){
-          if(FLAM[cell]) temp[ci]+=34;
-          if(TYPE[cell]===STATIC || TYPE[cell]===POWDER){ temp[ci]+=8; killP(k); continue; }
+          if(cell===SLIME){ PVY[k]=-PVY[k]*0.6; PVX[k]*=0.55; PX[k]+=PVX[k]; PY[k]+=PVY[k]; }
+          else {
+            if(FLAM[cell]) temp[ci]+=34;
+            if(TYPE[cell]===STATIC || TYPE[cell]===POWDER){ temp[ci]+=8; killP(k); continue; }
+          }
         }
       }
       if(PL[k]<=0){ killP(k); continue; }
@@ -890,6 +943,42 @@
       }
     }
     const tmp=temp; temp=tempB; tempB=tmp;
+  }
+
+  /* ============================ Pressure ========================== */
+  // A coarse pressure field: gases generate pressure, open space bleeds it,
+  // and it diffuses into gradients so confined gas jets out through any gap.
+  function pressureStep(){
+    for(let y=0;y<H;y++){
+      const row=y*W;
+      for(let x=0;x<W;x++){
+        const i=row+x, m=grid[i];
+        let sum=0,cnt=0;
+        if(y>0){sum+=pres[i-W];cnt++;}
+        if(y<H-1){sum+=pres[i+W];cnt++;}
+        if(x>0){sum+=pres[i-1];cnt++;}
+        if(x<W-1){sum+=pres[i+1];cnt++;}
+        let np = pres[i] + (sum/cnt - pres[i])*0.28;
+        if(m===EMPTY) np*=0.84;            // open space relieves pressure
+        else if(TYPE[m]===GAS) np+=0.9;     // gases push outward
+        else np*=0.97;                      // solids/liquids hold, then decay
+        presB[i] = np<-40?-40: np>600?600: np;
+        // a strong pressure wave (a blast, or an over-pressured vessel) shatters glass back to sand
+        if(m===GLASS && np>90 && rnd()<0.06){ grid[i]=SAND; shade[i]=r255(); discoverRecipe("glass_shatter"); }
+      }
+    }
+    const tmp=pres; pres=presB; presB=tmp;
+  }
+  function applyPressure(x,y,i,m){
+    const p=pres[i];
+    if(p<10) return false;
+    let best=-1,bestP=p;
+    if(i-W>=0 && canDisplace(m,i-W) && pres[i-W]<bestP){ bestP=pres[i-W]; best=i-W; }
+    if(i+W<N  && canDisplace(m,i+W) && pres[i+W]<bestP){ bestP=pres[i+W]; best=i+W; }
+    if(x>0    && canDisplace(m,i-1) && pres[i-1]<bestP){ bestP=pres[i-1]; best=i-1; }
+    if(x<W-1  && canDisplace(m,i+1) && pres[i+1]<bestP){ bestP=pres[i+1]; best=i+1; }
+    if(best>=0 && (p-bestP)>5){ swap(i,best); return true; }
+    return false;
   }
 
   /* ============================ Simulation step =================== */
@@ -935,14 +1024,19 @@
           case OXYGEN: upOxygen(x,y,i); break;
           case ASH: moveFalling(x,y,i,ASH); applyWind(x,i,ASH); break;
           case RUST: moveFalling(x,y,i,RUST); applyWind(x,i,RUST); break;
-          case CLOUD: upCloud(x,y,i); break;
+          case CLOUD: cloudBehavior(x,y,i,CLOUD,WATER); break;
+          case ACIDCLOUD: cloudBehavior(x,y,i,ACIDCLOUD,ACID); break;
           case ANTIMATTER: upAntimatter(x,y,i); break;
+          case SLIME: upSlime(x,y,i); break;
+          case HONEY: upHoney(x,y,i); break;
+          case BULB: upBulb(x,y,i); break;
           // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND: thermal only
         }
       }
     }
     propagateCharge();
     diffuse();
+    pressureStep();
     updateParticles();
   }
 
@@ -971,6 +1065,18 @@
       }
     }
     return HEAT_STOPS[HEAT_STOPS.length-1][1];
+  }
+  const PRES_STOPS=[[-30,[30,60,200]],[0,[10,14,26]],[40,[60,180,130]],
+    [120,[255,205,60]],[300,[255,90,40]],[600,[255,250,235]]];
+  function presRGB(p){
+    if(p<=PRES_STOPS[0][0]) return PRES_STOPS[0][1];
+    for(let k=1;k<PRES_STOPS.length;k++){
+      if(p<=PRES_STOPS[k][0]){
+        const a=PRES_STOPS[k-1],b=PRES_STOPS[k],f=(p-a[0])/(b[0]-a[0]);
+        return [lerp(a[1][0],b[1][0],f),lerp(a[1][1],b[1][1],f),lerp(a[1][2],b[1][2],f)];
+      }
+    }
+    return PRES_STOPS[PRES_STOPS.length-1][1];
   }
 
   /* ============================ Dynamic lighting ================== */
@@ -1003,7 +1109,7 @@
     }
   }
 
-  let heatMap=false;
+  let heatMap=false, pressureMap=false;
   function scaleGlow(ge,lf){
     if(!ge||lf>=0.999) return ge;
     if(lf<=0) return 0;
@@ -1012,12 +1118,16 @@
   function render(now){
     const t=now*0.012;
     const lf=lightFX();
-    const lit = lf>0.01 && !heatMap;
+    const lit = lf>0.01 && !heatMap && !pressureMap;
     if(lit){ lightR.fill(0); lightG.fill(0); lightB.fill(0); }
     for(let i=0;i<N;i++){
       const m=grid[i];
       if(m===EMPTY){
-        if(heatMap){
+        if(pressureMap){
+          const p=pres[i], mag=clamp(Math.abs(p)/120,0,1);
+          if(mag>0.03){ const c=presRGB(p); sim32[i]=((mag*150|0)<<24)|(c[2]<<16)|(c[1]<<8)|c[0]; }
+          else sim32[i]=0;
+        } else if(heatMap){
           const d=temp[i]-AMBIENT, mag=clamp(Math.abs(d)/60,0,1);
           if(mag>0.02){ const c=heatRGB(temp[i]); sim32[i]=((mag*150|0)<<24)|(c[2]<<16)|(c[1]<<8)|c[0]; }
           else sim32[i]=0;
@@ -1027,7 +1137,9 @@
       const mat=M[m], sh=shade[i]/255;
       let r,g,b,a=mat.a||255;
 
-      if(heatMap){
+      if(pressureMap){
+        const c=presRGB(pres[i]); r=c[0];g=c[1];b=c[2];
+      } else if(heatMap){
         const c=heatRGB(temp[i]); r=c[0];g=c[1];b=c[2];
       } else if(m===RAINBOW){
         const h=((shade[i]*1.4 + t*40 + i*0.15)%360)/360;
@@ -1078,6 +1190,9 @@
         r=Math.min(255,(lerp(mat.c2[0],mat.c1[0],sh)*pulse)|0);
         g=(lerp(mat.c2[1],mat.c1[1],sh)*pulse)|0;
         b=Math.min(255,(lerp(mat.c2[2],mat.c1[2],sh)*pulse)|0);
+      } else if(m===BULB){
+        if(life[i]>0){ const u=clamp(life[i]/24,0,1); r=255; g=lerp(208,246,u); b=lerp(118,196,u); }
+        else { r=lerp(mat.c1[0],mat.c2[0],sh); g=lerp(mat.c1[1],mat.c2[1],sh); b=lerp(mat.c1[2],mat.c2[2],sh); }
       } else {
         r=lerp(mat.c1[0],mat.c2[0],sh); g=lerp(mat.c1[1],mat.c2[1],sh); b=lerp(mat.c1[2],mat.c2[2],sh);
         if(charge[i]>0){ const u=clamp(charge[i]/10,0,1);
@@ -1098,7 +1213,7 @@
       sim32[i]=(a<<24)|(b<<16)|(g<<8)|r;
 
       let ge=0;
-      if(!heatMap){
+      if(!heatMap && !pressureMap){
         if(EMIT[m]){ const gw=EMIT[m]; ge=(255<<24)|(((b*gw)|0)<<16)|(((g*gw)|0)<<8)|((r*gw)|0); }
         else if(temp[i]>560){ const gi=clamp((temp[i]-560)/640,0,1); ge=((gi*235|0)<<24)|(b<<16)|(g<<8)|r; }
         else if(charge[i]>0){ const u=(clamp(charge[i]/8,0,1)*255)|0; ge=(u<<24)|(255<<16)|(235<<8)|120; }
@@ -1107,6 +1222,7 @@
         else if(m===GOLD){ ge=(70<<24)|(50<<16)|(170<<8)|255; }
         else if(m===CRYSTAL){ ge=(100<<24)|(b<<16)|(g<<8)|r; }
         else if(m===PHILOSOPHER){ ge=(150<<24)|(120<<16)|(200<<8)|255; }
+        else if(m===BULB && life[i]>0){ const u=clamp(life[i]/24,0,1); ge=((u*230|0)<<24)|((b|0)<<16)|((g|0)<<8)|(r|0); }
         else if(m===NITRO && vel[i]>4){ const u=clamp((vel[i]-4)/5,0,1); ge=((u*170|0)<<24)|(50<<16)|(220<<8)|160; }
         ge=scaleGlow(ge,lf);
       }
@@ -1287,6 +1403,10 @@
     if(m===DIAMOND) return "linear-gradient(135deg,#eaffff,#bfe6ff,#9ccdff)";
     if(m===ANTIMATTER) return "linear-gradient(135deg,#ff8be0,#c030b0,#ff70d0)";
     if(m===LIGHTNING) return "linear-gradient(160deg,#eaf4ff,#7aa8ff)";
+    if(m===SLIME) return "linear-gradient(160deg,#9cf06a,#56b84a)";
+    if(m===HONEY) return "linear-gradient(160deg,#ffcb52,#b87a16)";
+    if(m===ACIDCLOUD) return "linear-gradient(160deg,#bcd07f,#5e7038)";
+    if(m===BULB) return "radial-gradient(circle at 38% 32%,#fff3c0,#d2d2b0 58%,#9a9a82)";
     const a=M[m].c1,b=M[m].c2;
     return "linear-gradient(160deg,rgb("+a[0]+","+a[1]+","+a[2]+"),rgb("+b[0]+","+b[1]+","+b[2]+"))";
   }
@@ -1488,12 +1608,19 @@
     }
     renderBooklet();
   }
+  function openAbout(){ const el=document.getElementById("about"); if(!el)return; el.classList.remove("hidden"); el.setAttribute("aria-hidden","false"); }
+  function closeAbout(){ const el=document.getElementById("about"); if(!el)return; el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); }
+  function setupAbout(){
+    document.getElementById("brand-btn")?.addEventListener("click",openAbout);
+    document.getElementById("about-close")?.addEventListener("click",closeAbout);
+    document.getElementById("about-backdrop")?.addEventListener("click",closeAbout);
+  }
   function setupUI(){
     fpsEl=document.getElementById("fps"); countEl=document.getElementById("count");
     const playBtn=document.getElementById("btn-play");
     playBtn.addEventListener("click",()=>{ paused=!paused; playBtn.classList.toggle("paused",paused); });
     document.getElementById("btn-step").addEventListener("click",()=>{ stepOnce=true; });
-    document.getElementById("btn-clear").addEventListener("click",()=>{ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pn=0; });
+    document.getElementById("btn-clear").addEventListener("click",()=>{ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; });
 
     const brushEl=document.getElementById("brush"), brushOut=document.getElementById("brush-readout");
     const ring=document.getElementById("cursor-ring");
@@ -1512,7 +1639,9 @@
 
     // scene buttons
     const heatBtn=document.getElementById("btn-heat");
-    heatBtn.addEventListener("click",()=>{ heatMap=!heatMap; heatBtn.classList.toggle("on",heatMap); });
+    const pressBtn=document.getElementById("btn-pressure");
+    heatBtn.addEventListener("click",()=>{ heatMap=!heatMap; if(heatMap) pressureMap=false; heatBtn.classList.toggle("on",heatMap); pressBtn.classList.toggle("on",pressureMap); });
+    pressBtn.addEventListener("click",()=>{ pressureMap=!pressureMap; if(pressureMap) heatMap=false; pressBtn.classList.toggle("on",pressureMap); heatBtn.classList.toggle("on",heatMap); });
     const lightBtn=document.getElementById("btn-light");
     lightBtn.addEventListener("click",()=>{ lighting=!lighting; syncLightUI(); toast(lighting?"Lighting on":"Lighting off"); });
     const lightEl=document.getElementById("light"), lightOut=document.getElementById("light-readout");
@@ -1530,9 +1659,11 @@
       else if(e.code==="KeyH") heatBtn.click();
       else if(e.code==="KeyL"){ lighting=!lighting; syncLightUI(); toast(lighting?"Lighting on":"Lighting off"); }
       else if(e.code==="KeyB"){ const b=document.getElementById("booklet"); if(b&&b.classList.contains("hidden")) openBooklet(); else closeBooklet(); }
+      else if(e.code==="Escape"){ closeBooklet(); closeAbout(); }
+      else if(e.code==="KeyP") pressBtn.click();
       else if(e.code==="ArrowRight") stepOnce=true;
-      else if(e.code==="BracketRight"){ brushEl.value=Math.min(48,brush+2); syncBrush(); }
-      else if(e.code==="BracketLeft"){ brushEl.value=Math.max(1,brush-2); syncBrush(); }
+      else if(e.code==="BracketRight"||e.key==="]"){ brushEl.value=Math.min(48,brush+2); syncBrush(); }
+      else if(e.code==="BracketLeft"||e.key==="["){ brushEl.value=Math.max(1,brush-2); syncBrush(); }
       else if(e.key>="1"&&e.key<="9"){ const idx=+e.key-1; const b=document.querySelectorAll(".mat")[idx]; if(b)b.click(); }
     });
 
@@ -1572,7 +1703,9 @@
                 "aqua regia":AQUA, aqua:AQUA, catalyst:PHILOSOPHER, philosopher:PHILOSOPHER,
                 h2:HYDROGEN, o2:OXYGEN, "volcanic glass":OBSIDIAN, gem:DIAMOND,
                 cinder:ASH, oxide:RUST, storm:CLOUD, "storm cloud":CLOUD, bolt:LIGHTNING,
-                "anti-matter":ANTIMATTER, antimater:ANTIMATTER };
+                "anti-matter":ANTIMATTER, antimater:ANTIMATTER,
+                goo:SLIME, ooze:SLIME, syrup:HONEY, "acid cloud":ACIDCLOUD, acidcloud:ACIDCLOUD,
+                smog:ACIDCLOUD, "acid rain":ACIDCLOUD, lamp:BULB, light:BULB };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach(n=>n.classList.toggle("active", +n.dataset.mat===currentMat));
@@ -1582,19 +1715,21 @@
     WOOD,PLANT,GLASS,STONE,METAL,GUNPOWDER,FIREWORK,SPARK,COAL,HEAT,COOL,CLONER,VOID,
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
+    SLIME,HONEY,ACIDCLOUD,BULB,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
     line(x0,y0,x1,y1,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintLine(x0|0,y0|0,x1|0,y1|0,currentMat); },
     erase(x,y,r){ if(r) brush=r; paintDisc(x|0,y|0,EMPTY); },
-    clear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pn=0; },
+    clear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; },
     gravity(gx,gy){ setGravity(gx,gy); document.querySelectorAll(".cmp").forEach(b=>b.classList.toggle("active", +b.dataset.gx===gx && +b.dataset.gy===gy)); },
     wind(w){ WIND=w; const el=document.getElementById("wind"); if(el){el.value=Math.round(w*100); document.getElementById("wind-readout").textContent=el.value;} },
     firework(x,y){ stopAttract(); launchRocket(x|0,y|0); },
     lightning(x,y){ stopAttract(); strikeLightning(x|0,y|0); },
     burst(x,y){ burst(x|0,y|0); },
     pause(p){ paused=(p==null)?!paused:!!p; const b=document.getElementById("btn-play"); if(b)b.classList.toggle("paused",paused); return paused; },
-    heatMap(on){ heatMap=on==null?!heatMap:!!on; document.getElementById("btn-heat").classList.toggle("on",heatMap); },
+    heatMap(on){ heatMap=on==null?!heatMap:!!on; if(heatMap) pressureMap=false; document.getElementById("btn-heat").classList.toggle("on",heatMap); const pb=document.getElementById("btn-pressure"); if(pb)pb.classList.toggle("on",pressureMap); },
+    pressureMap(on){ pressureMap=on==null?!pressureMap:!!on; if(pressureMap) heatMap=false; const pb=document.getElementById("btn-pressure"); if(pb)pb.classList.toggle("on",pressureMap); document.getElementById("btn-heat").classList.toggle("on",heatMap); return pressureMap; },
     lights(on){ lighting=on==null?!lighting:!!on; syncLightUI(); return lighting; },
     lightLevel(v){ if(v!=null){ lightLevel=clamp(v>1?v/100:v,0,1); const el=document.getElementById("light"); if(el) el.value=Math.round(lightLevel*100); syncLightUI(); } return lightLevel; },
     snapshot, save:saveScene, load:loadScene, stopAttract,
@@ -1606,6 +1741,7 @@
     resize(); setGravity(0,1);
     buildPalette();
     setupBooklet();
+    setupAbout();
     const {ring,syncBrush}=setupUI();
     setupPointer(ring);
     window.addEventListener("resize",()=>{ resize(); setGravity(GX,GY); syncBrush(); });

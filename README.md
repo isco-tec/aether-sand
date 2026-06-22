@@ -7,27 +7,34 @@
 </p>
 
 <p align="center">
-  <a href="https://isco-tec.github.io/aether-sand/"><b>▶&nbsp; Play the live demo</b></a>
+  <b>A living particle playground where sand, fire, storms and alchemy obey a handful of simple rules — and surprise you anyway.</b>
 </p>
 
-A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla JavaScript — no libraries, no build step. A cellular-automata engine with density-based fluid dynamics, a real **heat/temperature field**, emergent material reactions, emissive bloom rendering, and a ballistic particle layer for fireworks and explosions.
+<p align="center">
+  <a href="https://isco-tec.github.io/aether-sand/"><b>▶&nbsp; Play the live demo</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://labs.iscovici.com">Made in Iscovici Labs</a>
+</p>
 
-> Three files (`index.html` / `style.css` / `script.js`) that drop straight into CodePen's HTML / CSS / JS panels.
+Aether Sand is a physics-rich **falling-sand simulator** written from scratch in pure vanilla JavaScript. No libraries. No framework. No build step. Underneath the glow is a cellular-automata engine with density-based fluid dynamics, a real per-cell **temperature field**, a **pressure** system, **electricity**, emergent chemistry, and a ballistic particle layer for fireworks and explosions — drop a pixel of sand and watch a world react.
+
+> Three files — `index.html` / `style.css` / `script.js` — that paste straight into CodePen's HTML / CSS / JS panels, or deploy as a static site (it ships on GitHub Pages).
 
 ## ✨ Features
 
-- **Cellular-automata core** on typed-array grids with density-based displacement (sand sinks through water, water floats on oil, gases rise) and bias-free alternating scan order.
-- **Real thermodynamics** — a per-cell temperature field with heat diffusion drives emergent phase changes (water ⇄ ice ⇄ steam, sand → glass, stone ⇄ lava, metal melting, ignition).
-- **Blackbody incandescence** — anything hot enough glows on its own, so heated metal and stone smoulder red → orange → yellow → white as the temperature climbs.
-- **40+ materials & tools** with distinct behaviour: sand, rainbow sand, water, ice, snow, salt, oil, acid, lava, fire, coal, ash, gunpowder, fireworks, electric spark, wood, plant, metal, rust, stone, glass, **obsidian**, **diamond**, smoke, **hydrogen**, **oxygen**, wall — plus a **Cloner** that duplicates whatever it touches, a **Void** that devours it, and **Antimatter** that annihilates matter in a flash of energy.
-- **Realistic chemistry & transmutation** — **Lava + Water → Obsidian** (+ steam); **Coal → Diamond** under furious heat; **Metal + Water → Rust**; **Wood** chars to **charcoal**; **electrolysis** (spark through water) splits it into **Hydrogen + Oxygen**, and **Acid + Metal** releases hydrogen that detonates near flame (fiercer with oxygen). Plus **Mercury** amalgamation; **acid + mercury → gold**; **Aqua Regia** (acid + saltpeter) dissolving gold back into mercury; a **Philosopher's Stone** catalyst; **Crystal** growth; **Smoke + Sulfur → Acid**; **Sulfur + Saltpeter + Coal → Gunpowder**; and **Thermite**, **Fuse** & **Nitro** for pyrotechnics.
-- **Weather & spectacle** — paint drifting **Storm Clouds** that ride the wind, shed rain, and hurl **Lightning** bolts that scorch and electrify; a dedicated **Lightning** tool to call strikes on demand; and **screen-shake** that punches on every big blast.
-- **Heat & Freeze brushes** — paint temperature straight onto the world with a torch and a cryo tool to ignite, melt, or flash-freeze on demand.
-- **Ballistic particle system** for fireworks, explosions and embers — buttery floating-point motion layered on top of the grid.
-- **Gravity & wind controls** — point gravity in any direction (or zero-G) and blow particles around with adjustable wind.
-- **Dynamic lighting** — every emitter (fire, lava, red-hot metal, sparks, fireworks) projects coloured light onto the matter around it, so a stone wall beside a lava pool actually warms to orange. Layered on top of the emissive bloom for true depth. **Adjust intensity** with the Light slider in the side panel, or toggle off entirely with `L`.
-- **Snapshot & save/load** — export a PNG of your creation or save/restore scenes.
-- **World-class UI** — a **tabbed, searchable material palette** (Natural / Reactive / Alchemy / Tools / All) with full-width readable buttons and a live description of the selected material, plus live FPS + particle counters, an optional heat-map overlay, adjustable lighting, and an **Alchemy Book** that reveals recipes as you discover them — with ingredient swatch-chips, a discovery progress bar, **NEW** badges, and a sandbox "reveal all" toggle. Full keyboard shortcuts, mouse + touch support, and responsive resize that preserves your artwork.
+- **Cellular-automata core.** Typed-array grids with density-based displacement — sand sinks through water, water floats on oil, gases rise — and a bias-free alternating scan order so nothing drifts sideways.
+- **Real thermodynamics.** A per-cell heat field with diffusion drives phase changes that *emerge* rather than scripting them: water ⇄ ice ⇄ steam, sand → glass, stone ⇄ lava, metal melting, spontaneous ignition.
+- **Blackbody incandescence.** Anything hot enough self-glows — heated metal and stone smoulder red → orange → yellow → white as the temperature climbs.
+- **Pressure & shockwaves.** Gases build real pressure and jet through gaps; explosions emit a shockwave that physically shoves loose matter outward and can shatter glass back into sand. Toggle the pressure-map overlay with `P`.
+- **Electricity.** Charge propagates through conductors — metal, gold, water, acid, mercury — lights up **wired bulbs** when a live wire reaches them, and drives **electrolysis** that splits water into hydrogen and oxygen.
+- **Weather.** Paint **storm clouds** that drift on the wind, shed rain, and hurl **lightning**; pollute a cloud with smoke and it sours into an **acid-rain cloud**. A dedicated **Lightning** tool calls strikes on demand.
+- **45+ materials & tools** across four families — **Natural · Reactive · Alchemy · Tools** — including sand, rainbow sand, water, ice, snow, salt, stone, glass, obsidian, metal, rust, wood, plant, wall; oil, acid, aqua regia, mercury, slime, honey, lava, fire, smoke, hydrogen, oxygen, nitro; gold, diamond, crystal, philosopher's stone, sulfur, saltpeter, coal, ash, gunpowder, thermite, fuse; firework, spark, lightning, bulb, storm cloud, acid cloud, heat torch, freeze, **Cloner**, **Void**, **Antimatter** and eraser.
+- **Real chemistry & alchemy.** Lava + water → obsidian (+ steam); coal → diamond under furious heat; metal + water → rust; wood chars to charcoal; acid + metal releases hydrogen; spent fuel → ash. Then the alchemy: acid + mercury → gold; **aqua regia** (acid + saltpeter) dissolves gold back to mercury; a **philosopher's stone** catalyses transmutation nearby; crystal grows on water; smoke + sulfur → acid; sulfur + saltpeter + coal → gunpowder — with thermite, fuse and nitro for the pyrotechnics, and antimatter that annihilates matter in a burst of energy.
+- **Dynamic lighting.** Every emitter — fire, lava, red-hot metal, sparks, fireworks, bulbs — casts coloured light onto the matter around it, layered over emissive bloom, so a stone wall beside a lava pool actually warms to orange. Tune it with the Light slider (defaults to ~54%) or toggle with `L`.
+- **Ballistic particles & screen-shake.** A floating-point particle layer drives fireworks, embers and explosions with smooth motion on top of the grid — and a big blast punches the whole screen.
+- **Gravity & wind.** Point gravity in any of 8 directions, flip to zero-G, and blow particles around with adjustable wind, all from a compact compass.
+- **Snapshot & save / load.** Export a PNG of your creation, or save and restore whole scenes from local storage.
+- **A genuinely good UI.** A **tabbed, searchable material palette** (Natural / Reactive / Alchemy / Tools / All) with full-width readable buttons and a live description of whatever you've selected; live FPS + particle counters; heat-map and pressure-map overlays; and an **Alchemy Book** that reveals recipes as you discover them through play — ingredient swatch-chips, a discovery progress bar, **NEW** badges, and a sandbox "reveal all" toggle. Plus an elegant About panel, full keyboard shortcuts, mouse + touch, and responsive resize that preserves your artwork.
 
 ## 🖼️ Gallery
 
@@ -40,14 +47,15 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 | Action | Control |
 | --- | --- |
 | Draw | Click + drag |
-| Erase | Right-click / Shift + drag |
+| Erase | Right-click / `Shift` + drag |
 | Pause / play | `Space` |
 | Step one frame | `→` |
 | Clear | `C` |
 | Heat-map overlay | `H` |
+| Pressure-map overlay | `P` |
 | Toggle dynamic lighting | `L` |
-| Light intensity | Side panel slider (bloom + coloured light) |
-| Open alchemy book | `B` or the book icon on the palette |
+| Open alchemy book | `B` |
+| About panel | Click the title |
 | Brush size | `[` / `]` or the slider |
 | Pick material | `1`–`9` or the palette |
 
@@ -55,55 +63,62 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 
 Play it instantly at **[isco-tec.github.io/aether-sand](https://isco-tec.github.io/aether-sand/)**.
 
-It's also fully static — just open `index.html`, or serve the folder:
+It's fully static, so you can also just open `index.html` — or serve the folder:
 
 ```bash
 python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
 
-Or paste each file into the matching panel on [CodePen](https://codepen.io).
+Or paste each file into the matching panel on [CodePen](https://codepen.io). That's the whole setup.
 
 ## 🧰 Scripting API
 
-The simulator exposes a small `window.AetherSand` API so you can script, automate, or embed it (all coordinates are in grid cells):
+Aether Sand exposes a small `window.AetherSand` API so you can script, automate, or embed it. All coordinates are in grid cells:
 
 ```js
 const A = window.AetherSand;
-A.setMaterial("lava");        // by name (or A.LAVA)
-A.paint(x, y, "water", 6);    // paint a disc (material + brush optional)
-A.paint(x, y, "heat", 8);     // torch (or "freeze") to paint temperature
+
+A.setMaterial("lava");          // select by name (or A.LAVA)
+A.paint(x, y, "water", 6);      // paint a disc (material + brush optional)
+A.paint(x, y, "heat", 8);       // torch — paint temperature (or "freeze")
 A.line(x0, y0, x1, y1, "metal", 2);
-A.paint(x, y, "cloner");      // duplicates whatever it touches ("void" devours)
-A.paint(x, y, "mercury", 5);  // dense shimmering liquid that amalgamates metal
-A.paint(x, y, "philosopher"); // catalyst — accelerates transmutations nearby
-A.paint(x, y, "aqua", 4);     // aqua regia — dissolves gold back into mercury
-A.paint(x, y, "crystal", 3);  // grows by consuming adjacent water
-A.paint(x, y, "acid", 4);     // pour onto mercury to precipitate gold
-A.paint(x, y, "sulfur", 3);   // mix sulfur + saltpeter + coal → gunpowder
-A.paint(x, y, "nitro", 4);    // unstable — explodes on impact, heat, or spark
-A.paint(x, y, "thermite", 4); // ignite it (heat/fire/spark) to melt through metal
-A.line(x0, y0, x1, y1, "fuse"); // a slow-burning cord to a gunpowder cache
-A.paint(x, y, "obsidian", 3); // volcanic glass — or quench lava with water
-A.paint(x, y, "diamond", 2);  // forged from coal under furious heat
-A.paint(x, y, "hydrogen", 5); // lightest gas — detonates near flame, harder with oxygen
-A.paint(x, y, "oxygen", 5);   // feeds combustion
-A.paint(x, y, "cloud", 5);    // storm cloud — drifts on the wind, rains, and strikes
-A.paint(x, y, "antimatter");  // annihilates any matter it touches (contain with walls)
-A.firework(x, y);             // launch a firework rocket
-A.lightning(x, y);            // call down a lightning bolt
-A.gravity(0, -1);             // flip gravity up (8-way + 0,0 for zero-G)
-A.wind(0.8);                  // -1..1
-A.heatMap(true);              // toggle the temperature overlay
-A.lights(false);              // toggle dynamic lighting on/off
-A.lightLevel(0.4);            // dim bloom + coloured light (0..1 or 0..100)
+
+A.paint(x, y, "cloner");        // duplicates whatever it touches ("void" devours)
+A.paint(x, y, "mercury", 5);    // dense shimmering liquid that amalgamates metal
+A.paint(x, y, "philosopher");   // catalyst — accelerates nearby transmutations
+A.paint(x, y, "aqua", 4);       // aqua regia — dissolves gold back into mercury
+A.paint(x, y, "crystal", 3);    // grows by consuming adjacent water
+A.paint(x, y, "sulfur", 3);     // sulfur + saltpeter + coal → gunpowder
+A.paint(x, y, "thermite", 4);   // ignite it to burn through metal
+A.line(x0, y0, x1, y1, "fuse"); // slow-burning cord to a gunpowder cache
+A.paint(x, y, "bulb", 1);       // lights up when a charged wire reaches it
+A.paint(x, y, "hydrogen", 5);   // splits from water by electrolysis; detonates near flame
+A.paint(x, y, "cloud", 5);      // storm cloud — drifts on the wind, rains, and strikes
+A.paint(x, y, "antimatter");    // annihilates any matter it touches (contain with walls)
+
+A.firework(x, y);               // launch a firework rocket
+A.lightning(x, y);              // call down a lightning bolt
+A.gravity(0, -1);               // flip gravity up (8-way, plus 0,0 for zero-G)
+A.wind(0.8);                    // -1..1
+
+A.heatMap(true);                // toggle the temperature overlay
+A.lights(false);                // toggle dynamic lighting
+A.lightLevel(0.4);              // dim bloom + coloured light (0..1 or 0..100)
+
 A.clear(); A.save(); A.load(); A.snapshot();
-A.info();                     // { cells, particles, gravity, wind, ... }
+A.info();                       // { cells, particles, gravity, wind, ... }
 ```
 
 ## 🧪 How it works
 
-The world is a grid of cells; each frame every cell runs simple local rules (fall, flow, rise, react). Complex, lifelike behaviour **emerges** from these rules plus the shared temperature field. The renderer writes the grid into an `ImageData` buffer scaled up with crisp pixels, while emissive materials also paint into a separate glow canvas that is blurred and screen-blended for bloom. Those same emitters are splatted into a low-res light buffer that is blurred and added back onto nearby matter, giving real coloured illumination on top of the bloom. A lightweight particle layer adds true ballistic motion for sparks and fireworks.
+The world is a grid of cells. Each frame, every cell runs a few simple local rules — fall, flow, rise, react — and complex, lifelike behaviour **emerges** from those rules plus a shared temperature field and pressure field. Nothing is choreographed; it's just neighbours talking to neighbours.
+
+The renderer writes the grid into an `ImageData` buffer scaled up with crisp pixels. Emissive materials also paint into a separate glow canvas that's blurred and screen-blended for bloom, and those same emitters splat into a low-res light buffer that's blurred and added back onto nearby matter for true coloured illumination. A lightweight floating-point particle layer rides on top for sparks, embers and fireworks.
+
+## 👤 About the author
+
+Built by **Ori Iscovici**. More experiments live at **[labs.iscovici.com](https://labs.iscovici.com)** — and the source for this one is on [GitHub](https://github.com/isco-tec/aether-sand).
 
 ## 📄 License
 
