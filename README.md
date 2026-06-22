@@ -19,14 +19,15 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 - **Cellular-automata core** on typed-array grids with density-based displacement (sand sinks through water, water floats on oil, gases rise) and bias-free alternating scan order.
 - **Real thermodynamics** — a per-cell temperature field with heat diffusion drives emergent phase changes (water ⇄ ice ⇄ steam, sand → glass, stone ⇄ lava, metal melting, ignition).
 - **Blackbody incandescence** — anything hot enough glows on its own, so heated metal and stone smoulder red → orange → yellow → white as the temperature climbs.
-- **31+ materials & tools** with distinct behaviour: sand, rainbow sand, water, ice, snow, salt, oil, acid, lava, fire, coal, gunpowder, fireworks, electric spark, wood, plant, metal, stone, glass, smoke, wall — plus a **Cloner** that duplicates whatever it touches and a **Void** that devours it.
-- **Alchemy & transmutation** — **Mercury** amalgamates metal; **acid + mercury → gold**; **Aqua Regia** (brewed from acid + saltpeter) dissolves gold back into mercury; a **Philosopher's Stone** catalyst accelerates transmutations; **Crystal** grows by consuming water; **Smoke + Sulfur → Acid**; **Sulfur + Saltpeter + Coal → Gunpowder**; **Thermite**, **Fuse**, and **Nitro** for pyrotechnics.
+- **40+ materials & tools** with distinct behaviour: sand, rainbow sand, water, ice, snow, salt, oil, acid, lava, fire, coal, ash, gunpowder, fireworks, electric spark, wood, plant, metal, rust, stone, glass, **obsidian**, **diamond**, smoke, **hydrogen**, **oxygen**, wall — plus a **Cloner** that duplicates whatever it touches, a **Void** that devours it, and **Antimatter** that annihilates matter in a flash of energy.
+- **Realistic chemistry & transmutation** — **Lava + Water → Obsidian** (+ steam); **Coal → Diamond** under furious heat; **Metal + Water → Rust**; **Wood** chars to **charcoal**; **electrolysis** (spark through water) splits it into **Hydrogen + Oxygen**, and **Acid + Metal** releases hydrogen that detonates near flame (fiercer with oxygen). Plus **Mercury** amalgamation; **acid + mercury → gold**; **Aqua Regia** (acid + saltpeter) dissolving gold back into mercury; a **Philosopher's Stone** catalyst; **Crystal** growth; **Smoke + Sulfur → Acid**; **Sulfur + Saltpeter + Coal → Gunpowder**; and **Thermite**, **Fuse** & **Nitro** for pyrotechnics.
+- **Weather & spectacle** — paint drifting **Storm Clouds** that ride the wind, shed rain, and hurl **Lightning** bolts that scorch and electrify; a dedicated **Lightning** tool to call strikes on demand; and **screen-shake** that punches on every big blast.
 - **Heat & Freeze brushes** — paint temperature straight onto the world with a torch and a cryo tool to ignite, melt, or flash-freeze on demand.
 - **Ballistic particle system** for fireworks, explosions and embers — buttery floating-point motion layered on top of the grid.
 - **Gravity & wind controls** — point gravity in any direction (or zero-G) and blow particles around with adjustable wind.
 - **Dynamic lighting** — every emitter (fire, lava, red-hot metal, sparks, fireworks) projects coloured light onto the matter around it, so a stone wall beside a lava pool actually warms to orange. Layered on top of the emissive bloom for true depth. **Adjust intensity** with the Light slider in the side panel, or toggle off entirely with `L`.
 - **Snapshot & save/load** — export a PNG of your creation or save/restore scenes.
-- **World-class UI** — categorized material palette (Natural / Reactive / Alchemy / Tools), live FPS + particle counters, an optional heat-map overlay, adjustable lighting, an **Alchemy Book** with discoverable recipes, full keyboard shortcuts, mouse + touch support, and responsive resize that preserves your artwork.
+- **World-class UI** — a **tabbed, searchable material palette** (Natural / Reactive / Alchemy / Tools / All) with full-width readable buttons and a live description of the selected material, plus live FPS + particle counters, an optional heat-map overlay, adjustable lighting, and an **Alchemy Book** that reveals recipes as you discover them — with ingredient swatch-chips, a discovery progress bar, **NEW** badges, and a sandbox "reveal all" toggle. Full keyboard shortcuts, mouse + touch support, and responsive resize that preserves your artwork.
 
 ## 🖼️ Gallery
 
@@ -83,7 +84,14 @@ A.paint(x, y, "sulfur", 3);   // mix sulfur + saltpeter + coal → gunpowder
 A.paint(x, y, "nitro", 4);    // unstable — explodes on impact, heat, or spark
 A.paint(x, y, "thermite", 4); // ignite it (heat/fire/spark) to melt through metal
 A.line(x0, y0, x1, y1, "fuse"); // a slow-burning cord to a gunpowder cache
+A.paint(x, y, "obsidian", 3); // volcanic glass — or quench lava with water
+A.paint(x, y, "diamond", 2);  // forged from coal under furious heat
+A.paint(x, y, "hydrogen", 5); // lightest gas — detonates near flame, harder with oxygen
+A.paint(x, y, "oxygen", 5);   // feeds combustion
+A.paint(x, y, "cloud", 5);    // storm cloud — drifts on the wind, rains, and strikes
+A.paint(x, y, "antimatter");  // annihilates any matter it touches (contain with walls)
 A.firework(x, y);             // launch a firework rocket
+A.lightning(x, y);            // call down a lightning bolt
 A.gravity(0, -1);             // flip gravity up (8-way + 0,0 for zero-G)
 A.wind(0.8);                  // -1..1
 A.heatMap(true);              // toggle the temperature overlay

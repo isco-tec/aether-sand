@@ -41,7 +41,17 @@
         <svg viewBox="0 0 24 24"><path d="M6 4h12a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 0 1 2-2z"/></svg>
       </button>
     </div>
-    <div id="material-sections"></div>
+    <div class="palette-search">
+      <svg class="search-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.9 10.6l4.2 4.2 1.4-1.4-4.2-4.2A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
+      <input id="mat-search" type="text" placeholder="Search materials…" autocomplete="off" spellcheck="false" />
+      <button id="mat-search-clear" class="search-clear" type="button" aria-label="Clear search">×</button>
+    </div>
+    <div class="palette-tabs" id="palette-tabs"></div>
+    <div id="material-grid-wrap"></div>
+    <div class="palette-desc" id="mat-desc">
+      <span class="mat-desc-name"></span>
+      <span class="mat-desc-text"></span>
+    </div>
   </aside>
 
   <!-- Forces + scene panel -->
@@ -130,9 +140,10 @@
     <div class="booklet-backdrop" id="booklet-backdrop"></div>
     <div class="booklet-panel panel">
       <header class="booklet-head">
-        <div>
+        <div class="booklet-head-text">
           <h2>Alchemy Book</h2>
           <p id="discover-count">0 discovered</p>
+          <div class="booklet-progress"><span id="discover-bar"></span></div>
         </div>
         <button class="booklet-close" id="btn-book-close" aria-label="Close book">×</button>
       </header>

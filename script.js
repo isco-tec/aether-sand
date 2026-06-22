@@ -13,7 +13,9 @@
         SPARK=21, COAL=22, HEAT=23, COOL=24, CLONER=25, VOID=26,
         MERCURY=27, THERMITE=28, FUSE=29,
         GOLD=30, NITRO=31, SULFUR=32, SALTPETER=33,
-        CRYSTAL=34, PHILOSOPHER=35, AQUA=36;
+        CRYSTAL=34, PHILOSOPHER=35, AQUA=36,
+        OBSIDIAN=37, DIAMOND=38, HYDROGEN=39, OXYGEN=40, ASH=41,
+        RUST=42, CLOUD=43, LIGHTNING=44, ANTIMATTER=45;
 
   // cell types
   const STATIC=0, POWDER=1, LIQUID=2, GAS=3, TOOL=4;
@@ -45,7 +47,7 @@
     [STEAM]:    { name:"Steam",  type:GAS,    d:3,   c1:[210,218,230], c2:[170,180,196], a:120, k:0.08, base:110,
                   trans:[{c:-1,t:95,to:WATER,p:0.02}] },
     [WOOD]:     { name:"Wood",   type:STATIC, d:1e4, c1:[120,79,46], c2:[92,58,32], k:0.02, flam:1,
-                  trans:[{c:1,t:250,to:FIRE,p:0.4}] },
+                  trans:[{c:1,t:255,to:COAL,p:0.05},{c:1,t:250,to:FIRE,p:0.4}] },
     [PLANT]:    { name:"Plant",  type:STATIC, d:1e4, c1:[86,176,74], c2:[54,128,52], k:0.03, flam:1,
                   trans:[{c:1,t:180,to:FIRE,p:0.4}] },
     [GLASS]:    { name:"Glass",  type:STATIC, d:1e4, c1:[180,220,235], c2:[150,196,214], a:120, k:0.05,
@@ -73,10 +75,20 @@
     [CRYSTAL]:  { name:"Crystal", type:STATIC, d:1e4, c1:[190,150,255], c2:[130,96,220], a:215, k:0.08, emit:0.18 },
     [PHILOSOPHER]:{ name:"Philosopher",type:STATIC,d:1e4,c1:[255,130,210],c2:[180,70,255],k:0.06,emit:0.45 },
     [AQUA]:     { name:"Aqua Regia",type:LIQUID,d:108,disp:4,c1:[255,205,255],c2:[205,125,255],a:215,k:0.06,emit:0.38 },
+    [OBSIDIAN]: { name:"Obsidian",type:STATIC, d:1e4, c1:[46,42,60], c2:[20,18,30], a:255, k:0.05,
+                  trans:[{c:1,t:1200,to:LAVA,p:0.05}] },
+    [DIAMOND]:  { name:"Diamond", type:STATIC, d:1e4, c1:[206,242,255], c2:[150,200,238], a:170, k:0.55, emit:0.12 },
+    [HYDROGEN]: { name:"Hydrogen",type:GAS,    d:0.5, c1:[232,242,255], c2:[182,202,240], a:80,  k:0.06, flam:1 },
+    [OXYGEN]:   { name:"Oxygen",  type:GAS,    d:0.8, c1:[150,200,255], c2:[110,170,240], a:64,  k:0.06 },
+    [ASH]:      { name:"Ash",     type:POWDER, d:42,  c1:[112,110,120], c2:[78,76,86], k:0.04 },
+    [RUST]:     { name:"Rust",    type:POWDER, d:150, c1:[156,86,46], c2:[112,56,30], k:0.06 },
+    [CLOUD]:    { name:"Cloud",   type:GAS,    d:1,   c1:[126,130,148], c2:[80,84,100], a:180, k:0.04 },
+    [LIGHTNING]:{ name:"Lightning",type:TOOL,  d:0,   c1:[210,230,255], c2:[150,190,255] },
+    [ANTIMATTER]:{name:"Antimatter",type:STATIC,d:1e5,c1:[255,96,212], c2:[150,30,160], a:255, k:0.02, emit:0.55 },
   };
 
   // fast lookup arrays
-  const MAXID = 37;
+  const MAXID = 46;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -93,14 +105,16 @@
   WINDF[THERMITE]=0.06; WINDF[MERCURY]=0.04; WINDF[NITRO]=0.2;
   WINDF[SULFUR]=0.07; WINDF[SALTPETER]=0.07; WINDF[GOLD]=0.04;
   WINDF[AQUA]=0.22;
+  WINDF[HYDROGEN]=1.3; WINDF[OXYGEN]=1; WINDF[ASH]=0.5; WINDF[RUST]=0.08;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
+  CHCOND[GOLD]=1; // gold is an excellent conductor
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
-    { label:"Natural", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,GLASS,METAL,WOOD,PLANT,WALL] },
-    { label:"Reactive", mats:[OIL,ACID,AQUA,MERCURY,LAVA,FIRE,SMOKE,NITRO] },
-    { label:"Alchemy", mats:[GOLD,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,GUNPOWDER,THERMITE,FUSE] },
-    { label:"Tools", mats:[FIREWORK,SPARK,HEAT,COOL,CLONER,VOID,EMPTY] },
+    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,GLASS,OBSIDIAN,METAL,WOOD,PLANT,WALL] },
+    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,LAVA,FIRE,SMOKE,HYDROGEN,OXYGEN,NITRO] },
+    { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
+    { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,CLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
   ];
   const PALETTE = MAT_GROUPS.flatMap(g=>g.mats);
 
@@ -113,6 +127,7 @@
     [SALT]:"Dissolves in water on contact.",
     [STONE]:"Solid rock. Melts to lava when white-hot.",
     [GLASS]:"Brittle solid from molten sand.",
+    [OBSIDIAN]:"Volcanic glass — born when lava is quenched in water.",
     [METAL]:"Conductive solid. Melts to lava; amalgamates with mercury.",
     [WOOD]:"Flammable static block.",
     [PLANT]:"Grows into empty cells when touching water.",
@@ -124,8 +139,13 @@
     [LAVA]:"Molten rock. Cools into stone.",
     [FIRE]:"Hot gas. Ignites flammables and heats surroundings.",
     [SMOKE]:"Rising gas. Sulfur smoke can become acid.",
+    [HYDROGEN]:"Lightest gas — rises fast and detonates near flame; fiercer with oxygen.",
+    [OXYGEN]:"Feeds combustion — makes nearby fire roar hotter.",
     [NITRO]:"Unstable liquid — explodes on impact, heat, or spark.",
-    [GOLD]:"Precious heavy powder from transmutation.",
+    [GOLD]:"Precious heavy powder from transmutation. Conducts electricity.",
+    [DIAMOND]:"Hardest crystal — forged from coal under furious heat. Conducts heat superbly.",
+    [ASH]:"Light grey remnant of spent fuel. Drifts on the wind.",
+    [RUST]:"Flaky iron oxide — metal left too long in water.",
     [CRYSTAL]:"Prismatic solid that grows by consuming water.",
     [PHILOSOPHER]:"Catalyst — accelerates nearby transmutations.",
     [SULFUR]:"Yellow powder. Key gunpowder ingredient.",
@@ -136,39 +156,57 @@
     [FUSE]:"Slow cord — carries flame to explosives.",
     [FIREWORK]:"Rocket powder — launches sky bursts.",
     [SPARK]:"Electric brush — energizes conductors.",
+    [LIGHTNING]:"Calls down a lightning bolt that scorches and electrifies.",
+    [CLOUD]:"Storm cloud — drifts on the wind, rains water, and strikes lightning.",
     [HEAT]:"Torch tool — paints heat onto matter.",
     [COOL]:"Cryo tool — flash-freezes an area.",
     [CLONER]:"Copies whatever material touches it.",
     [VOID]:"Devours adjacent matter.",
+    [ANTIMATTER]:"Annihilates any matter it touches in a burst of energy. Contain it with walls.",
     [EMPTY]:"Eraser.",
   };
 
+  // in/out are material-ID arrays rendered as swatch chips in the book.
   const ALCHEMY_RECIPES = [
-    { id:"gunpowder", cat:"Crafting", name:"Black powder", formula:"Sulfur + Saltpeter + Coal → Gunpowder", note:"Mix all three in one pile.", starter:true },
-    { id:"acid_gold", cat:"Transmutation", name:"Golden precipitation", formula:"Acid + Mercury → Gold", note:"The classic philosopher's dream.", starter:true },
-    { id:"mercury_amalgam", cat:"Transmutation", name:"Amalgamation", formula:"Mercury + Metal → Mercury", note:"Quicksilver slowly consumes steel.", starter:true },
-    { id:"aqua_brew", cat:"Crafting", name:"Aqua regia", formula:"Acid + Saltpeter → Aqua Regia", note:"A stronger royal acid.", hint:"An acid and an oxidizer…" },
-    { id:"aqua_dissolve", cat:"Transmutation", name:"Royal dissolution", formula:"Aqua Regia + Gold → Mercury", note:"Reverses the golden path.", hint:"Royal water meets treasure…" },
-    { id:"philosopher_gold", cat:"Transmutation", name:"Catalysed gold", formula:"Philosopher + Mercury → Gold", note:"The stone accelerates transmutation.", hint:"A catalyst and quicksilver…" },
-    { id:"philosopher_mercury", cat:"Transmutation", name:"Catalysed amalgam", formula:"Philosopher + Metal → Mercury", note:"Steel becomes quicksilver faster.", hint:"Catalyst beside metal…" },
-    { id:"philosopher_sand", cat:"Transmutation", name:"Lead to gold", formula:"Philosopher + Sand → Gold", note:"Rare — sand transmuted to gold.", hint:"Catalyst and common grit…" },
-    { id:"smoke_acid", cat:"Crafting", name:"Sulfurous acid", formula:"Smoke + Sulfur → Acid", note:"Gas and powder brew corrosive liquid.", hint:"Smoke meets yellow powder…" },
-    { id:"crystal_grow", cat:"Growth", name:"Crystal garden", formula:"Crystal + Water → Crystal", note:"Consumes water to spread.", hint:"Prism beside water…" },
-    { id:"plant_grow", cat:"Growth", name:"Verdant spread", formula:"Plant + Water → Plant", note:"Consumes water to grow.", hint:"Life needs water…" },
-    { id:"salt_melt", cat:"Phase", name:"Brine dissolve", formula:"Salt + Water → dissolves", note:"Salt vanishes into water.", hint:"Crystal and liquid…" },
-    { id:"lava_stone", cat:"Phase", name:"Igneous cooling", formula:"Lava (cool) → Stone", note:"Molten rock solidifies.", hint:"Molten rock cooling…" },
-    { id:"sand_glass", cat:"Phase", name:"Vitric fusion", formula:"Sand (very hot) → Glass", note:"Extreme heat fuses grains.", hint:"Sand under fierce heat…" },
-    { id:"thermite_slag", cat:"Pyrotechnics", name:"Thermite slag", formula:"Thermite + Metal/Stone → Lava", note:"White-hot melt through solids.", hint:"Incendiary beside steel…" },
-    { id:"nitro_blast", cat:"Pyrotechnics", name:"Nitro shock", formula:"Nitro (fast impact) → Explosion", note:"Agitated liquid detonates.", hint:"Unstable liquid, sudden stop…" },
-    { id:"fuse_chain", cat:"Pyrotechnics", name:"Fuse chain", formula:"Fuse (burning) → Gunpowder/Thermite/Nitro", note:"Flame crawls the cord.", hint:"A burning cord…" },
-    { id:"gunpowder_boom", cat:"Pyrotechnics", name:"Powder keg", formula:"Gunpowder + Fire/Heat → Explosion", note:"Classic detonation.", hint:"Powder meets flame…" },
-    { id:"cloner_copy", cat:"Special", name:"Replication", formula:"Cloner + Material → copy", note:"Duplicates whatever it touches.", hint:"Mirror block…" },
-    { id:"void_hunger", cat:"Special", name:"The void", formula:"Void + Matter → empty", note:"Annihilates neighbours.", hint:"Purple hunger…" },
+    { id:"gunpowder", cat:"Crafting", name:"Black powder", in:[SULFUR,SALTPETER,COAL], out:[GUNPOWDER], note:"Pile all three together and they fuse into explosive powder.", starter:true },
+    { id:"acid_gold", cat:"Transmutation", name:"Golden precipitation", in:[ACID,MERCURY], out:[GOLD], note:"The classic philosopher's dream — acid drips gold from quicksilver.", starter:true },
+    { id:"mercury_amalgam", cat:"Transmutation", name:"Amalgamation", in:[MERCURY,METAL], out:[MERCURY], note:"Quicksilver slowly consumes steel into more of itself.", starter:true },
+    { id:"aqua_brew", cat:"Crafting", name:"Aqua regia", in:[ACID,SALTPETER], out:[AQUA], note:"Acid and an oxidizer brew a stronger royal acid.", hint:"An acid and a white oxidizer…" },
+    { id:"aqua_dissolve", cat:"Transmutation", name:"Royal dissolution", in:[AQUA,GOLD], out:[MERCURY], note:"Royal water dissolves gold straight back into mercury.", hint:"Royal water meets treasure…" },
+    { id:"philosopher_gold", cat:"Transmutation", name:"Catalysed gold", in:[PHILOSOPHER,MERCURY], out:[GOLD], note:"The stone accelerates mercury into gold.", hint:"A pink catalyst and quicksilver…" },
+    { id:"philosopher_mercury", cat:"Transmutation", name:"Catalysed amalgam", in:[PHILOSOPHER,METAL], out:[MERCURY], note:"Steel becomes quicksilver far faster.", hint:"Catalyst beside metal…" },
+    { id:"philosopher_sand", cat:"Transmutation", name:"Grit to gold", in:[PHILOSOPHER,SAND], out:[GOLD], note:"Rare — common sand transmuted to gold.", hint:"Catalyst and common grit…" },
+    { id:"diamond", cat:"Transmutation", name:"Diamond synthesis", in:[COAL], out:[DIAMOND], note:"Carbon crystallises into diamond under furious heat (thermite or lava).", hint:"Coal, fiercely heated…" },
+    { id:"smoke_acid", cat:"Crafting", name:"Sulfurous acid", in:[SMOKE,SULFUR], out:[ACID], note:"Gas and yellow powder brew a corrosive liquid.", hint:"Smoke meets yellow powder…" },
+    { id:"electrolysis", cat:"Crafting", name:"Electrolysis", in:[WATER,SPARK], out:[HYDROGEN,OXYGEN], note:"A current splits water into hydrogen and oxygen gas.", hint:"Charge run through water…" },
+    { id:"acid_metal", cat:"Crafting", name:"Acid corrosion", in:[ACID,METAL], out:[HYDROGEN], note:"Acid eating metal releases flammable hydrogen.", hint:"Acid eats steel…" },
+    { id:"charcoal", cat:"Crafting", name:"Charcoal", in:[WOOD], out:[COAL], note:"Wood heated slowly chars into charcoal instead of burning away.", hint:"Wood, heated gently…" },
+    { id:"crystal_grow", cat:"Growth", name:"Crystal garden", in:[CRYSTAL,WATER], out:[CRYSTAL], note:"Crystals drink water to spread.", hint:"A prism beside water…" },
+    { id:"plant_grow", cat:"Growth", name:"Verdant spread", in:[PLANT,WATER], out:[PLANT], note:"Plants drink water to grow into open space.", hint:"Life needs water…" },
+    { id:"obsidian", cat:"Phase", name:"Obsidian quench", in:[LAVA,WATER], out:[OBSIDIAN], note:"Molten rock quenched in water freezes into volcanic glass.", hint:"Fire-rock meets water…" },
+    { id:"rust", cat:"Phase", name:"Oxidation", in:[METAL,WATER], out:[RUST], note:"Iron left in water slowly oxidises to flaky rust.", hint:"Metal left wet too long…" },
+    { id:"ash", cat:"Phase", name:"Ashes to ashes", in:[COAL], out:[ASH], note:"Spent fuel crumbles into light grey ash.", hint:"What remains when fuel dies…" },
+    { id:"salt_melt", cat:"Phase", name:"Brine dissolve", in:[SALT,WATER], out:[WATER], note:"Salt vanishes into the water it touches.", hint:"Crystal and liquid…" },
+    { id:"lava_stone", cat:"Phase", name:"Igneous cooling", in:[LAVA], out:[STONE], note:"Cooling molten rock solidifies to stone.", hint:"Molten rock cooling…" },
+    { id:"sand_glass", cat:"Phase", name:"Vitric fusion", in:[SAND], out:[GLASS], note:"Fierce heat fuses sand grains into glass.", hint:"Sand under fierce heat…" },
+    { id:"thermite_slag", cat:"Pyrotechnics", name:"Thermite slag", in:[THERMITE,METAL], out:[LAVA], note:"White-hot thermite melts straight through metal and stone.", hint:"Incendiary beside steel…" },
+    { id:"hydrogen_boom", cat:"Pyrotechnics", name:"Knallgas", in:[HYDROGEN,FIRE], out:[FIRE], note:"Hydrogen ignites violently — far fiercer beside oxygen.", hint:"The lightest gas meets flame…" },
+    { id:"oxy_fire", cat:"Pyrotechnics", name:"Oxygen feed", in:[OXYGEN,FIRE], out:[FIRE], note:"Oxygen makes flames burn hotter and longer.", hint:"Fire that can breathe…" },
+    { id:"nitro_blast", cat:"Pyrotechnics", name:"Nitro shock", in:[NITRO], out:[FIRE], note:"Agitated nitro detonates on impact, heat, or spark.", hint:"Unstable liquid, sudden stop…" },
+    { id:"fuse_chain", cat:"Pyrotechnics", name:"Fuse chain", in:[FUSE], out:[FIRE], note:"Flame crawls the cord to whatever it feeds.", hint:"A slow burning cord…" },
+    { id:"gunpowder_boom", cat:"Pyrotechnics", name:"Powder keg", in:[GUNPOWDER,FIRE], out:[FIRE], note:"Fire or heat detonates a powder cache.", hint:"Powder meets flame…" },
+    { id:"rain", cat:"Weather", name:"Rainfall", in:[CLOUD], out:[WATER], note:"Storm clouds drift and shed rain below.", hint:"Grey clouds gather…" },
+    { id:"lightning", cat:"Weather", name:"Lightning strike", in:[CLOUD], out:[LIGHTNING], note:"A charged cloud — or the lightning tool — hurls a scorching bolt.", hint:"When the storm builds…" },
+    { id:"cloner_copy", cat:"Special", name:"Replication", in:[CLONER], out:[CLONER], note:"Duplicates whatever material touches it.", hint:"A mirror block…" },
+    { id:"void_hunger", cat:"Special", name:"The void", in:[VOID], out:[EMPTY], note:"Annihilates every neighbour it can reach.", hint:"Purple hunger…" },
+    { id:"antimatter", cat:"Special", name:"Annihilation", in:[ANTIMATTER], out:[FIRE], note:"Antimatter meeting any matter releases a burst of raw energy.", hint:"Forbidden pink matter…" },
   ];
   const RECIPE_BY_ID = Object.fromEntries(ALCHEMY_RECIPES.map(r=>[r.id,r]));
   let revealAll = localStorage.getItem("aether-reveal-all")==="1";
   let discoveries = new Set(JSON.parse(localStorage.getItem("aether-discoveries")||"[]"));
   ALCHEMY_RECIPES.filter(r=>r.starter).forEach(r=>discoveries.add(r.id));
+  // recipes the player has already viewed in the book — drives the "NEW" badge
+  let seenRecipes = new Set(JSON.parse(localStorage.getItem("aether-seen")||"[]"));
 
   function isRecipeKnown(id){ return revealAll || RECIPE_BY_ID[id]?.starter || discoveries.has(id); }
   function discoverRecipe(id){
@@ -186,6 +224,8 @@
     [FIREWORK]:0.5,[EMPTY]:1,[MERCURY]:0.95,[THERMITE]:0.9,[FUSE]:1,
     [GOLD]:0.9,[NITRO]:0.85,[SULFUR]:0.88,[SALTPETER]:0.88,
     [CRYSTAL]:1,[PHILOSOPHER]:1,[AQUA]:0.88,
+    [OBSIDIAN]:1,[DIAMOND]:1,[HYDROGEN]:0.85,[OXYGEN]:0.85,[ASH]:0.85,
+    [RUST]:0.9,[CLOUD]:0.55,[ANTIMATTER]:1,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -248,6 +288,8 @@
       case STEAM: return 150+(rnd()*150|0);
       case FIREWORK: return 18+(rnd()*36|0);
       case COAL: return 480+(rnd()*320|0);
+      case HYDROGEN: return 150+(rnd()*120|0);
+      case OXYGEN: return 220+(rnd()*180|0);
       default: return 0;
     }
   }
@@ -394,6 +436,7 @@
         convert(i,r.to);
         if(m===LAVA&&r.to===STONE) discoverRecipe("lava_stone");
         if(m===SAND&&r.to===GLASS) discoverRecipe("sand_glass");
+        if(m===WOOD&&r.to===COAL) discoverRecipe("charcoal");
         return true;
       }
     }
@@ -422,6 +465,20 @@
       const ang=rnd()*6.2832, spd=0.8+rnd()*3.2;
       addP(cx,cy,Math.cos(ang)*spd,Math.sin(ang)*spd,22+rnd()*26,255,150+(rnd()*80|0),40,KSPARK);
     }
+    shakeScreen(power*1.1);
+  }
+
+  /* ============================ Screen shake ====================== */
+  let shakeAmt=0, stageEl=null;
+  function shakeScreen(a){ if(a>shakeAmt) shakeAmt=a>16?16:a; }
+  function applyShake(){
+    if(!stageEl) stageEl=document.getElementById("stage");
+    if(!stageEl) return;
+    if(shakeAmt>0.15){
+      const dx=(rnd()-0.5)*shakeAmt, dy=(rnd()-0.5)*shakeAmt;
+      stageEl.style.transform="translate("+dx.toFixed(2)+"px,"+dy.toFixed(2)+"px)";
+      shakeAmt*=0.86;
+    } else if(shakeAmt!==0){ stageEl.style.transform=""; shakeAmt=0; }
   }
 
   /* ============================ Per-material ====================== */
@@ -432,10 +489,21 @@
   }
   function upLava(x,y,i){
     applySrc(i,1100,0.55); heatN(i,22);
+    // quench — lava meeting water flashes to obsidian and boils off steam
+    let quenched=false;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===WATER && rnd()<0.16){ convert(ni,STEAM); convert(i,OBSIDIAN); temp[i]=340; quenched=true; discoverRecipe("obsidian"); return true; }
+      return false;
+    });
+    if(quenched) return;
     if(rnd()<0.6) moveLiquid(x,y,i,LAVA,1);
   }
   function upWater(x,y,i){
-    forN8(x,i,(ni,nm)=>{ if(nm===SALT && rnd()<0.02){ grid[ni]=EMPTY; } return false; });
+    forN8(x,i,(ni,nm)=>{
+      if(nm===SALT && rnd()<0.02){ grid[ni]=EMPTY; }
+      else if(nm===METAL && temp[ni]<120 && rnd()<0.0006){ convert(ni,RUST); discoverRecipe("rust"); }
+      return false;
+    });
     moveLiquid(x,y,i,WATER,M[WATER].disp); applyWind(x,i,WATER);
   }
   function upSteam(x,y,i){
@@ -515,10 +583,17 @@
   }
   function upCoal(x,y,i){
     if(tryCraftGunpowder(x,i)) return;
+    // furious heat crystallises carbon into diamond
+    if(temp[i]>1400 && rnd()<0.004){ convert(i,DIAMOND); discoverRecipe("diamond"); return; }
     if(temp[i]>320){
       applySrc(i,640,0.18); heatN(i,12);
       if(rnd()<0.05){ const e=emptyNeighbor(x,i); if(e>=0) convert(e,FIRE); }
-      if(--life[i]<=0){ convert(i, rnd()<0.5?SMOKE:EMPTY); return; }
+      if(--life[i]<=0){
+        const r=rnd();
+        convert(i, r<0.4?ASH:(r<0.7?SMOKE:EMPTY));
+        if(grid[i]===ASH) discoverRecipe("ash");
+        return;
+      }
     }
     moveFalling(x,y,i,COAL);
   }
@@ -631,6 +706,79 @@
     if(gone) return;
     moveLiquid(x,y,i,AQUA,M[AQUA].disp); applyWind(x,i,AQUA);
   }
+  function upHydrogen(x,y,i){
+    if(--life[i]<=0){ grid[i]=EMPTY; return; }
+    let ignite = temp[i]>180 || charge[i]>0, oxy=-1;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===FIRE||nm===LAVA||(charge[ni]>0&&CHCOND[nm])) ignite=true;
+      if(nm===OXYGEN) oxy=ni;
+      return false;
+    });
+    if(ignite){
+      discoverRecipe("hydrogen_boom");
+      if(oxy>=0){ explode(x,y,4); if(grid[oxy]===OXYGEN) convert(oxy,STEAM); } // oxy-hydrogen detonation → water vapor
+      else { convert(i,FIRE); temp[i]=Math.max(temp[i],460); }
+      return;
+    }
+    moveGas(x,y,i,HYDROGEN); applyWind(x,i,HYDROGEN);
+  }
+  function upOxygen(x,y,i){
+    if(--life[i]<=0){ grid[i]=EMPTY; return; }
+    forN8(x,i,(ni,nm)=>{
+      if(nm===FIRE){ if(life[ni]<90) life[ni]+=4; temp[ni]+=6; discoverRecipe("oxy_fire"); }
+      else if(FLAM[nm] && temp[ni]>120 && rnd()<0.04){ temp[ni]+=60; }
+      return false;
+    });
+    moveGas(x,y,i,OXYGEN); applyWind(x,i,OXYGEN);
+  }
+  function upCloud(x,y,i){
+    // shed rain into open air below
+    if(rnd()<0.010){
+      for(let dy=1;dy<=3;dy++){ const ny=y+dy; if(ny>=H) break; const bi=ny*W+x;
+        if(grid[bi]===EMPTY){ spawn(bi,WATER); discoverRecipe("rain"); break; } }
+    }
+    // a brooding storm occasionally hurls a bolt
+    if(rnd()<0.0010) strikeLightning(x,y);
+    // drift with the wind (or a gentle wander when still)
+    const dir = WIND>0?1:(WIND<0?-1:(rnd()<0.5?1:-1));
+    if(rnd()<0.35){ const nx=x+dir; if(nx>0&&nx<W-1 && grid[i+dir]===EMPTY){ swap(i,i+dir); return; } }
+    // buoyancy — settle into an upper band of the sky
+    const band=(H*0.22)|0;
+    if(y>band && rnd()<0.05){ if(i-W>=0 && grid[i-W]===EMPTY) swap(i,i-W); }
+    else if(y<band-2 && rnd()<0.03){ if(i+W<N && grid[i+W]===EMPTY) swap(i,i+W); }
+  }
+  function upAntimatter(x,y,i){
+    let reacted=false;
+    forN8(x,i,(ni,nm)=>{
+      if(nm!==EMPTY&&nm!==ANTIMATTER&&nm!==WALL){ grid[ni]=EMPTY; charge[ni]=0; vel[ni]=0; reacted=true; return true; }
+      return false;
+    });
+    if(reacted){ explode(x,y,5); grid[i]=EMPTY; shakeScreen(5); discoverRecipe("antimatter"); }
+  }
+  function strikeLightning(cx,cy){
+    let x=clamp(cx|0,0,W-1), y=clamp(cy|0,0,H-1), steps=0;
+    while(y<H-1 && steps<H){
+      const i=y*W+x;
+      temp[i]=Math.max(temp[i],420);
+      if(CHCOND[grid[i]]) charge[i]=6;
+      if(FLAM[grid[i]]) temp[i]+=180;
+      addP(x+0.5,y+0.5,(rnd()-0.5)*0.8,0.6+rnd()*1.4,8+rnd()*8,200,228,255,KSPARK);
+      if(rnd()<0.45) x += rnd()<0.5?-1:1;
+      if(x<0)x=0; else if(x>=W)x=W-1;
+      y++; steps++;
+      const gi=y*W+x, gm=grid[gi];
+      if(gm!==EMPTY && TYPE[gm]!==GAS){
+        temp[gi]=Math.max(temp[gi],640);
+        if(FLAM[gm]) temp[gi]+=320;
+        if(CHCOND[gm]) charge[gi]=6;
+        for(let a=0;a<14;a++){ const ang=rnd()*6.2832, sp=0.6+rnd()*2.4;
+          addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,12+rnd()*16,210,232,255,KSPARK); }
+        break;
+      }
+    }
+    shakeScreen(6);
+    discoverRecipe("lightning");
+  }
   function emptyNeighbor(x,i){
     const c=[[-W,0,-1],[W,0,1],[-1,-1,0],[1,1,0]];
     const s=rnd()*4|0;
@@ -656,7 +804,13 @@
       if(m===NITRO){ const x=i%W; explode(x,(i/W)|0,8); grid[i]=EMPTY; charge[i]=0; continue; }
       if(m===FIREWORK){ life[i]=0; }
       if(FLAM[m]){ heatN(i,26); temp[i]+=16; }
-      if(m===WATER && rnd()<0.05){ convert(i,STEAM); }
+      if(m===WATER && rnd()<0.06){
+        // electrolysis — current splits water into hydrogen (here) and oxygen (a neighbour)
+        convert(i,HYDROGEN); charge[i]=0;
+        const e=emptyNeighbor(i%W,i); if(e>=0) spawn(e,OXYGEN);
+        discoverRecipe("electrolysis");
+        continue;
+      }
       forCard(i,(ni)=>{ if(charge[ni]===0 && CHCOND[grid[ni]]) charge[ni]=4; });
       const nc=c-1;
       charge[i]= nc>0 ? nc : -8;
@@ -777,7 +931,13 @@
           case CRYSTAL: upCrystal(x,y,i); break;
           case PHILOSOPHER: upPhilosopher(x,y,i); break;
           case AQUA: upAqua(x,y,i); break;
-          // WOOD, GLASS, STONE, METAL: thermal only
+          case HYDROGEN: upHydrogen(x,y,i); break;
+          case OXYGEN: upOxygen(x,y,i); break;
+          case ASH: moveFalling(x,y,i,ASH); applyWind(x,i,ASH); break;
+          case RUST: moveFalling(x,y,i,RUST); applyWind(x,i,RUST); break;
+          case CLOUD: upCloud(x,y,i); break;
+          case ANTIMATTER: upAntimatter(x,y,i); break;
+          // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND: thermal only
         }
       }
     }
@@ -908,6 +1068,16 @@
         r=(lerp(mat.c2[0],mat.c1[0],sh)*pulse)|0;
         g=(lerp(mat.c2[1],mat.c1[1],sh)*pulse)|0;
         b=(lerp(mat.c2[2],mat.c1[2],sh)*pulse)|0;
+      } else if(m===DIAMOND){
+        const sp=(0.5+0.5*Math.sin(t*4+i*0.9))*64|0;
+        r=Math.min(255,lerp(mat.c2[0],mat.c1[0],sh)+sp);
+        g=Math.min(255,lerp(mat.c2[1],mat.c1[1],sh)+sp);
+        b=Math.min(255,lerp(mat.c2[2],mat.c1[2],sh)+sp);
+      } else if(m===ANTIMATTER){
+        const pulse=0.6+0.4*Math.sin(t*6+i*0.5);
+        r=Math.min(255,(lerp(mat.c2[0],mat.c1[0],sh)*pulse)|0);
+        g=(lerp(mat.c2[1],mat.c1[1],sh)*pulse)|0;
+        b=Math.min(255,(lerp(mat.c2[2],mat.c1[2],sh)*pulse)|0);
       } else {
         r=lerp(mat.c1[0],mat.c2[0],sh); g=lerp(mat.c1[1],mat.c2[1],sh); b=lerp(mat.c1[2],mat.c2[2],sh);
         if(charge[i]>0){ const u=clamp(charge[i]/10,0,1);
@@ -980,7 +1150,7 @@
   let currentMat=SAND, brush=10, painting=false, eraseBtn=false;
   let lastPx=null,lastPy=null;
   let pointerInside=false,pointerX=0,pointerY=0;
-  let fireworkCooldown=0;
+  let fireworkCooldown=0, lightningCooldown=0;
 
   function paintTemp(cx,cy,sign){
     const rad=Math.max(2,brush), r2=rad*rad;
@@ -996,6 +1166,7 @@
   function paintDisc(cx,cy,mat){
     if(mat===FIREWORK){ if(fireworkCooldown<=0){ launchRocket(cx,cy); fireworkCooldown=6; } return; }
     if(mat===SPARK){ paintSpark(cx,cy); return; }
+    if(mat===LIGHTNING){ if(lightningCooldown<=0){ strikeLightning(cx,cy); lightningCooldown=10; } return; }
     if(mat===HEAT){ paintTemp(cx,cy,1); return; }
     if(mat===COOL){ paintTemp(cx,cy,-1); return; }
     const rad=brush, prob=SPAWN_PROB[mat]??1, r2=rad*rad;
@@ -1086,6 +1257,7 @@
   let acc=0, lastT=performance.now(); const SIMDT=1000/60;
   function loop(now){
     if(fireworkCooldown>0) fireworkCooldown--;
+    if(lightningCooldown>0) lightningCooldown--;
     let dt=now-lastT; lastT=now; if(dt>250) dt=250; acc+=dt;
     let runs=0;
     while(acc>=SIMDT && runs<4){
@@ -1095,6 +1267,7 @@
     }
     if(painting && lastPx!=null) paintDisc(lastPx,lastPy,eraseBtn?EMPTY:currentMat);
     render(now);
+    applyShake();
     frames++;
     if(now-fpsT>=500){
       fpsEl.textContent=Math.round((frames*1000)/(now-fpsT)); frames=0; fpsT=now;
@@ -1111,56 +1284,145 @@
     if(m===CRYSTAL) return "linear-gradient(135deg,#c8a0ff,#8060e8,#b0f0ff)";
     if(m===PHILOSOPHER) return "linear-gradient(160deg,#ffb0e8,#a050ff,#ffd0f0)";
     if(m===AQUA) return "linear-gradient(160deg,#ffd0ff,#c080ff,#ffa0ff)";
+    if(m===DIAMOND) return "linear-gradient(135deg,#eaffff,#bfe6ff,#9ccdff)";
+    if(m===ANTIMATTER) return "linear-gradient(135deg,#ff8be0,#c030b0,#ff70d0)";
+    if(m===LIGHTNING) return "linear-gradient(160deg,#eaf4ff,#7aa8ff)";
     const a=M[m].c1,b=M[m].c2;
     return "linear-gradient(160deg,rgb("+a[0]+","+a[1]+","+a[2]+"),rgb("+b[0]+","+b[1]+","+b[2]+"))";
+  }
+  const PAL_TABS = MAT_GROUPS.map(g=>g.label).concat("All");
+  let activeTab = MAT_GROUPS.length;   // default to "All" so everything is visible
+  let matSearch = "";
+
+  function matsForView(){
+    if(matSearch){
+      const q=matSearch.toLowerCase();
+      return PALETTE.filter(m=> M[m].name.toLowerCase().includes(q) || (MAT_BLURB[m]||"").toLowerCase().includes(q));
+    }
+    const lbl=PAL_TABS[activeTab];
+    if(lbl==="All") return PALETTE;
+    const g=MAT_GROUPS.find(gr=>gr.label===lbl);
+    return g?g.mats:PALETTE;
+  }
+  function setMatDesc(m){
+    const box=document.getElementById("mat-desc"); if(!box) return;
+    box.querySelector(".mat-desc-name").textContent=M[m]?M[m].name:"";
+    box.querySelector(".mat-desc-text").textContent=MAT_BLURB[m]||"";
   }
   function buildMatButton(m){
     const el=document.createElement("button");
     el.className="mat"+(m===currentMat?" active":"");
     el.dataset.mat=m;
-    el.title=M[m].name;
+    el.title=(M[m].name)+" — "+(MAT_BLURB[m]||"");
     el.style.setProperty("--swatch", m===EMPTY?"#3a3a48":"rgb("+(M[m].c1[0])+","+(M[m].c1[1])+","+(M[m].c1[2])+")");
     const sw = m===RAINBOW ? '<span class="mat-swatch rainbow"></span>'
                            : '<span class="mat-swatch" style="--swatch-bg:'+swatchBg(m)+'"></span>';
     el.innerHTML=sw+'<span class="mat-name">'+M[m].name+'</span>';
-    el.addEventListener("click",()=>{ currentMat=m; syncPaletteActive(); });
+    el.addEventListener("mouseenter",()=>setMatDesc(m));
+    el.addEventListener("click",()=>{ currentMat=m; setMatDesc(m); syncPaletteActive(); });
     return el;
   }
-  function buildPalette(){
-    const wrap=document.getElementById("material-sections");
+  function renderMatGrid(){
+    const wrap=document.getElementById("material-grid-wrap"); if(!wrap) return;
     wrap.innerHTML="";
-    MAT_GROUPS.forEach(grp=>{
-      const sec=document.createElement("div");
-      sec.className="mat-section";
-      sec.innerHTML='<div class="section-label">'+grp.label+'</div>';
-      const grid=document.createElement("div");
-      grid.className="material-grid";
-      grp.mats.forEach(m=>grid.appendChild(buildMatButton(m)));
-      sec.appendChild(grid);
-      wrap.appendChild(sec);
-    });
+    const mats=matsForView();
+    if(mats.length===0){ wrap.innerHTML='<div class="mat-empty">No materials match “'+matSearch+'”.</div>'; return; }
+    const grid=document.createElement("div");
+    grid.className="material-grid";
+    mats.forEach(m=>grid.appendChild(buildMatButton(m)));
+    wrap.appendChild(grid);
+    syncPaletteActive();
+  }
+  function buildPalette(){
+    const tabsEl=document.getElementById("palette-tabs");
+    if(tabsEl){
+      tabsEl.innerHTML="";
+      PAL_TABS.forEach((label,idx)=>{
+        const b=document.createElement("button");
+        b.className="ptab"+(idx===activeTab?" active":"");
+        b.textContent=label;
+        b.addEventListener("click",()=>{
+          activeTab=idx; matSearch="";
+          const s=document.getElementById("mat-search"); if(s) s.value="";
+          const clr=document.getElementById("mat-search-clear"); if(clr) clr.classList.remove("show");
+          document.querySelectorAll(".ptab").forEach((t,j)=>t.classList.toggle("active",j===idx));
+          renderMatGrid();
+        });
+        tabsEl.appendChild(b);
+      });
+    }
+    const searchEl=document.getElementById("mat-search"), clearEl=document.getElementById("mat-search-clear");
+    if(searchEl){
+      searchEl.addEventListener("input",()=>{
+        matSearch=searchEl.value.trim();
+        document.querySelectorAll(".ptab").forEach((t,j)=>t.classList.toggle("active", !matSearch && j===activeTab));
+        if(clearEl) clearEl.classList.toggle("show", !!matSearch);
+        renderMatGrid();
+      });
+    }
+    if(clearEl){
+      clearEl.addEventListener("click",()=>{
+        matSearch=""; if(searchEl){ searchEl.value=""; searchEl.focus(); }
+        clearEl.classList.remove("show");
+        document.querySelectorAll(".ptab").forEach((t,j)=>t.classList.toggle("active", j===activeTab));
+        renderMatGrid();
+      });
+    }
+    const wrap=document.getElementById("material-grid-wrap");
+    if(wrap) wrap.addEventListener("mouseleave",()=>setMatDesc(currentMat));
+    renderMatGrid();
+    setMatDesc(currentMat);
+  }
+  function ingChip(m){
+    return '<span class="ing"><span class="ing-sw" style="background:'+swatchBg(m)+'"></span>'+M[m].name+'</span>';
+  }
+  function ingUnknown(){ return '<span class="ing ing-q"><span class="ing-sw ing-sw-q">?</span></span>'; }
+  function recipeChips(r,known){
+    const ins=r.in||[], outs=r.out||[];
+    if(known){
+      const inHtml=ins.map(ingChip).join('<span class="ing-op">+</span>');
+      const outHtml=(outs.length?outs.map(ingChip):['<span class="ing ing-x">⟂</span>']).join('<span class="ing-op">+</span>');
+      return '<div class="recipe-chips">'+inHtml+'<span class="ing-op ing-arrow">→</span>'+outHtml+'</div>';
+    }
+    let s='<div class="recipe-chips">';
+    const n=Math.max(2,ins.length);
+    for(let k=0;k<n;k++){ s+=(k?'<span class="ing-op">+</span>':'')+ingUnknown(); }
+    s+='<span class="ing-op ing-arrow">→</span>'+ingUnknown()+'</div>';
+    return s;
+  }
+  function markRecipesSeen(){
+    let changed=false;
+    ALCHEMY_RECIPES.forEach(r=>{ if(isRecipeKnown(r.id) && !seenRecipes.has(r.id)){ seenRecipes.add(r.id); changed=true; } });
+    if(changed){ try{ localStorage.setItem("aether-seen", JSON.stringify([...seenRecipes])); }catch(_){ } }
   }
   function renderBooklet(){
+    const total=ALCHEMY_RECIPES.length;
     const known=ALCHEMY_RECIPES.filter(r=>isRecipeKnown(r.id)).length;
     const countEl=document.getElementById("discover-count");
-    if(countEl) countEl.textContent=revealAll ? known+" / "+ALCHEMY_RECIPES.length+" (sandbox)" : known+" / "+ALCHEMY_RECIPES.length+" discovered";
+    if(countEl) countEl.textContent=(revealAll?"All revealed · ":"")+"Discovered "+known+" / "+total;
+    const barEl=document.getElementById("discover-bar");
+    if(barEl) barEl.style.width=Math.round(known/total*100)+"%";
     const recipesEl=document.getElementById("booklet-recipes");
     if(recipesEl){
       recipesEl.innerHTML="";
       const cats=[...new Set(ALCHEMY_RECIPES.map(r=>r.cat))];
       cats.forEach(cat=>{
+        const list=ALCHEMY_RECIPES.filter(r=>r.cat===cat);
+        const kc=list.filter(r=>isRecipeKnown(r.id)).length;
         const group=document.createElement("div");
         group.className="recipe-group";
-        group.innerHTML='<div class="recipe-group-title">'+cat+'</div>';
-        ALCHEMY_RECIPES.filter(r=>r.cat===cat).forEach(r=>{
+        group.innerHTML='<div class="recipe-group-title">'+cat+'<span class="recipe-group-count">'+kc+'/'+list.length+'</span></div>';
+        list.forEach(r=>{
           const knownR=isRecipeKnown(r.id);
+          const isNew=knownR && !seenRecipes.has(r.id);
           const row=document.createElement("div");
-          row.className="recipe "+(knownR?(r.starter?"starter unlocked":"unlocked"):"locked");
+          row.className="recipe "+(knownR?(r.starter?"starter unlocked":"unlocked"):"locked")+(isNew?" is-new":"");
           row.innerHTML=
             '<div class="recipe-badge">'+(knownR?"✦":"?")+'</div>'+
-            '<div><div class="recipe-name">'+r.name+'</div>'+
-            '<div class="recipe-formula'+(knownR?"":" unknown")+'">'+(knownR?r.formula:(r.hint||"Experiment to unlock…"))+'</div>'+
-            (knownR?('<div class="recipe-note">'+r.note+'</div>'):'')+
+            '<div class="recipe-main">'+
+              '<div class="recipe-name">'+(knownR?r.name:"<span class=\"locked-name\">??? </span>")+(isNew?'<span class="recipe-new">NEW</span>':'')+'</div>'+
+              recipeChips(r,knownR)+
+              '<div class="recipe-note'+(knownR?"":" unknown")+'">'+(knownR?r.note:(r.hint||"Experiment to unlock…"))+'</div>'+
             '</div>';
           group.appendChild(row);
         });
@@ -1198,6 +1460,7 @@
   function closeBooklet(){
     const el=document.getElementById("booklet");
     if(!el) return;
+    markRecipesSeen();
     el.classList.add("hidden");
     el.setAttribute("aria-hidden","true");
   }
@@ -1260,6 +1523,8 @@
     document.getElementById("btn-load").addEventListener("click",loadScene);
 
     window.addEventListener("keydown",(e)=>{
+      const tag=e.target&&e.target.tagName;
+      if(tag==="INPUT"||tag==="TEXTAREA"){ if(e.code==="Escape") e.target.blur(); return; }
       if(e.code==="Space"){ e.preventDefault(); playBtn.click(); }
       else if(e.code==="KeyC") document.getElementById("btn-clear").click();
       else if(e.code==="KeyH") heatBtn.click();
@@ -1304,7 +1569,10 @@
                 torch:HEAT, warm:HEAT, cool:COOL, cryo:COOL, freeze:COOL, clone:CLONER, sink:VOID,
                 quicksilver:MERCURY, hg:MERCURY, amalgam:MERCURY,
                 nitroglycerin:NITRO, tnt:NITRO, niter:SALTPETER, charcoal:COAL,
-                "aqua regia":AQUA, aqua:AQUA, catalyst:PHILOSOPHER, philosopher:PHILOSOPHER };
+                "aqua regia":AQUA, aqua:AQUA, catalyst:PHILOSOPHER, philosopher:PHILOSOPHER,
+                h2:HYDROGEN, o2:OXYGEN, "volcanic glass":OBSIDIAN, gem:DIAMOND,
+                cinder:ASH, oxide:RUST, storm:CLOUD, "storm cloud":CLOUD, bolt:LIGHTNING,
+                "anti-matter":ANTIMATTER, antimater:ANTIMATTER };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach(n=>n.classList.toggle("active", +n.dataset.mat===currentMat));
@@ -1313,6 +1581,7 @@
     EMPTY,WALL,SAND,RAINBOW,WATER,ICE,SNOW,SALT,OIL,ACID,LAVA,FIRE,SMOKE,STEAM,
     WOOD,PLANT,GLASS,STONE,METAL,GUNPOWDER,FIREWORK,SPARK,COAL,HEAT,COOL,CLONER,VOID,
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
+    OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
@@ -1322,6 +1591,7 @@
     gravity(gx,gy){ setGravity(gx,gy); document.querySelectorAll(".cmp").forEach(b=>b.classList.toggle("active", +b.dataset.gx===gx && +b.dataset.gy===gy)); },
     wind(w){ WIND=w; const el=document.getElementById("wind"); if(el){el.value=Math.round(w*100); document.getElementById("wind-readout").textContent=el.value;} },
     firework(x,y){ stopAttract(); launchRocket(x|0,y|0); },
+    lightning(x,y){ stopAttract(); strikeLightning(x|0,y|0); },
     burst(x,y){ burst(x|0,y|0); },
     pause(p){ paused=(p==null)?!paused:!!p; const b=document.getElementById("btn-play"); if(b)b.classList.toggle("paused",paused); return paused; },
     heatMap(on){ heatMap=on==null?!heatMap:!!on; document.getElementById("btn-heat").classList.toggle("on",heatMap); },
