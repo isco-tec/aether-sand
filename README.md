@@ -23,7 +23,7 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 - **Heat & Freeze brushes** — paint temperature straight onto the world with a torch and a cryo tool to ignite, melt, or flash-freeze on demand.
 - **Ballistic particle system** for fireworks, explosions and embers — buttery floating-point motion layered on top of the grid.
 - **Gravity & wind controls** — point gravity in any direction (or zero-G) and blow particles around with adjustable wind.
-- **Emissive bloom** — fire, lava, sparks, fireworks and red-hot solids cast real light via a blurred screen-blended glow pass.
+- **Dynamic lighting** — every emitter (fire, lava, red-hot metal, sparks, fireworks) projects coloured light onto the matter around it, so a stone wall beside a lava pool actually warms to orange. Layered on top of the emissive bloom for true depth.
 - **Snapshot & save/load** — export a PNG of your creation or save/restore scenes.
 - **World-class UI** — glassmorphism panels, live FPS + particle counters, an optional heat-map overlay, full keyboard shortcuts, mouse + touch support, and responsive resize that preserves your artwork.
 
@@ -42,6 +42,8 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 | Pause / play | `Space` |
 | Step one frame | `→` |
 | Clear | `C` |
+| Heat-map overlay | `H` |
+| Toggle dynamic lighting | `L` |
 | Brush size | `[` / `]` or the slider |
 | Pick material | `1`–`9` or the palette |
 
@@ -73,13 +75,14 @@ A.firework(x, y);             // launch a firework rocket
 A.gravity(0, -1);             // flip gravity up (8-way + 0,0 for zero-G)
 A.wind(0.8);                  // -1..1
 A.heatMap(true);              // toggle the temperature overlay
+A.lights(false);              // toggle dynamic lighting on/off
 A.clear(); A.save(); A.load(); A.snapshot();
 A.info();                     // { cells, particles, gravity, wind, ... }
 ```
 
 ## 🧪 How it works
 
-The world is a grid of cells; each frame every cell runs simple local rules (fall, flow, rise, react). Complex, lifelike behaviour **emerges** from these rules plus the shared temperature field. The renderer writes the grid into an `ImageData` buffer scaled up with crisp pixels, while emissive materials also paint into a separate glow canvas that is blurred and screen-blended for bloom. A lightweight particle layer adds true ballistic motion for sparks and fireworks.
+The world is a grid of cells; each frame every cell runs simple local rules (fall, flow, rise, react). Complex, lifelike behaviour **emerges** from these rules plus the shared temperature field. The renderer writes the grid into an `ImageData` buffer scaled up with crisp pixels, while emissive materials also paint into a separate glow canvas that is blurred and screen-blended for bloom. Those same emitters are splatted into a low-res light buffer that is blurred and added back onto nearby matter, giving real coloured illumination on top of the bloom. A lightweight particle layer adds true ballistic motion for sparks and fireworks.
 
 ## 📄 License
 

@@ -98,6 +98,8 @@
   let SCALE,W,H,N;
   let grid,shade,life,vel,charge,moved,temp,tempB;
   let simImg,sim32,glowImg,glow32;
+  let LS,LW,LH,LN,lightR,lightG,lightB,lightT;
+  let lighting=true;
 
   function allocate(w,h){
     const old = grid ? {grid,temp,W,H} : null;
@@ -108,6 +110,9 @@
     sim.width=W; sim.height=H; glow.width=W; glow.height=H;
     simImg=sctx.createImageData(W,H); glowImg=gctx.createImageData(W,H);
     sim32=new Uint32Array(simImg.data.buffer); glow32=new Uint32Array(glowImg.data.buffer);
+    LS=3; LW=Math.ceil(W/LS); LH=Math.ceil(H/LS); LN=LW*LH;
+    lightR=new Float32Array(LN); lightG=new Float32Array(LN);
+    lightB=new Float32Array(LN); lightT=new Float32Array(LN);
     if(old){
       const cw=Math.min(old.W,W),ch=Math.min(old.H,H);
       for(let y=0;y<ch;y++)for(let x=0;x<cw;x++){
@@ -566,9 +571,41 @@
     return HEAT_STOPS[HEAT_STOPS.length-1][1];
   }
 
+  /* ============================ Dynamic lighting ================== */
+  // Emissive cells/particles splat colour into a coarse buffer that is
+  // blurred and added back onto nearby matter — real coloured light.
+  function blurChan(buf,tmp,r){
+    for(let y=0;y<LH;y++){ const row=y*LW;
+      for(let x=0;x<LW;x++){ let s=0,c=0;
+        for(let k=-r;k<=r;k++){ const xx=x+k; if(xx<0||xx>=LW)continue; s+=buf[row+xx]; c++; }
+        tmp[row+x]=s/c; } }
+    for(let x=0;x<LW;x++){
+      for(let y=0;y<LH;y++){ let s=0,c=0;
+        for(let k=-r;k<=r;k++){ const yy=y+k; if(yy<0||yy>=LH)continue; s+=tmp[yy*LW+x]; c++; }
+        buf[y*LW+x]=s/c; } }
+  }
+  function blurLight(){
+    for(let p=0;p<4;p++){ blurChan(lightR,lightT,2); blurChan(lightG,lightT,2); blurChan(lightB,lightT,2); }
+  }
+  function applyLight(){
+    const GAIN=0.62;
+    for(let i=0;i<N;i++){
+      if(grid[i]===EMPTY) continue;
+      const li=((((i/W)|0)/LS|0)*LW)+(((i%W)/LS)|0);
+      const lr=lightR[li]*GAIN, lg=lightG[li]*GAIN, lb=lightB[li]*GAIN;
+      if(lr<0.8&&lg<0.8&&lb<0.8) continue;
+      const px=sim32[i];
+      let r=(px&255)+lr, g=((px>>8)&255)+lg, b=((px>>16)&255)+lb;
+      if(r>255)r=255; if(g>255)g=255; if(b>255)b=255;
+      sim32[i]=(px&0xff000000)|((b|0)<<16)|((g|0)<<8)|(r|0);
+    }
+  }
+
   let heatMap=false;
   function render(now){
     const t=now*0.012;
+    const lit = lighting && !heatMap;
+    if(lit){ lightR.fill(0); lightG.fill(0); lightB.fill(0); }
     for(let i=0;i<N;i++){
       const m=grid[i];
       if(m===EMPTY){
@@ -622,6 +659,19 @@
         else if(m===ACID){ ge=(120<<24)|(40<<16)|(220<<8)|110; }
       }
       glow32[i]=ge;
+      if(lit && ge){
+        const a=(ge>>>24)*0.00392, li=((((i/W)|0)/LS|0)*LW)+(((i%W)/LS)|0);
+        lightR[li]+=(ge&255)*a; lightG[li]+=((ge>>8)&255)*a; lightB[li]+=((ge>>16)&255)*a;
+      }
+    }
+    if(lit){
+      for(let k=0;k<pn;k++){
+        const lx=(PX[k]/LS)|0, ly=(PY[k]/LS)|0;
+        if(lx<0||lx>=LW||ly<0||ly>=LH) continue;
+        const li=ly*LW+lx, a=clamp(PL[k]/PM[k],0,1)*0.6;
+        lightR[li]+=PR[k]*a; lightG[li]+=PG[k]*a; lightB[li]+=PB[k]*a;
+      }
+      blurLight(); applyLight();
     }
     sctx.putImageData(simImg,0,0);
     gctx.putImageData(glowImg,0,0);
@@ -823,6 +873,7 @@
       if(e.code==="Space"){ e.preventDefault(); playBtn.click(); }
       else if(e.code==="KeyC") document.getElementById("btn-clear").click();
       else if(e.code==="KeyH") heatBtn.click();
+      else if(e.code==="KeyL"){ lighting=!lighting; toast(lighting?"Lighting on":"Lighting off"); }
       else if(e.code==="ArrowRight") stepOnce=true;
       else if(e.code==="BracketRight"){ brushEl.value=Math.min(48,brush+2); syncBrush(); }
       else if(e.code==="BracketLeft"){ brushEl.value=Math.max(1,brush-2); syncBrush(); }
@@ -879,6 +930,7 @@
     burst(x,y){ burst(x|0,y|0); },
     pause(p){ paused=(p==null)?!paused:!!p; const b=document.getElementById("btn-play"); if(b)b.classList.toggle("paused",paused); return paused; },
     heatMap(on){ heatMap=on==null?!heatMap:!!on; document.getElementById("btn-heat").classList.toggle("on",heatMap); },
+    lights(on){ lighting=on==null?!lighting:!!on; return lighting; },
     snapshot, save:saveScene, load:loadScene, stopAttract,
     info(){ let c=0; for(let i=0;i<N;i++) if(grid[i]!==EMPTY) c++; return {W,H,SCALE,cells:c,particles:pn,gravity:[GX,GY],wind:WIND,heatMap}; },
   };
