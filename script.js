@@ -1474,6 +1474,71 @@
     }catch(e){ toast("Load failed"); }
   }
 
+  /* ============================ Shareable links ================== */
+  // sand art is mostly empty, so run-length encoding packs a whole scene tiny.
+  function rleEncode(g){
+    const out=[]; let i=0;
+    while(i<g.length){
+      const v=g[i]; let j=i+1;
+      while(j<g.length && g[j]===v) j++;
+      let count=j-i; out.push(v);
+      while(count>=128){ out.push((count&127)|128); count>>>=7; }
+      out.push(count); i=j;
+    }
+    return Uint8Array.from(out);
+  }
+  function rleDecode(bytes, target){
+    let p=0, idx=0;
+    while(p<bytes.length && idx<target.length){
+      const v=bytes[p++]; let count=0, shift=0, b;
+      do{ b=bytes[p++]; count|=(b&127)<<shift; shift+=7; }while(b&128 && p<bytes.length);
+      for(let k=0;k<count && idx<target.length;k++) target[idx++]=v;
+    }
+  }
+  function b64url(arr){
+    let s="",ch=0x8000; for(let i=0;i<arr.length;i+=ch) s+=String.fromCharCode.apply(null,arr.subarray(i,i+ch));
+    return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function unb64url(str){
+    str=str.replace(/-/g,'+').replace(/_/g,'/'); while(str.length%4) str+='=';
+    const bin=atob(str),a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return a;
+  }
+  function encodeScene(){
+    const rle=rleEncode(grid), all=new Uint8Array(4+rle.length);
+    all[0]=W&255; all[1]=(W>>8)&255; all[2]=H&255; all[3]=(H>>8)&255;
+    all.set(rle,4); return b64url(all);
+  }
+  function applySceneBytes(all){
+    const w=all[0]|(all[1]<<8), h=all[2]|(all[3]<<8);
+    if(w<=0||h<=0||w>4096||h>4096) throw new Error("bad scene");
+    const flat=new Uint8Array(w*h); rleDecode(all.subarray(4), flat);
+    grid.fill(EMPTY); charge.fill(0); life.fill(0); pres.fill(0); temp.fill(AMBIENT); vel.fill(0); pn=0;
+    const cw=Math.min(w,W), chh=Math.min(h,H);
+    for(let y=0;y<chh;y++)for(let x=0;x<cw;x++){
+      const i=y*W+x, m=flat[y*w+x];
+      if(m>=MAXID){ continue; }
+      grid[i]=m; shade[i]=r255(); temp[i]=BASET[m]; life[i]=defaultLife(m);
+    }
+  }
+  function shareScene(){
+    try{
+      const code=encodeScene();
+      const url=location.origin+location.pathname+"#s="+code;
+      try{ history.replaceState(null,"","#s="+code); }catch(_){}
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).then(()=>toast("🔗 Share link copied!"),()=>toast("Share link is in the address bar"));
+      } else toast("Share link is in the address bar");
+      if(code.length>24000) toast("Heads up: busy scene — long link");
+      return url;
+    }catch(e){ toast("Couldn't build a link"); return null; }
+  }
+  function loadFromURL(){
+    const m=/[#&]s=([^&]+)/.exec(location.hash||"");
+    if(!m) return false;
+    try{ applySceneBytes(unb64url(m[1])); stopAttract(); return true; }
+    catch(e){ return false; }
+  }
+
   /* ============================ Loop ============================== */
   let paused=false, stepOnce=false, frames=0, fpsT=performance.now(), fpsEl, countEl;
   let acc=0, lastT=performance.now(); const SIMDT=1000/60;
@@ -1823,6 +1888,7 @@
     lightEl.addEventListener("input",()=>{ lightLevel=(+lightEl.value)/100; syncLightUI(); });
     syncLightUI();
     document.getElementById("btn-snap").addEventListener("click",snapshot);
+    document.getElementById("btn-share").addEventListener("click",shareScene);
     document.getElementById("btn-save").addEventListener("click",saveScene);
     document.getElementById("btn-load").addEventListener("click",loadScene);
 
@@ -1915,6 +1981,8 @@
     lights(on){ lighting=on==null?!lighting:!!on; syncLightUI(); return lighting; },
     lightLevel(v){ if(v!=null){ lightLevel=clamp(v>1?v/100:v,0,1); const el=document.getElementById("light"); if(el) el.value=Math.round(lightLevel*100); syncLightUI(); } return lightLevel; },
     snapshot, save:saveScene, load:loadScene, stopAttract,
+    share:shareScene, shareCode:encodeScene,
+    loadShared(code){ try{ applySceneBytes(unb64url(String(code).replace(/^.*#s=/,''))); stopAttract(); return true; }catch(e){ return false; } },
     info(){ let c=0; for(let i=0;i<N;i++) if(grid[i]!==EMPTY) c++; return {W,H,SCALE,cells:c,particles:pn,gravity:[GX,GY],wind:WIND,heatMap}; },
     probe(x,y){ const i=(y|0)*W+(x|0); if(i<0||i>=N) return null; return {mat:M[grid[i]]?M[grid[i]].name:null, id:grid[i], charge:charge[i], life:life[i], temp:Math.round(temp[i]), pres:Math.round(pres[i])}; },
   };
@@ -1928,6 +1996,7 @@
     setupChallenges();
     const {ring,syncBrush}=setupUI();
     setupPointer(ring);
+    if(loadFromURL()) setTimeout(()=>toast("Loaded a shared scene"),400);
     window.addEventListener("resize",()=>{ resize(); setGravity(GX,GY); syncBrush(); });
     setTimeout(()=>{ const h=document.getElementById("hint"); if(h&&attract) h.classList.add("hide"); },9000);
     requestAnimationFrame(loop);

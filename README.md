@@ -34,7 +34,7 @@ Aether Sand is a physics-rich **falling-sand simulator** written from scratch in
 - **Ballistic particles & screen-shake.** A floating-point particle layer drives fireworks, embers and explosions with smooth motion on top of the grid — and a big blast punches the whole screen.
 - **Gravity & wind.** Point gravity in any of 8 directions, flip to zero-G, and blow particles around with adjustable wind, all from a compact compass.
 - **Challenges.** A set of bite-sized objectives — *light 5 bulbs at once, forge a diamond, quench obsidian, build serious pressure, run a circuit* — that tick off as you play, with progress saved locally and a little confetti when you nail one. Open them from the trophy in the top bar.
-- **Snapshot & save / load.** Export a PNG of your creation, or save and restore whole scenes from local storage.
+- **Shareable links, snapshots & saves.** Hit **Share link** to pack your entire scene into a URL (run-length compressed, so it stays short) — send it to anyone and the world rebuilds itself the moment they open it. Plus export a PNG, or save and restore scenes locally.
 - **A genuinely good UI.** A **tabbed, searchable material palette** (Natural / Reactive / Alchemy / Tools / All) with full-width readable buttons and a live description of whatever you've selected; live FPS + particle counters; heat-map and pressure-map overlays; and an **Alchemy Book** that reveals recipes as you discover them through play — ingredient swatch-chips, a discovery progress bar, **NEW** badges, and a sandbox "reveal all" toggle. Plus an elegant About panel, full keyboard shortcuts, mouse + touch, and responsive resize that preserves your artwork.
 
 ## 🖼️ Gallery
@@ -110,6 +110,7 @@ A.lights(false);                // toggle dynamic lighting
 A.lightLevel(0.4);              // dim bloom + coloured light (0..1 or 0..100)
 
 A.clear(); A.save(); A.load(); A.snapshot();
+A.share();                      // copy a shareable link (whole scene packed into the URL)
 A.info();                       // { cells, particles, gravity, wind, ... }
 ```
 
