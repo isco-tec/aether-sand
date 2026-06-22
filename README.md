@@ -1,5 +1,15 @@
 # 🏜️ Aether Sand
 
+<p align="center">
+  <a href="https://isco-tec.github.io/aether-sand/">
+    <img src="./assets/hero.png" alt="Aether Sand — a glowing lava mound, fireworks, falling snow and water at night" width="100%" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://isco-tec.github.io/aether-sand/"><b>▶&nbsp; Play the live demo</b></a>
+</p>
+
 A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla JavaScript — no libraries, no build step. A cellular-automata engine with density-based fluid dynamics, a real **heat/temperature field**, emergent material reactions, emissive bloom rendering, and a ballistic particle layer for fireworks and explosions.
 
 > Three files (`index.html` / `style.css` / `script.js`) that drop straight into CodePen's HTML / CSS / JS panels.
@@ -15,6 +25,12 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 - **Snapshot & save/load** — export a PNG of your creation or save/restore scenes.
 - **World-class UI** — glassmorphism panels, live FPS + particle counters, an optional heat-map overlay, full keyboard shortcuts, mouse + touch support, and responsive resize that preserves your artwork.
 
+## 🖼️ Gallery
+
+| World-class interface | Live heat-map overlay |
+| --- | --- |
+| ![Glassmorphism UI with material palette, force controls and live counters](./assets/interface.png) | ![Temperature field showing white-hot lava, burning fire and frozen ice](./assets/heatmap.png) |
+
 ## 🎮 Controls
 
 | Action | Control |
@@ -29,7 +45,9 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 
 ## 🚀 Run it
 
-It's fully static — just open `index.html`, or serve the folder:
+Play it instantly at **[isco-tec.github.io/aether-sand](https://isco-tec.github.io/aether-sand/)**.
+
+It's also fully static — just open `index.html`, or serve the folder:
 
 ```bash
 python3 -m http.server 8000
