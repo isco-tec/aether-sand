@@ -10,7 +10,8 @@
   const EMPTY=0, WALL=1, SAND=2, RAINBOW=3, WATER=4, ICE=5, SNOW=6, SALT=7,
         OIL=8, ACID=9, LAVA=10, FIRE=11, SMOKE=12, STEAM=13, WOOD=14,
         PLANT=15, GLASS=16, STONE=17, METAL=18, GUNPOWDER=19, FIREWORK=20,
-        SPARK=21, COAL=22, HEAT=23, COOL=24, CLONER=25, VOID=26;
+        SPARK=21, COAL=22, HEAT=23, COOL=24, CLONER=25, VOID=26,
+        MERCURY=27, THERMITE=28, FUSE=29;
 
   // cell types
   const STATIC=0, POWDER=1, LIQUID=2, GAS=3, TOOL=4;
@@ -59,10 +60,14 @@
     [COOL]:     { name:"Freeze", type:TOOL,   d:0,   c1:[160,224,255], c2:[96,174,255] },
     [CLONER]:   { name:"Cloner", type:STATIC, d:1e4, c1:[120,232,200], c2:[64,168,150], k:0.05 },
     [VOID]:     { name:"Void",   type:STATIC, d:1e5, c1:[70,34,104], c2:[26,12,46], k:0.02 },
+    [MERCURY]:  { name:"Mercury",type:LIQUID, d:230, disp:6, c1:[210,216,228], c2:[150,160,180], a:255, k:0.30, cond:1,
+                  trans:[{c:1,t:360,to:SMOKE,p:0.05}] },
+    [THERMITE]: { name:"Thermite",type:POWDER,d:215, c1:[150,116,88], c2:[100,78,60], k:0.05 },
+    [FUSE]:     { name:"Fuse",   type:STATIC, d:1e4, c1:[122,98,62], c2:[86,66,42], k:0.03, flam:1 },
   };
 
   // fast lookup arrays
-  const MAXID = 27;
+  const MAXID = 30;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -76,18 +81,19 @@
   WINDF[SMOKE]=1; WINDF[STEAM]=1; WINDF[FIRE]=1; WINDF[SNOW]=0.7;
   WINDF[WATER]=0.25; WINDF[OIL]=0.25; WINDF[ACID]=0.25;
   WINDF[SAND]=0.08; WINDF[SALT]=0.08; WINDF[GUNPOWDER]=0.08; WINDF[RAINBOW]=0.08; WINDF[COAL]=0.06;
-  CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1;
+  WINDF[THERMITE]=0.06; WINDF[MERCURY]=0.04;
+  CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1;
 
   // palette shown in UI
-  const PALETTE = [SAND, RAINBOW, WATER, ICE, SNOW, SALT, OIL, ACID, LAVA, FIRE,
-                   COAL, GUNPOWDER, FIREWORK, SPARK, HEAT, COOL, WOOD, PLANT,
+  const PALETTE = [SAND, RAINBOW, WATER, ICE, SNOW, SALT, OIL, ACID, MERCURY, LAVA, FIRE,
+                   COAL, GUNPOWDER, THERMITE, FUSE, FIREWORK, SPARK, HEAT, COOL, WOOD, PLANT,
                    METAL, STONE, GLASS, CLONER, VOID, SMOKE, WALL, EMPTY];
 
   const SPAWN_PROB = {
     [SAND]:0.85,[RAINBOW]:0.85,[WATER]:0.9,[SNOW]:0.7,[SALT]:0.8,[OIL]:0.9,
     [ACID]:0.8,[LAVA]:0.95,[FIRE]:0.5,[SMOKE]:0.4,[GUNPOWDER]:0.85,[COAL]:0.9,
     [ICE]:1,[WOOD]:1,[PLANT]:1,[METAL]:1,[STONE]:1,[GLASS]:1,[WALL]:1,
-    [FIREWORK]:0.5,[EMPTY]:1,
+    [FIREWORK]:0.5,[EMPTY]:1,[MERCURY]:0.95,[THERMITE]:0.9,[FUSE]:1,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -400,6 +406,49 @@
       return false;
     });
   }
+  function upMercury(x,y,i){
+    // amalgamation — quicksilver slowly transmutes touching metal into more mercury
+    forN8(x,i,(ni,nm)=>{ if(nm===METAL && rnd()<0.0035){ convert(ni,MERCURY); temp[ni]=temp[i]; } return false; });
+    moveLiquid(x,y,i,MERCURY,M[MERCURY].disp); applyWind(x,i,MERCURY);
+  }
+  function upThermite(x,y,i){
+    if(life[i]>0){
+      // burning — ferociously hot, melts metal/stone/glass/sand into molten slag
+      applySrc(i,2200,0.5); heatN(i,40);
+      forN8(x,i,(ni,nm)=>{
+        if(nm===METAL||nm===STONE||nm===GLASS||nm===SAND){ temp[ni]+=120; if(rnd()<0.06) convert(ni,LAVA); }
+        else if(nm===THERMITE && life[ni]<=0 && rnd()<0.5){ life[ni]=46+(rnd()*30|0); }
+        else if(FLAM[nm]) temp[ni]+=70;
+        return false;
+      });
+      if(rnd()<0.6) addP(x+0.5,y+0.5,(rnd()-0.5)*1.3,-(0.4+rnd()*1.7),16+rnd()*18,255,236,150,KSPARK);
+      if(--life[i]<=0) convert(i,LAVA);
+      return;
+    }
+    let ignite = temp[i]>=800 || charge[i]>0;
+    if(!ignite) forN8(x,i,(ni,nm)=>{ if(nm===FIRE||nm===LAVA||(nm===THERMITE&&life[ni]>0)){ ignite=true; return true; } return false; });
+    if(ignite){ life[i]=50+(rnd()*30|0); return; }
+    moveFalling(x,y,i,THERMITE);
+  }
+  function upFuse(x,y,i){
+    if(life[i]>0){
+      applySrc(i,680,0.4); heatN(i,8);
+      if(rnd()<0.4) addP(x+0.5,y+0.5,(rnd()-0.5)*0.6,-(0.4+rnd()*0.9),10+rnd()*10,255,196,96,KSPARK);
+      if(life[i]===1){
+        forN8(x,i,(ni,nm)=>{
+          if(nm===FUSE && life[ni]<=0) life[ni]=18+(rnd()*8|0);
+          else if(nm===GUNPOWDER||nm===THERMITE||FLAM[nm]) temp[ni]+=220;
+          return false;
+        });
+        convert(i, rnd()<0.5?SMOKE:EMPTY);
+        return;
+      }
+      life[i]--; return;
+    }
+    let ignite = temp[i]>=160 || charge[i]>0;
+    if(!ignite) forN8(x,i,(ni,nm)=>{ if(nm===FIRE||nm===LAVA||(nm===FUSE&&life[ni]>0)){ ignite=true; return true; } return false; });
+    if(ignite) life[i]=18+(rnd()*8|0);
+  }
   function emptyNeighbor(x,i){
     const c=[[-W,0,-1],[W,0,1],[-1,-1,0],[1,1,0]];
     const s=rnd()*4|0;
@@ -535,6 +584,9 @@
           case FIREWORK: upFirework(x,y,i); break;
           case CLONER: upCloner(x,y,i); break;
           case VOID: upVoid(x,y,i); break;
+          case MERCURY: upMercury(x,y,i); break;
+          case THERMITE: upThermite(x,y,i); break;
+          case FUSE: upFuse(x,y,i); break;
           // WOOD, GLASS, STONE, METAL: thermal only
         }
       }
@@ -632,6 +684,11 @@
         r=Math.min(255,lerp(mat.c2[0],mat.c1[0],sh)*(0.9+fl*0.2))|0;
         g=Math.min(255,lerp(mat.c2[1],mat.c1[1],sh)*(0.7+fl*0.4))|0;
         b=lerp(mat.c2[2],mat.c1[2],sh);
+      } else if(m===MERCURY){
+        const sp=(0.5+0.5*Math.sin(t*2.2+i*0.45))*34|0;
+        r=Math.min(255,lerp(mat.c2[0],mat.c1[0],sh)+sp);
+        g=Math.min(255,lerp(mat.c2[1],mat.c1[1],sh)+sp);
+        b=Math.min(255,lerp(mat.c2[2],mat.c1[2],sh)+sp+4);
       } else {
         r=lerp(mat.c1[0],mat.c2[0],sh); g=lerp(mat.c1[1],mat.c2[1],sh); b=lerp(mat.c1[2],mat.c2[2],sh);
         if(charge[i]>0){ const u=clamp(charge[i]/10,0,1);
@@ -910,7 +967,8 @@
   const NAME2ID={}; for(let id=0;id<MAXID;id++){ if(M[id]) NAME2ID[M[id].name.toLowerCase()]=id; }
   NAME2ID["eraser"]=EMPTY;
   const ALIAS={ gunpowder:GUNPOWDER, "rainbow sand":RAINBOW, electric:SPARK, electricity:SPARK, rocket:FIREWORK, empty:EMPTY,
-                torch:HEAT, warm:HEAT, cool:COOL, cryo:COOL, freeze:COOL, clone:CLONER, sink:VOID };
+                torch:HEAT, warm:HEAT, cool:COOL, cryo:COOL, freeze:COOL, clone:CLONER, sink:VOID,
+                quicksilver:MERCURY, hg:MERCURY, amalgam:MERCURY };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach((n,idx)=>n.classList.toggle("active", PALETTE[idx]===currentMat));
@@ -918,6 +976,7 @@
   window.AetherSand={
     EMPTY,WALL,SAND,RAINBOW,WATER,ICE,SNOW,SALT,OIL,ACID,LAVA,FIRE,SMOKE,STEAM,
     WOOD,PLANT,GLASS,STONE,METAL,GUNPOWDER,FIREWORK,SPARK,COAL,HEAT,COOL,CLONER,VOID,
+    MERCURY,THERMITE,FUSE,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
