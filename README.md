@@ -26,7 +26,7 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 - **Gravity & wind controls** — point gravity in any direction (or zero-G) and blow particles around with adjustable wind.
 - **Dynamic lighting** — every emitter (fire, lava, red-hot metal, sparks, fireworks) projects coloured light onto the matter around it, so a stone wall beside a lava pool actually warms to orange. Layered on top of the emissive bloom for true depth. **Adjust intensity** with the Light slider in the side panel, or toggle off entirely with `L`.
 - **Snapshot & save/load** — export a PNG of your creation or save/restore scenes.
-- **World-class UI** — glassmorphism panels, live FPS + particle counters, an optional heat-map overlay, full keyboard shortcuts, mouse + touch support, and responsive resize that preserves your artwork.
+- **World-class UI** — categorized material palette (Natural / Reactive / Alchemy / Tools), live FPS + particle counters, an optional heat-map overlay, adjustable lighting, an **Alchemy Book** with discoverable recipes, full keyboard shortcuts, mouse + touch support, and responsive resize that preserves your artwork.
 
 ## 🖼️ Gallery
 
@@ -46,6 +46,7 @@ A from-scratch, physics-rich **falling-sand simulator** built in pure vanilla Ja
 | Heat-map overlay | `H` |
 | Toggle dynamic lighting | `L` |
 | Light intensity | Side panel slider (bloom + coloured light) |
+| Open alchemy book | `B` or the book icon on the palette |
 | Brush size | `[` / `]` or the slider |
 | Pick material | `1`–`9` or the palette |
 

@@ -35,8 +35,13 @@
 
   <!-- Material palette -->
   <aside id="palette" class="panel">
-    <div class="panel-title">Materials</div>
-    <div id="material-grid" class="material-grid"></div>
+    <div class="palette-head">
+      <div class="panel-title">Materials</div>
+      <button class="palette-book" id="btn-book" title="Alchemy book (B)" aria-label="Open alchemy book">
+        <svg viewBox="0 0 24 24"><path d="M6 4h12a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 0 1 2-2z"/></svg>
+      </button>
+    </div>
+    <div id="material-sections"></div>
   </aside>
 
   <!-- Forces + scene panel -->
@@ -117,7 +122,33 @@
 
   <!-- First-run hint -->
   <div id="hint">
-    <kbd>Click + drag</kbd> to pour · <kbd>Right-click</kbd> to erase · <kbd>Space</kbd> pause · <kbd>H</kbd> heat-map · <kbd>L</kbd> lighting
+    <kbd>Click + drag</kbd> to pour · <kbd>Right-click</kbd> to erase · <kbd>Space</kbd> pause · <kbd>B</kbd> alchemy book
+  </div>
+
+  <!-- Alchemy booklet -->
+  <div id="booklet" class="booklet hidden" aria-hidden="true">
+    <div class="booklet-backdrop" id="booklet-backdrop"></div>
+    <div class="booklet-panel panel">
+      <header class="booklet-head">
+        <div>
+          <h2>Alchemy Book</h2>
+          <p id="discover-count">0 discovered</p>
+        </div>
+        <button class="booklet-close" id="btn-book-close" aria-label="Close book">×</button>
+      </header>
+      <div class="booklet-tabs">
+        <button class="btab active" data-tab="recipes">Recipes</button>
+        <button class="btab" data-tab="materials">Materials</button>
+      </div>
+      <div class="booklet-body" id="booklet-recipes"></div>
+      <div class="booklet-body hidden" id="booklet-materials"></div>
+      <footer class="booklet-foot">
+        <label class="reveal-toggle">
+          <input type="checkbox" id="reveal-all" />
+          <span>Reveal all recipes (sandbox mode)</span>
+        </label>
+      </footer>
+    </div>
   </div>
 
   <script src="script.js"></script>
