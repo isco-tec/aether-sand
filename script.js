@@ -395,7 +395,7 @@
     sim.width=W; sim.height=H; glow.width=W; glow.height=H;
     simImg=sctx.createImageData(W,H); glowImg=gctx.createImageData(W,H);
     sim32=new Uint32Array(simImg.data.buffer); glow32=new Uint32Array(glowImg.data.buffer);
-    LS=3; LW=Math.ceil(W/LS); LH=Math.ceil(H/LS); LN=LW*LH;
+    LS=3; LW=Math.ceil(W/LS); LH=Math.ceil(H/LS); LN=LW*LH;   // LS = light supersample: the colour-light buffer is 1/LS the grid resolution
     lightR=new Float32Array(LN); lightG=new Float32Array(LN);
     lightB=new Float32Array(LN); lightT=new Float32Array(LN);
     if(old){
@@ -1324,11 +1324,8 @@
   }
   // fulgurite — fuse a little blob of sand into glass (real lightning makes glass tubes)
   function fuseSand(cx,cy,r){
-    let made=false; const r2=r*r;
-    for(let dy=-r;dy<=r;dy++){ const ny=cy+dy; if(ny<0||ny>=H) continue;
-      for(let dx=-r;dx<=r;dx++){ const nx=cx+dx; if(nx<0||nx>=W) continue;
-        if(dx*dx+dy*dy>r2) continue;
-        const i=ny*W+nx; if(grid[i]===SAND){ convert(i,GLASS); shade[i]=r255(); made=true; } } }
+    let made=false;
+    forDisc(cx,cy,r,(i)=>{ if(grid[i]===SAND){ convert(i,GLASS); shade[i]=r255(); made=true; } });
     if(made) discoverRecipe("fulgurite");
     return made;
   }
@@ -1664,30 +1661,23 @@
     }
     return [r*255|0,g*255|0,b*255|0];
   }
+  // sample a piecewise-linear colour gradient (an array of [value, [r,g,b]] stops) at v
+  function sampleGradient(stops, v){
+    if(v<=stops[0][0]) return stops[0][1];
+    for(let k=1;k<stops.length;k++){
+      if(v<=stops[k][0]){
+        const a=stops[k-1],b=stops[k],f=(v-a[0])/(b[0]-a[0]);
+        return [lerp(a[1][0],b[1][0],f),lerp(a[1][1],b[1][1],f),lerp(a[1][2],b[1][2],f)];
+      }
+    }
+    return stops[stops.length-1][1];
+  }
   const HEAT_STOPS=[[-40,[40,90,255]],[0,[0,200,255]],[20,[10,16,34]],
     [120,[70,230,120]],[320,[255,210,50]],[640,[255,90,20]],[1100,[255,245,210]]];
-  function heatRGB(t){
-    if(t<=HEAT_STOPS[0][0]) return HEAT_STOPS[0][1];
-    for(let k=1;k<HEAT_STOPS.length;k++){
-      if(t<=HEAT_STOPS[k][0]){
-        const a=HEAT_STOPS[k-1],b=HEAT_STOPS[k],f=(t-a[0])/(b[0]-a[0]);
-        return [lerp(a[1][0],b[1][0],f),lerp(a[1][1],b[1][1],f),lerp(a[1][2],b[1][2],f)];
-      }
-    }
-    return HEAT_STOPS[HEAT_STOPS.length-1][1];
-  }
   const PRES_STOPS=[[-30,[30,60,200]],[0,[10,14,26]],[40,[60,180,130]],
     [120,[255,205,60]],[300,[255,90,40]],[600,[255,250,235]]];
-  function presRGB(p){
-    if(p<=PRES_STOPS[0][0]) return PRES_STOPS[0][1];
-    for(let k=1;k<PRES_STOPS.length;k++){
-      if(p<=PRES_STOPS[k][0]){
-        const a=PRES_STOPS[k-1],b=PRES_STOPS[k],f=(p-a[0])/(b[0]-a[0]);
-        return [lerp(a[1][0],b[1][0],f),lerp(a[1][1],b[1][1],f),lerp(a[1][2],b[1][2],f)];
-      }
-    }
-    return PRES_STOPS[PRES_STOPS.length-1][1];
-  }
+  const heatRGB=(t)=>sampleGradient(HEAT_STOPS,t);
+  const presRGB=(p)=>sampleGradient(PRES_STOPS,p);
 
   /* ============================ Dynamic lighting ================== */
   // Emissive cells/particles splat colour into a coarse buffer that is
@@ -1923,17 +1913,25 @@
   let fireworkCooldown=0, lightningCooldown=0, stormCooldown=0, stormThunderCD=0;
   let stormCount=0, stormPX=0, stormPY=0;   // reservoir sample of the whole cloud → a strike point anywhere in it
 
-  function paintTemp(cx,cy,sign){
-    const rad=Math.max(2,brush), r2=rad*rad;
-    const x0=Math.max(0,cx-rad),x1=Math.min(W-1,cx+rad);
-    const y0=Math.max(0,cy-rad),y1=Math.min(H-1,cy+rad);
+  // iterate the grid cells inside a filled disc of radius rad around (cx,cy), then mark the region active.
+  // The callback receives (i, x, y, dd) where dd is the squared distance from the centre. (One brush skeleton.)
+  function forDisc(cx,cy,rad,fn){
+    const r2=rad*rad;
+    const x0=Math.max(0,(cx-rad)|0),x1=Math.min(W-1,(cx+rad)|0);
+    const y0=Math.max(0,(cy-rad)|0),y1=Math.min(H-1,(cy+rad)|0);
     for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
       const dx=x-cx,dy=y-cy,dd=dx*dx+dy*dy; if(dd>r2) continue;
-      const i=y*W+x, f=1-Math.sqrt(dd)/(rad+0.001);
-      if(sign>0) temp[i]=Math.min(1500, temp[i]+36*f);
-      else temp[i]=Math.max(-50, temp[i]-32*f);
+      fn(y*W+x,x,y,dd);
     }
     expandActive(x0,y0,x1,y1);
+  }
+  function paintTemp(cx,cy,sign){
+    const rad=Math.max(2,brush);
+    forDisc(cx,cy,rad,(i,x,y,dd)=>{
+      const f=1-Math.sqrt(dd)/(rad+0.001);
+      if(sign>0) temp[i]=Math.min(1500, temp[i]+36*f);
+      else temp[i]=Math.max(-50, temp[i]-32*f);
+    });
   }
   function paintDisc(cx,cy,mat){
     if(mat===FIREWORK){ if(fireworkCooldown<=0){ launchRocket(cx,cy); fireworkCooldown=6; } return; }
@@ -1941,32 +1939,21 @@
     if(mat===LIGHTNING){ if(lightningCooldown<=0){ strikeLightning(cx,cy); lightningCooldown=10; } return; }
     if(mat===HEAT){ paintTemp(cx,cy,1); return; }
     if(mat===COOL){ paintTemp(cx,cy,-1); return; }
-    const rad=brush, prob=SPAWN_PROB[mat]??1, r2=rad*rad;
-    const x0=Math.max(0,cx-rad),x1=Math.min(W-1,cx+rad);
-    const y0=Math.max(0,cy-rad),y1=Math.min(H-1,cy+rad);
-    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
-      const dx=x-cx,dy=y-cy; if(dx*dx+dy*dy>r2) continue;
-      const i=y*W+x;
-      if(mat===EMPTY){ grid[i]=EMPTY; charge[i]=0; temp[i]=AMBIENT; continue; }
-      if(rnd()>prob) continue;
+    const prob=SPAWN_PROB[mat]??1;
+    forDisc(cx,cy,brush,(i)=>{
+      if(mat===EMPTY){ grid[i]=EMPTY; charge[i]=0; temp[i]=AMBIENT; return; }
+      if(rnd()>prob) return;
       const cur=grid[i];
       if(cur===EMPTY || TYPE[cur]===GAS || TYPE[mat]===STATIC) spawn(i,mat);
-    }
-    expandActive(x0,y0,x1,y1);
+    });
   }
   function paintSpark(cx,cy){
-    const rad=Math.max(2,brush*0.6), r2=rad*rad;
-    const x0=Math.max(0,cx-rad),x1=Math.min(W-1,cx+rad);
-    const y0=Math.max(0,cy-rad),y1=Math.min(H-1,cy+rad);
     let hit=false;
-    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
-      const dx=x-cx,dy=y-cy; if(dx*dx+dy*dy>r2) continue;
-      const i=y*W+x, m=grid[i];
+    forDisc(cx,cy,Math.max(2,brush*0.6),(i)=>{ const m=grid[i];
       if(CHCOND[m]){ charge[i]=6; hit=true; chargeDirty=true; }
       else if(FLAM[m]){ temp[i]+=120; hit=true; }
-    }
+    });
     if(!hit){ for(let a=0;a<5;a++){ const ang=rnd()*6.28; addP(cx,cy,Math.cos(ang)*1.2,Math.sin(ang)*1.2,14,180,240,255,KSPARK);} }
-    expandActive(x0,y0,x1,y1);
   }
   function paintLine(x0,y0,x1,y1,mat){
     const dist=Math.hypot(x1-x0,y1-y0);
@@ -2172,14 +2159,9 @@
       for(let k=0;k<count && idx<target.length;k++) target[idx++]=v;
     }
   }
-  function b64url(arr){
-    let s="",ch=0x8000; for(let i=0;i<arr.length;i+=ch) s+=String.fromCharCode.apply(null,arr.subarray(i,i+ch));
-    return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  }
-  function unb64url(str){
-    str=str.replace(/-/g,'+').replace(/_/g,'/'); while(str.length%4) str+='=';
-    const bin=atob(str),a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return a;
-  }
+  // URL-safe base64 = plain base64 with +/= swapped — reuse b64/unb64 rather than re-implement the chunked loop
+  function b64url(arr){ return b64(arr).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+  function unb64url(str){ str=str.replace(/-/g,'+').replace(/_/g,'/'); while(str.length%4) str+='='; return unb64(str); }
   function encodeScene(){
     const rle=rleEncode(grid), all=new Uint8Array(5+rle.length);
     all[0]=SCENE_VERSION;
