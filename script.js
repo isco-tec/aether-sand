@@ -684,7 +684,7 @@
     if(oxy>=0){ applySrc(i,950,0.25); if(rnd()<0.3){ convert(oxy,CO2); discoverRecipe("combust_o2"); } air=true; }
     // CO2 smothers; sealed (no air) suffocates; oxygen sustains; otherwise normal burn
     life[i] -= co2 ? 6 : (!air ? 4 : (oxy>=0 ? 0 : 1));
-    if(life[i]<=0){ if(rnd()<0.5) convert(i,SMOKE); else grid[i]=EMPTY; return; }
+    if(life[i]<=0){ const r=rnd(); if(r<0.42) convert(i,SMOKE); else if(r<0.6) convert(i,ASH); else grid[i]=EMPTY; return; }  // embers leave a little ash — it drifts down and enriches the soil
     if(applyPressure(x,y,i,FIRE)) return;
     moveGas(x,y,i,FIRE); applyWind(x,i,FIRE);
   }
