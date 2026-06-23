@@ -263,6 +263,10 @@
     { id:"ash", cat:"Phase", name:"Ashes to ashes", in:[COAL], out:[ASH], note:"Spent fuel crumbles into light grey ash.", hint:"What remains when fuel dies…" },
     { id:"brine_dissolve", cat:"Phase", name:"Dissolution", in:[SALT,WATER], out:[BRINE], note:"Salt dissolves into the water it touches, making brine.", hint:"Crystal melts into liquid…" },
     { id:"brine_evap", cat:"Phase", name:"Crystallisation", in:[BRINE], out:[SALT], note:"Boil brine dry and the salt crystallises back out as steam escapes.", hint:"Boil the salt water away…" },
+    { id:"salt_melt", cat:"Phase", name:"De-icing", in:[SALT,ICE], out:[BRINE], note:"Salt depresses water's freezing point — sprinkled on ice or snow it melts them into brine.", hint:"Why the roads are gritted…" },
+    { id:"freeze", cat:"Phase", name:"Frost spread", in:[ICE,WATER], out:[ICE], note:"Ice chills the water around it until a frost rim creeps outward.", hint:"Cold begets cold…" },
+    { id:"condense", cat:"Phase", name:"Condensation", in:[STEAM], out:[WATER], note:"Vapour cools on cold surfaces into dew, and gathers high in the sky into rain clouds — the water cycle.", hint:"Where vapour gathers and cools…" },
+    { id:"douse", cat:"Phase", name:"Doused", in:[FIRE,WATER], out:[STEAM], note:"Water smothers a flame outright, flashing to steam as it goes.", hint:"The oldest way to fight fire…" },
     { id:"lava_stone", cat:"Phase", name:"Igneous cooling", in:[LAVA], out:[STONE], note:"Cooling molten rock solidifies to stone.", hint:"Molten rock cooling…" },
     { id:"sand_glass", cat:"Phase", name:"Vitric fusion", in:[SAND], out:[GLASS], note:"Fierce heat fuses sand grains into glass.", hint:"Sand under fierce heat…" },
     { id:"glass_shatter", cat:"Phase", name:"Shatter", in:[GLASS], out:[SAND], note:"A blast's pressure wave shatters glass back into sand.", hint:"Glass under sudden pressure…" },
@@ -270,6 +274,8 @@
     { id:"hydrogen_boom", cat:"Pyrotechnics", name:"Knallgas", in:[HYDROGEN,FIRE], out:[FIRE], note:"Hydrogen ignites violently — far fiercer beside oxygen.", hint:"The lightest gas meets flame…" },
     { id:"oxy_fire", cat:"Pyrotechnics", name:"Oxygen feed", in:[OXYGEN,FIRE], out:[FIRE], note:"Oxygen makes flames burn hotter and longer.", hint:"Fire that can breathe…" },
     { id:"combust_o2", cat:"Pyrotechnics", name:"Combustion", in:[FIRE,OXYGEN], out:[CO2], note:"Oxygen-fed fire burns to carbon dioxide.", hint:"What fire breathes out…" },
+    { id:"carbonate_acid", cat:"Phase", name:"Effervescence", in:[ACID,LIMESTONE], out:[CO2], note:"Acid on carbonate rock fizzes — it dissolves away, releasing carbon dioxide.", hint:"Vinegar on chalk…" },
+    { id:"photosynthesis", cat:"Growth", name:"Photosynthesis", in:[PLANT,CO2], out:[OXYGEN], note:"A lit, watered leaf breathes carbon dioxide in and oxygen out.", hint:"What a green leaf gives back…" },
     { id:"smother", cat:"Pyrotechnics", name:"Smothered", in:[CO2,FIRE], out:[SMOKE], note:"Heavy carbon dioxide settles over a flame and snuffs it. Seal a fire with no air and it suffocates too.", hint:"Starve the flame of air…" },
     { id:"nitro_blast", cat:"Pyrotechnics", name:"Nitro shock", in:[NITRO], out:[FIRE], note:"Agitated nitro detonates on impact, heat, or spark.", hint:"Unstable liquid, sudden stop…" },
     { id:"fuse_chain", cat:"Pyrotechnics", name:"Fuse chain", in:[FUSE], out:[FIRE], note:"Flame crawls the cord to whatever it feeds.", hint:"A slow burning cord…" },
@@ -683,59 +689,79 @@
      the world; one-shots fire on events. Starts on the first user gesture
      (autoplay policy) and remembers a mute preference. */
   const Snd = (() => {
-    let ctx=null, master=null, started=false, noiseBuf=null;
+    let ctx=null, master=null, comp=null, started=false, noiseBuf=null;
     let muted=false; try{ muted=localStorage.getItem("aether-mute")==="1"; }catch(_){}
-    const V={};   // ambient voices
+    const V={};                       // ambient voices
+    const last=Object.create(null);   // per-sound throttle clocks (ms) so rapid events never stack into a wall
+    const MASTER=0.5;
     function buildNoise(){ const n=ctx.sampleRate*2, b=ctx.createBuffer(1,n,ctx.sampleRate), d=b.getChannelData(0);
       for(let i=0;i<n;i++) d[i]=Math.random()*2-1; return b; }
     function voice(type){
       const src=ctx.createBufferSource(); src.buffer=noiseBuf; src.loop=true;
       const f=ctx.createBiquadFilter(), g=ctx.createGain(); g.gain.value=0;
-      if(type==="fire"){ f.type="bandpass"; f.frequency.value=1100; f.Q.value=0.6; }
-      else if(type==="water"){ f.type="lowpass"; f.frequency.value=480; }
-      else { f.type="lowpass"; f.frequency.value=110; }   // lava rumble
+      if(type==="fire"){ f.type="bandpass"; f.frequency.value=1000; f.Q.value=0.7; }
+      else if(type==="water"){ f.type="lowpass"; f.frequency.value=460; }
+      else { f.type="lowpass"; f.frequency.value=100; }   // lava rumble
       src.connect(f); f.connect(g); g.connect(master); src.start();
       return g;
     }
     function ensure(){
       if(ctx) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
       try{ ctx=new AC(); }catch(_){ return; }
-      master=ctx.createGain(); master.gain.value=0; master.connect(ctx.destination);
+      // a gentle limiter on the bus so a storm of blasts/strikes is tamed instead of clipping into harshness
+      comp=ctx.createDynamicsCompressor();
+      comp.threshold.value=-20; comp.knee.value=26; comp.ratio.value=5; comp.attack.value=0.003; comp.release.value=0.2;
+      comp.connect(ctx.destination);
+      master=ctx.createGain(); master.gain.value=0; master.connect(comp);
       noiseBuf=buildNoise(); V.fire=voice("fire"); V.water=voice("water"); V.lava=voice("lava");
     }
     function start(){ ensure(); if(!ctx) return; if(ctx.state==="suspended") ctx.resume();
-      if(!started){ started=true; master.gain.setTargetAtTime(muted?0:0.62, ctx.currentTime, 0.2); } }
+      if(!started){ started=true; master.gain.setTargetAtTime(muted?0:MASTER, ctx.currentTime, 0.2); } }
     function on(){ return ctx && started && !muted; }
-    function tone(freq,dur,type,vol,sweep){
+    function gate(key,ms){ const t=ctx.currentTime*1000; if(last[key] && t-last[key]<ms) return false; last[key]=t; return true; }
+    function tone(freq,dur,type,vol,sweep,atk){
       if(!on()) return; const t=ctx.currentTime;
       const o=ctx.createOscillator(); o.type=type||"sine"; o.frequency.value=freq;
       if(sweep) o.frequency.exponentialRampToValueAtTime(sweep, t+dur);
       const g=ctx.createGain(); g.gain.value=0;
-      g.gain.linearRampToValueAtTime(vol, t+0.006); g.gain.exponentialRampToValueAtTime(0.0006, t+dur);
-      o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.03);
+      g.gain.linearRampToValueAtTime(vol, t+(atk||0.008)); g.gain.exponentialRampToValueAtTime(0.0006, t+dur);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.04);
     }
-    function noise(dur,hp,vol){
+    function noise(dur,ftype,freq,Q,vol,atk){
       if(!on()) return; const t=ctx.currentTime;
       const s=ctx.createBufferSource(); s.buffer=noiseBuf;
-      const f=ctx.createBiquadFilter(); f.type="highpass"; f.frequency.value=hp;
-      const g=ctx.createGain(); g.gain.value=vol; g.gain.exponentialRampToValueAtTime(0.0005, t+dur);
-      s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t+dur+0.03);
+      const f=ctx.createBiquadFilter(); f.type=ftype||"lowpass"; f.frequency.value=freq; if(Q) f.Q.value=Q;
+      const g=ctx.createGain(); g.gain.value=0;
+      g.gain.linearRampToValueAtTime(vol, t+(atk||0.005)); g.gain.exponentialRampToValueAtTime(0.0005, t+dur);
+      s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t+dur+0.04);
     }
     return {
       start,
       state:()=>({hasCtx:!!ctx, running:ctx?ctx.state:null, started, muted}),
       isMuted:()=>muted,
       setMuted(m){ muted=m; try{ localStorage.setItem("aether-mute", m?"1":"0"); }catch(_){}
-        if(master&&ctx) master.gain.setTargetAtTime(m?0:0.62, ctx.currentTime, 0.06); },
+        if(master&&ctx) master.gain.setTargetAtTime(m?0:MASTER, ctx.currentTime, 0.06); },
       ambient(fN,wN,lN){ if(!ctx||!started) return; const t=ctx.currentTime;
-        V.fire.gain.setTargetAtTime(Math.min(0.16, fN*0.0009), t, 0.25);
-        V.water.gain.setTargetAtTime(Math.min(0.11, wN*0.00035), t, 0.45);
-        V.lava.gain.setTargetAtTime(Math.min(0.22, lN*0.0014), t, 0.45); },
-      boom(){ tone(120,0.55,"sine",0.6,38); noise(0.4,70,0.55); },           // explosion
-      zap(){ noise(0.16,2600,0.5); tone(880,0.12,"square",0.16,180); },      // lightning crack
-      chime(grand){ tone(880,0.5,"triangle",0.2); setTimeout(()=>tone(1318,0.55,"sine",0.15),70);
-        if(grand) setTimeout(()=>tone(1760,0.7,"sine",0.13),150); },         // new alchemy (grand = the Stone)
-      pop(){ tone(440,0.16,"sine",0.16,200); },                             // firework
+        V.fire.gain.setTargetAtTime(Math.min(0.14, fN*0.0008), t, 0.3);
+        V.water.gain.setTargetAtTime(Math.min(0.10, wN*0.00032), t, 0.5);
+        V.lava.gain.setTargetAtTime(Math.min(0.2, lN*0.0013), t, 0.5); },
+      // a deep, soft detonation — low body + a low-passed rumble, no piercing highs
+      boom(){ if(!on()||!gate("boom",100)) return;
+        tone(82,0.62,"sine",0.4,34,0.014);
+        noise(0.42,"lowpass",380,1,0.26,0.01);
+        tone(150,0.16,"sine",0.10,66,0.005); },
+      // a band-limited crack and a rolling thunder tail — sharp, but never a piercing hiss
+      zap(){ if(!on()||!gate("zap",170)) return;
+        noise(0.055,"bandpass",1500,0.7,0.18,0.001);
+        tone(430,0.05,"sawtooth",0.045,150,0.001);
+        tone(165,0.46,"sine",0.17,52,0.008);
+        noise(0.3,"lowpass",240,1,0.11,0.012); },
+      // new alchemy — a warm bell (grand = the Stone, a fuller rising chord)
+      chime(grand){ if(!on()||!gate("chime",70)) return;
+        tone(880,0.55,"triangle",0.17,0,0.01); setTimeout(()=>tone(1318,0.6,"sine",0.12,0,0.01),80);
+        if(grand) setTimeout(()=>tone(1760,0.75,"sine",0.1,0,0.012),170); },
+      // firework — a soft, airy blip
+      pop(){ if(!on()||!gate("pop",45)) return; tone(520,0.16,"sine",0.12,210,0.004); },
     };
   })();
 
@@ -743,8 +769,9 @@
   function upFire(x,y,i){
     applySrc(i,650,0.5); heatN(i,18);
     // wildfire contagion + combustion air-check, in one neighbour scan
-    let air=false, oxy=-1, co2=false;
+    let air=false, oxy=-1, co2=false, doused=false;
     forN8(x,i,(ni,nm)=>{
+      if(nm===WATER){ convert(ni,STEAM); doused=true; return false; }   // water douses the flame and flashes to steam
       if(FLAM[nm] && TYPE[nm]===STATIC){
         temp[ni]+=42;
         if(temp[ni]>140 && rnd()<0.07){ convert(ni,FIRE); discoverRecipe("wildfire"); }
@@ -754,6 +781,7 @@
       else if(nm===EMPTY || TYPE[nm]===GAS) air=true;   // somewhere to draw breath / vent
       return false;
     });
+    if(doused){ convert(i, rnd()<0.5?SMOKE:EMPTY); discoverRecipe("douse"); return; }   // quenched by water
     if(oxy>=0){ applySrc(i,950,0.25); if(rnd()<0.3){ convert(oxy,CO2); discoverRecipe("combust_o2"); } air=true; }
     // CO2 smothers; sealed (no air) suffocates; oxygen sustains; otherwise normal burn
     life[i] -= co2 ? 6 : (!air ? 4 : (oxy>=0 ? 0 : 1));
@@ -777,6 +805,7 @@
     let quenched=false;
     forN8(x,i,(ni,nm)=>{
       if(nm===WATER && rnd()<0.16){ convert(ni,STEAM); convert(i,OBSIDIAN); temp[i]=340; quenched=true; discoverRecipe("obsidian"); return true; }
+      if(FLAM[nm] && rnd()<0.22){ if(TYPE[nm]===STATIC){ convert(ni,FIRE); discoverRecipe("wildfire"); } else temp[ni]+=140; }   // molten rock sets flammables alight on contact
       return false;
     });
     if(quenched) return;
@@ -794,6 +823,11 @@
   }
   function upSteam(x,y,i){
     if(--life[i]<=0){ convert(i, rnd()<0.4?WATER:EMPTY); return; }
+    // the water cycle: vapour touching something cold condenses back to droplets; vapour gathered high & cool gathers into a cloud
+    let cold=false, vapour=0;
+    forN8(x,i,(ni,nm)=>{ if(nm===ICE||nm===SNOW||temp[ni]<6) cold=true; if(nm===STEAM||nm===CLOUD) vapour++; return false; });
+    if(cold && rnd()<0.14){ convert(i,WATER); discoverRecipe("condense"); return; }
+    if(y<(H*0.32) && vapour>=4 && rnd()<0.03){ convert(i,CLOUD); discoverRecipe("condense"); return; }   // gathered & risen vapour condenses aloft into a rain cloud
     if(applyPressure(x,y,i,STEAM)) return;
     moveGas(x,y,i,STEAM); applyWind(x,i,STEAM);
   }
@@ -811,7 +845,11 @@
       if(nm===MERCURY && rnd()<(phil?0.04:0.015)){ convert(ni,GOLD); temp[ni]=temp[i]; grid[i]=EMPTY; gone=true; discoverRecipe("acid_gold"); return true; }
       // nitric path — acid + saltpeter brews aqua regia
       if(nm===SALTPETER && rnd()<0.012){ convert(i,AQUA); grid[ni]=EMPTY; gone=true; discoverRecipe("aqua_brew"); return true; }
-      if(nm!==EMPTY&&nm!==ACID&&nm!==WALL&&nm!==GLASS&&nm!==GOLD&&nm!==AQUA&&TYPE[nm]!==GAS && rnd()<0.05){
+      // diluted by water — the acid is neutralised into it rather than devouring it
+      if(nm===WATER){ if(rnd()<0.02){ grid[i]=EMPTY; gone=true; return true; } return false; }
+      // carbonate rock fizzes — acid + limestone → meltwater + a puff of CO2 (vinegar on chalk)
+      if(nm===LIMESTONE && rnd()<0.04){ grid[ni]=EMPTY; const e=emptyNeighbor(x,i); if(e>=0) spawn(e,CO2); convert(i,WATER); gone=true; discoverRecipe("carbonate_acid"); return true; }
+      if(nm!==EMPTY&&nm!==ACID&&nm!==WALL&&nm!==GLASS&&nm!==GOLD&&nm!==AQUA&&nm!==WATER&&TYPE[nm]!==GAS && rnd()<0.05){
         grid[ni]=EMPTY;
         if(rnd()<0.4){ grid[i]=EMPTY; gone=true; return true; }
       }
@@ -844,7 +882,10 @@
   }
   function upSalt(x,y,i){
     let d=false;
-    forCard(i,(ni)=>{ if(grid[ni]===WATER && rnd()<0.03){ convert(ni,BRINE); grid[i]=EMPTY; discoverRecipe("brine_dissolve"); d=true; } });  // salt dissolves into brine
+    forCard(i,(ni)=>{ const nm=grid[ni];
+      if(nm===WATER && rnd()<0.03){ convert(ni,BRINE); grid[i]=EMPTY; discoverRecipe("brine_dissolve"); d=true; }    // dissolves into brine
+      else if((nm===ICE||nm===SNOW) && rnd()<0.05){ convert(ni,BRINE); grid[i]=EMPTY; discoverRecipe("salt_melt"); d=true; }  // freezing-point depression — salt melts ice/snow into brine
+    });
     if(!d) moveFalling(x,y,i,SALT);
   }
   function upBrine(x,y,i){
@@ -900,21 +941,30 @@
   }
   function upSnow(x,y,i){
     applySrc(i,-3,0.2);
+    forCard(i,(ni)=>{ const nm=grid[ni]; if(nm===SALT && rnd()<0.05){ convert(i,BRINE); grid[ni]=EMPTY; discoverRecipe("salt_melt"); } });  // salt melts it too
     if(rnd()<0.6) moveFalling(x,y,i,SNOW);
     applyWind(x,i,SNOW);
   }
-  function upIce(i){ applySrc(i,-12,0.3); }
+  function upIce(i){ applySrc(i,-12,0.3);
+    forCard(i,(ni)=>{ const nm=grid[ni];
+      if(nm===WATER && temp[ni]<1 && rnd()<0.05){ convert(ni,ICE); discoverRecipe("freeze"); }   // a frost rim grows into genuinely-cold water
+      else if(nm===SALT && rnd()<0.05){ convert(i,WATER); grid[ni]=EMPTY; discoverRecipe("salt_melt"); }   // salt melts ice
+    });
+  }
   function upPlant(x,y,i){
-    let water=-1; let lit=false; const empties=[];
+    let water=-1; let lit=false, co2=-1; const empties=[];
     forN8(x,i,(ni,nm)=>{
       if(nm===WATER){ water=ni; lit=true; }
       else if(nm===EMPTY){ empties.push(ni); lit=true; }
+      else if(nm===CO2) co2=ni;
       // alive if it can reach air, light (through liquids/ice/glass), or its own kind — only opaque burial wilts it
       else if(TYPE[nm]===GAS||TYPE[nm]===LIQUID||nm===PLANT||nm===VINE||nm===SEED||nm===ICE||nm===GLASS) lit=true;
       return false;
     });
     // photosynthesis — a plant sealed in the dark (buried, no air/light, no kin) withers to ash
     if(!lit){ if(rnd()<0.004){ convert(i,ASH); discoverRecipe("wilt"); } return; }
+    // a lit, watered leaf breathes CO2 in and oxygen out (the carbon/oxygen cycle)
+    if(co2>=0 && water>=0 && rnd()<0.05){ convert(co2,OXYGEN); discoverRecipe("photosynthesis"); }
     if(water>=0 && empties.length && rnd()<0.1){
       // grow toward the light: prefer the highest (lowest-index) open cell
       empties.sort((a,b)=>a-b);
@@ -1882,8 +1932,6 @@
   let attract=true, attractT=0, attractStage=0, titleCells=[], dissolveIdx=0;
   let titleBox={x0:0,x1:0,y0:0,y1:0}, terrainTop=null, philoSet=false, fwFlash=false;
   function cineClear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); }
-  function cineRow(x0,x1,y,m){ if(y<0||y>=H) return;
-    for(let x=Math.max(0,x0|0);x<=Math.min(W-1,x1|0);x++){ const i=y*W+x; if(grid[i]===EMPTY) spawn(i,m); } }
   // rasterise text into material cells; return its bounding box (for pouring sand on it)
   function stampText(text,cx,cy,mat,fontPx){
     const oc=document.createElement("canvas"); oc.width=W; oc.height=H;
@@ -1961,37 +2009,33 @@
       expandActive(0,0,W-1,H-1);
       if(dissolveIdx>=titleCells.length) attractStage=3;
     }
-    // stage 3 → once the rain has stopped and the land has settled, sow seeds on the banks so saplings climb proper trunks
-    if(attractStage===3 && t>=10){
-      for(const fx of [0.1,0.16,0.22,0.28,0.34,0.4,0.46,0.52,0.58,0.64,0.7,0.76,0.82,0.88]){ const x=(W*fx)|0;
-        let sy=-1; for(let y=(baseY-22)|0; y<H; y++){ const m=grid[y*W+x]; if(m!==EMPTY && TYPE[m]!==GAS && TYPE[m]!==LIQUID){ sy=y; break; } }
-        if(sy>3){ for(let s=-2;s<=2;s++){ const sx=x+s; if(sx>0&&sx<W){ const i=(sy-1)*W+sx; if(grid[i]===EMPTY) spawn(i,SEED); } }
-          cineRow(x-3,x+3,sy-9,WATER); }
+    // stage 3 → the land has settled → saplings spring up across the banks (reliable + well-spread) and climb fast into trees
+    if(attractStage===3 && t>=6.8){
+      const TREE_FX=[0.1,0.17,0.24,0.31,0.38,0.45,0.52,0.59,0.66,0.73,0.8,0.87];
+      for(let n=0;n<TREE_FX.length;n++){
+        const x=clamp((W*TREE_FX[n] + (rnd()-0.5)*0.03*W)|0, 2, W-3);
+        let sy=-1; for(let yy=(baseY-24)|0; yy<H; yy++){ const m=grid[yy*W+x]; if(m!==EMPTY && TYPE[m]!==GAS && TYPE[m]!==LIQUID){ sy=yy; break; } }
+        if(sy>5){ const top=sy-1;
+          for(let c=1;c<=4;c++){ const ai=(top-c)*W+x; if(ai>=0 && TYPE[grid[ai]]!==STATIC && grid[ai]!==WOOD) grid[ai]=EMPTY; }   // a clear column to climb
+          spawn(top*W+x, SAPLING); life[top*W+x]=12+(rnd()*15|0);   // varied trunk heights → a natural skyline
+          expandActive(x-4, top-28, x+4, top+2);
+        }
       }
       attractStage=4;
     }
-    // stage 4 → a second wave of seeds (offset, between the first) fills the grove out lusher
-    if(attractStage===4 && t>=13.5){
-      for(const fx of [0.13,0.2,0.31,0.37,0.43,0.55,0.61,0.67,0.79,0.85]){ const x=(W*fx)|0;
-        let sy=-1; for(let y=(baseY-22)|0; y<H; y++){ const m=grid[y*W+x]; if(m!==EMPTY && TYPE[m]!==GAS && TYPE[m]!==LIQUID){ sy=y; break; } }
-        if(sy>3){ for(let s=-2;s<=2;s++){ const sx=x+s; if(sx>0&&sx<W){ const i=(sy-1)*W+sx; if(grid[i]===EMPTY) spawn(i,SEED); } }
-          cineRow(x-3,x+3,sy-9,WATER); }
-      }
-      attractStage=5;
-    }
     // the Stone's quiet pulse gilds a dry bank with a little gold
-    if(!philoSet && t>=13){ const x=(W*0.86)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-3)*W+x,PHILOSOPHER); philoSet=true; }
-    // continuous: gentle rain keeps the ponds full; snow on the cold left; fireflies low over the foliage; fireworks finale
-    if(t>3.6 && t<9.5){ for(let k=0;k<2;k++){ const x=(W*(0.14+rnd()*0.72))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
-    if(t>8 && t<13 && rnd()<0.22){ const x=(W*(0.02+rnd()*0.1))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,SNOW); }
-    if(t>8 && rnd()<0.5){ const x=(W*(0.12+rnd()*0.74))|0, y=baseY-4-((rnd()*26)|0);   // low + short life → fireflies, not falling drops
+    if(!philoSet && t>=8){ const x=(W*0.86)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-3)*W+x,PHILOSOPHER); philoSet=true; }
+    // continuous: rain fills the ponds early; a few flakes on the cold left; fireflies drift low over the foliage; fireworks crown it
+    if(t>3.6 && t<6.6){ for(let k=0;k<3;k++){ const x=(W*(0.12+rnd()*0.76))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
+    if(t>5 && t<8.5 && rnd()<0.16){ const x=(W*(0.02+rnd()*0.09))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,SNOW); }
+    if(t>7 && rnd()<0.5){ const x=(W*(0.12+rnd()*0.74))|0, y=baseY-4-((rnd()*26)|0);   // low + short life → fireflies, not falling drops
       addP(x+0.5,y+0.5,(rnd()-0.5)*0.22,-0.05-rnd()*0.12,16+rnd()*16,220,255,160,KSPARK); }
-    if(t>15.5 && t<20 && rnd()<0.05) launchRocket((W*(0.2+rnd()*0.6))|0, baseY-3);
-    if(!fwFlash && t>=17.5){ flash(255,202,110,0.35); shakeScreen(6); fwFlash=true; }
+    if(t>9 && t<13.5 && rnd()<0.05) launchRocket((W*(0.2+rnd()*0.6))|0, baseY-3);
+    if(!fwFlash && t>=10.5){ flash(255,202,110,0.35); shakeScreen(6); fwFlash=true; }
     // the show is done → the oasis simply LIVES (fireflies above keep drifting, the odd firework blooms),
     // and the invitation breathes in. No replay — it rests here until the visitor steps in.
-    if(t>=19) cineCTA(true);
-    if(t>22 && rnd()<0.0016) launchRocket((W*(0.18+rnd()*0.64))|0, baseY-3);   // a gentle, occasional celebration
+    if(t>=12) cineCTA(true);
+    if(t>15 && rnd()<0.0016) launchRocket((W*(0.18+rnd()*0.64))|0, baseY-3);   // a gentle, occasional celebration
   }
   function stopAttract(){ if(!attract) return; attract=false; cineCTA(false); const h=document.getElementById("hint"); if(h) h.classList.add("hide"); }
 
