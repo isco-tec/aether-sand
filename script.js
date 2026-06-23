@@ -1245,16 +1245,9 @@
       for(let dy=1;dy<=3;dy++){ const ny=y+dy; if(ny>=H) break; const bi=ny*W+x;
         if(grid[bi]===EMPTY){ spawn(bi,rainMat); discoverRecipe(rainMat===ACID?"acid_rain":"rain"); break; } }
     }
-    // a LIVING storm flickers single bolts here and there across itself — frequent and natural (and
-    // size-independent, so a giant cloud can't barrage). The thunder is DECOUPLED onto its own slow
-    // cadence, so the sky stays alive with light while the sound never piles into a wall.
-    if(stormCooldown<=0 && rnd()<0.06){
-      const bx=clamp(x+((rnd()-0.5)*120|0),2,W-3);
-      const loud = stormThunderCD<=0;
-      strikeLightning(bx, y, !loud);                              // most bolts are silent flashes…
-      if(loud) stormThunderCD=90+(rnd()*100|0);                   // …a thunder clap only every ~1.5-3.2s
-      stormCooldown=14+(rnd()*22|0);                              // a fresh bolt every ~0.25-0.6s
-    }
+    // add this cell to a uniform reservoir of the whole cloud — the storm trigger in step() will
+    // strike from a random one of these, so bolts come from anywhere across the cloud, one at a time
+    stormCount++; if(rnd()*stormCount<1){ stormPX=x; stormPY=y; }
     // heavy smoke pollution can slowly sour a storm cloud into an acid cloud.
     // Only real smoke counts (no acid-cloud chain reaction), and it needs a proper
     // plume around it, so it stays a deliberate, rare event rather than a sweep.
@@ -1536,12 +1529,20 @@
 
   /* ============================ Simulation step =================== */
   function step(){
-    // storm timers tick on the SIM step (fixed 60/s), not the render frame, so lightning cadence
-    // is identical whether the game runs at 60fps or 20fps
+    // storm timers tick on the SIM step (fixed 60/s), so the lightning cadence is identical at any
+    // frame rate. A bolt strikes from a uniformly-random cell of the WHOLE cloud (sampled across it
+    // last step), so the storm flickers all over rather than only where the cell-scan begins.
     if(stormCooldown>0) stormCooldown--;
     if(stormThunderCD>0) stormThunderCD--;
     finalizeBox();
     moved.fill(0);
+    if(stormCooldown<=0 && stormCount>0){
+      const loud = stormThunderCD<=0;
+      strikeLightning(stormPX, stormPY, !loud);
+      if(loud) stormThunderCD=90+(rnd()*100|0);                  // thunder only every ~1.5-3.2s
+      stormCooldown=14+(rnd()*22|0);                             // a fresh bolt every ~0.25-0.6s
+    }
+    stormCount=0;                                                // begin a fresh reservoir for this step
     const ltr = rnd()<0.5;
     const yLo = boxFull?0:by0, yHi = boxFull?H-1:by1;
     const xLo = boxFull?0:bx0, xHi = boxFull?W-1:bx1;
@@ -1879,6 +1880,7 @@
   let lastPx=null,lastPy=null;
   let pointerInside=false,pointerX=0,pointerY=0;
   let fireworkCooldown=0, lightningCooldown=0, stormCooldown=0, stormThunderCD=0;
+  let stormCount=0, stormPX=0, stormPY=0;   // reservoir sample of the whole cloud → a strike point anywhere in it
 
   function paintTemp(cx,cy,sign){
     const rad=Math.max(2,brush), r2=rad*rad;
