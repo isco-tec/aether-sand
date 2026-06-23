@@ -446,6 +446,7 @@
       case CO2: return 240+(rnd()*200|0);
       case VINE: return 24+(rnd()*18|0);  // growth energy
       case SAPLING: return 11+(rnd()*16|0);  // trunk height the tree will climb before crowning
+      case CLOUD: case ACIDCLOUD: return 6+(rnd()*9|0);  // how many times the cloud can rain before it sheds out and clears
       default: return 0;
     }
   }
@@ -827,7 +828,7 @@
     let cold=false, vapour=0;
     forN8(x,i,(ni,nm)=>{ if(nm===ICE||nm===SNOW||temp[ni]<6) cold=true; if(nm===STEAM||nm===CLOUD) vapour++; return false; });
     if(cold && rnd()<0.14){ convert(i,WATER); discoverRecipe("condense"); return; }
-    if(y<(H*0.32) && vapour>=4 && rnd()<0.03){ convert(i,CLOUD); discoverRecipe("condense"); return; }   // gathered & risen vapour condenses aloft into a rain cloud
+    if(y<(H*0.32) && vapour>=4 && rnd()<0.03){ convert(i,CLOUD); life[i]=2+(rnd()*3|0); discoverRecipe("condense"); return; }   // gathered vapour condenses into a LIGHT cloud (sheds a drop or two — so the cycle conserves, never snowballs)
     if(applyPressure(x,y,i,STEAM)) return;
     moveGas(x,y,i,STEAM); applyWind(x,i,STEAM);
   }
@@ -1240,10 +1241,13 @@
     moveGas(x,y,i,OXYGEN); applyWind(x,i,OXYGEN);
   }
   function cloudBehavior(x,y,i,m,rainMat){
-    // shed rain into open air below
+    // shed rain into open air below — each drop SPENDS the cloud's water; when it runs dry the cloud clears
+    // (a finite cloud, like in nature — not an infinite faucet)
     if(rnd()<0.010){
       for(let dy=1;dy<=3;dy++){ const ny=y+dy; if(ny>=H) break; const bi=ny*W+x;
-        if(grid[bi]===EMPTY){ spawn(bi,rainMat); discoverRecipe(rainMat===ACID?"acid_rain":"rain"); break; } }
+        if(grid[bi]===EMPTY){ spawn(bi,rainMat); discoverRecipe(rainMat===ACID?"acid_rain":"rain");
+          if(--life[i]<=0){ grid[i]=EMPTY; return; }   // rained out → the cloud thins away
+          break; } }
     }
     // add this cell to a uniform reservoir of the whole cloud — the storm trigger in step() will
     // strike from a random one of these, so bolts come from anywhere across the cloud, one at a time
@@ -1298,7 +1302,7 @@
     while(y<H-1 && steps<H){
       const i=y*W+x;
       temp[i]=Math.max(temp[i],420);
-      if(CHCOND[grid[i]]) charge[i]=6;
+      if(CHCOND[grid[i]] && grid[i]!==WATER && grid[i]!==BRINE) charge[i]=6;   // energise wires/metal, but don't electrolyse whole lakes
       if(FLAM[grid[i]]) temp[i]+=180;
       if(grid[i]===SAND) fuseSand(x,y,2);   // passing through sand fuses it
       addP(x+0.5,y+0.5,(rnd()-0.5)*0.8,0.6+rnd()*1.4,8+rnd()*8,200,228,255,KSPARK);
@@ -1310,7 +1314,7 @@
       if(gm!==EMPTY && TYPE[gm]!==GAS){
         temp[gi]=Math.max(temp[gi],700);
         if(FLAM[gm]) temp[gi]+=320;
-        if(CHCOND[gm]) charge[gi]=6;
+        if(CHCOND[gm] && gm!==WATER && gm!==BRINE) charge[gi]=6;
         fuseSand(x,y,3);                     // a glass blob where the bolt lands (incl. nearby sand)
         for(let a=0;a<14;a++){ const ang=rnd()*6.2832, sp=0.6+rnd()*2.4;
           addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,12+rnd()*16,210,232,255,KSPARK); }
