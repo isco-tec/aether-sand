@@ -25,7 +25,7 @@
         RUST=42, CLOUD=43, LIGHTNING=44, ANTIMATTER=45,
         SLIME=46, HONEY=47, ACIDCLOUD=48, BULB=49,
         VINE=58, MOLD=59, BRINE=60, CINNABAR=61,
-        LIMESTONE=62, QUICKLIME=63, SLAKEDLIME=64, CO2=65;
+        LIMESTONE=62, QUICKLIME=63, SLAKEDLIME=64, CO2=65, SEED=66;
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -113,10 +113,12 @@
     [QUICKLIME]:{ name:"Quicklime",type:POWDER, d:200, c1:[240,238,230], c2:[208,206,196], k:0.06 },
     [SLAKEDLIME]:{name:"Slaked Lime",type:POWDER,d:190, c1:[228,230,226], c2:[196,198,194], k:0.06 },
     [CO2]:      { name:"Carbon Dioxide",type:GAS,d:5, c1:[108,108,116], c2:[74,74,82], a:80, k:0.05 },
+    [SEED]:     { name:"Seed",    type:POWDER, d:120, c1:[150,112,62], c2:[106,78,44], k:0.04, flam:1,
+                  trans:[{c:1,t:220,to:FIRE,p:0.3}] },
   };
 
   // fast lookup arrays
-  const MAXID = 66;
+  const MAXID = 67;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -135,13 +137,13 @@
   WINDF[AQUA]=0.22;
   WINDF[HYDROGEN]=1.3; WINDF[OXYGEN]=1; WINDF[ASH]=0.5; WINDF[RUST]=0.08;
   WINDF[SLIME]=0.04; WINDF[HONEY]=0.02; WINDF[BRINE]=0.25; WINDF[CINNABAR]=0.04;
-  WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07; WINDF[CO2]=0.8;
+  WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07; WINDF[CO2]=0.8; WINDF[SEED]=0.1;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; // gold is an excellent conductor
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
-    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,WOOD,PLANT,VINE,MOLD,WALL] },
+    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,WOOD,SEED,PLANT,VINE,MOLD,WALL] },
     { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,NITRO] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,QUICKLIME,SLAKEDLIME,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
@@ -165,7 +167,8 @@
     [OBSIDIAN]:"Volcanic glass — born when lava is quenched in water.",
     [METAL]:"Conductive solid. Melts to lava; amalgamates with mercury.",
     [WOOD]:"Flammable static block.",
-    [PLANT]:"Grows into empty cells when touching water.",
+    [PLANT]:"Drinks water and climbs toward the light; buried in the dark, it withers to ash.",
+    [SEED]:"Drop it on damp soil and it sprouts into a growing plant.",
     [WALL]:"Immovable barrier.",
     [VINE]:"Climbing plant — creeps up surfaces and across open space. Flammable.",
     [MOLD]:"Creeping rot — spreads over wood, plant and damp stone, then crumbles to ash.",
@@ -231,7 +234,9 @@
     { id:"acid_metal", cat:"Crafting", name:"Acid corrosion", in:[ACID,METAL], out:[HYDROGEN], note:"Acid eating metal releases flammable hydrogen.", hint:"Acid eats steel…" },
     { id:"charcoal", cat:"Crafting", name:"Charcoal", in:[WOOD], out:[COAL], note:"Wood heated slowly chars into charcoal instead of burning away.", hint:"Wood, heated gently…" },
     { id:"crystal_grow", cat:"Growth", name:"Crystal garden", in:[CRYSTAL,WATER], out:[CRYSTAL], note:"Crystals drink water to spread.", hint:"A prism beside water…" },
-    { id:"plant_grow", cat:"Growth", name:"Verdant spread", in:[PLANT,WATER], out:[PLANT], note:"Plants drink water to grow into open space.", hint:"Life needs water…" },
+    { id:"plant_grow", cat:"Growth", name:"Verdant spread", in:[PLANT,WATER], out:[PLANT], note:"Plants drink water to climb toward the light.", hint:"Life needs water…" },
+    { id:"germinate", cat:"Growth", name:"Germination", in:[SEED,WATER], out:[PLANT], note:"A seed on damp soil sprouts into a growing plant.", hint:"A seed, soil, and water…" },
+    { id:"wilt", cat:"Growth", name:"Withering", in:[PLANT], out:[ASH], note:"Sealed away from air and light, a plant withers to ash.", hint:"Bury a plant in the dark…" },
     { id:"vine_grow", cat:"Growth", name:"Climbing vines", in:[VINE], out:[VINE], note:"Vines creep up surfaces and reach across open space.", hint:"Tendrils seeking a wall…" },
     { id:"mold_spread", cat:"Growth", name:"Creeping rot", in:[MOLD,WOOD], out:[MOLD], note:"Mold spreads over wood, plant and damp stone, then crumbles to ash.", hint:"Decay finds the damp…" },
     { id:"wildfire", cat:"Growth", name:"Wildfire", in:[FIRE,WOOD], out:[FIRE], note:"Flame races through connected forests of wood, plant and vine.", hint:"One spark in a dry forest…" },
@@ -284,6 +289,7 @@
     { id:"inferno", icon:"🔥", title:"Inferno", desc:"Heat something past 1500°.", test:s=>s.maxTemp>=1500 },
     { id:"antimatter", icon:"🌀", title:"Annihilation", desc:"Witness an antimatter reaction.", test:s=>s.disc.has("antimatter") },
     { id:"garden", icon:"🌿", title:"Green Thumb", desc:"Grow a sprawling vine.", test:s=>s.disc.has("vine_grow")||s.count(VINE)>=45 },
+    { id:"germinate", icon:"🌱", title:"From a Seed", desc:"Sprout a plant from a seed on damp soil.", test:s=>s.disc.has("germinate") },
     { id:"wildfire", icon:"🌲", title:"Wildfire", desc:"Burn a forest of wood, plant or vine.", test:s=>s.disc.has("wildfire") },
   ];
   let challengesDone = new Set(JSON.parse(localStorage.getItem("aether-challenges")||"[]"));
@@ -309,7 +315,7 @@
     [RUST]:0.9,[CLOUD]:0.55,[ANTIMATTER]:1,
     [SLIME]:0.92,[HONEY]:0.95,[ACIDCLOUD]:0.55,[BULB]:1,
     [VINE]:1,[MOLD]:1,[BRINE]:0.9,[CINNABAR]:0.88,
-    [LIMESTONE]:1,[QUICKLIME]:0.9,[SLAKEDLIME]:0.9,[CO2]:0.6,
+    [LIMESTONE]:1,[QUICKLIME]:0.9,[SLAKEDLIME]:0.9,[CO2]:0.6,[SEED]:0.9,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -778,13 +784,32 @@
   }
   function upIce(i){ applySrc(i,-12,0.3); }
   function upPlant(x,y,i){
-    let water=-1; const empties=[];
-    forN8(x,i,(ni,nm)=>{ if(nm===WATER) water=ni; else if(nm===EMPTY) empties.push(ni); return false; });
+    let water=-1; let lit=false; const empties=[];
+    forN8(x,i,(ni,nm)=>{
+      if(nm===WATER) water=ni;
+      else if(nm===EMPTY){ empties.push(ni); lit=true; }
+      else if(TYPE[nm]===GAS||nm===PLANT||nm===VINE||nm===SEED) lit=true;   // open to air, or part of the living mass
+      return false;
+    });
+    // photosynthesis — a plant sealed in the dark (buried, no air/light, no kin) withers to ash
+    if(!lit){ if(rnd()<0.004){ convert(i,ASH); discoverRecipe("wilt"); } return; }
     if(water>=0 && empties.length && rnd()<0.1){
+      // grow toward the light: prefer the highest (lowest-index) open cell
       empties.sort((a,b)=>a-b);
-      const tgt = rnd()<0.7?empties[0]:empties[(rnd()*empties.length)|0];
+      const tgt = rnd()<0.78?empties[0]:empties[(rnd()*empties.length)|0];
       convert(tgt,PLANT); temp[tgt]=temp[i]; grid[water]=EMPTY; discoverRecipe("plant_grow");
     }
+  }
+  function upSeed(x,y,i){
+    // germinate on damp soil
+    let soil=false;
+    if(i+W<N){ const b=grid[i+W]; if(b===SAND||b===LIMESTONE||b===STONE||b===PLANT||b===SLAKEDLIME) soil=true; }
+    if(soil){
+      let water=false;
+      forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===BRINE) water=true; return false; });
+      if(water && rnd()<0.07){ convert(i,PLANT); discoverRecipe("germinate"); return; }
+    }
+    moveFalling(x,y,i,SEED);
   }
   // an empty cell can host a vine if it clings to any solid/powder/vine surface
   function touchesSurface(x,y){
@@ -1327,6 +1352,7 @@
           case QUICKLIME: upQuicklime(x,y,i); break;
           case SLAKEDLIME: upSlakedlime(x,y,i); break;
           case CO2: upCO2(x,y,i); break;
+          case SEED: upSeed(x,y,i); break;
           // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND: thermal/conduction only
         }
       }
@@ -2189,7 +2215,8 @@
                 vermilion:CINNABAR, vermillion:CINNABAR, hgs:CINNABAR,
                 limestone:LIMESTONE, chalk:LIMESTONE, quicklime:QUICKLIME, "quick lime":QUICKLIME,
                 lime:QUICKLIME, "slaked lime":SLAKEDLIME, slakedlime:SLAKEDLIME,
-                co2:CO2, "carbon dioxide":CO2, "dry ice":CO2 };
+                co2:CO2, "carbon dioxide":CO2, "dry ice":CO2,
+                seed:SEED, seeds:SEED, sprout:SEED };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach(n=>n.classList.toggle("active", +n.dataset.mat===currentMat));
@@ -2199,7 +2226,7 @@
     WOOD,PLANT,GLASS,STONE,METAL,GUNPOWDER,FIREWORK,SPARK,COAL,HEAT,COOL,CLONER,VOID,
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
-    SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,CO2,
+    SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,CO2,SEED,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
