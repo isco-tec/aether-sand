@@ -1879,7 +1879,7 @@
   // micro-cosmos that loops until the visitor takes over. (Designed with a
   // creative-director + technical pass: life is grounded, particles have a source.)
   let attract=true, attractT=0, attractStage=0, titleCells=[], dissolveIdx=0;
-  let titleBox={x0:0,x1:0,y0:0,y1:0}, terrainTop=null, crystalSet=false, philoSet=false, fwFlash=false;
+  let titleBox={x0:0,x1:0,y0:0,y1:0}, terrainTop=null, philoSet=false, fwFlash=false, dawnSet=false;
   const CINE_LEN=22;
   function cineClear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); }
   function cineRow(x0,x1,y,m){ if(y<0||y>=H) return;
@@ -1900,7 +1900,7 @@
   }
   // a barren rocky land with two basins that hold real ponds; remembers the soil surface
   function buildTerrain(){
-    const baseY=(H*0.82)|0, amp=Math.max(5,(H*0.07)|0), floorY=Math.min(H-1,baseY+amp+9);
+    const baseY=(H*0.78)|0, amp=Math.max(5,(H*0.06)|0), floorY=Math.min(H-1,baseY+amp+12);
     terrainTop=new Int16Array(W);
     for(let x=0;x<W;x++){
       const u=x/W, z1=(u-0.3)*7, z2=(u-0.72)*7;
@@ -1915,11 +1915,11 @@
   function runAttract(){
     if(!attract) return;
     attractT += 1/60;
-    const t=attractT, cx=(W/2)|0, ty=(H*0.3)|0, baseY=(H*0.82)|0;
+    const t=attractT, cx=(W/2)|0, ty=(H*0.28)|0, baseY=(H*0.78)|0;
     // stage 0 → the land, then the title materialises out of a soft bloom
     if(attractStage===0 && t>=0.05){
       cineClear(); titleCells.length=0; dissolveIdx=0;
-      crystalSet=philoSet=fwFlash=false;
+      philoSet=fwFlash=dawnSet=false;
       buildTerrain();
       flash(184,132,228,0.4);                                  // the void breathes
       titleBox = stampText("Aether Sand", cx, ty, DIAMOND, W*0.082);
@@ -1952,17 +1952,18 @@
     }
     // stage 3 → once the water has settled, sow seeds on the BANKS (on the real surface, with a splash) so trees root on solid ground
     if(attractStage===3 && t>=7){
-      for(const fx of [0.16,0.26,0.4,0.5,0.6,0.78]){ const x=(W*fx)|0;
+      for(const fx of [0.14,0.22,0.34,0.42,0.5,0.58,0.66,0.78]){ const x=(W*fx)|0;
         // find the current dry surface (first solid below the air, skipping ponds)
         let sy=-1; for(let y=(baseY-22)|0; y<H; y++){ const m=grid[y*W+x]; if(m!==EMPTY && TYPE[m]!==GAS && TYPE[m]!==LIQUID){ sy=y; break; } }
-        if(sy>3){ for(let s=-3;s<=3;s++){ const sx=x+s; if(sx>0&&sx<W){ const i=(sy-1)*W+sx; if(grid[i]===EMPTY) spawn(i,SEED); } }
-          cineRow(x-4,x+4,sy-9,WATER); }
+        if(sy>3){ for(let s=-2;s<=2;s++){ const sx=x+s; if(sx>0&&sx<W){ const i=(sy-1)*W+sx; if(grid[i]===EMPTY) spawn(i,SEED); } }
+          cineRow(x-3,x+3,sy-9,WATER); }
       }
       attractStage=4;
     }
-    // a crystal jewel grows at the left waterline; the Stone's quiet pulse gilds the right bank
-    if(!crystalSet && t>=13){ const x=(W*0.3)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-1)*W+x,CRYSTAL); spawn((top-1)*W+x+1,CRYSTAL); crystalSet=true; }
-    if(!philoSet && t>=14){ const x=(W*0.85)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-2)*W+x,PHILOSOPHER); philoSet=true; }
+    // the Stone's quiet pulse gilds a dry bank with a little gold
+    if(!philoSet && t>=13){ const x=(W*0.86)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-3)*W+x,PHILOSOPHER); philoSet=true; }
+    // a warm dawn breaks over the world before the fireworks
+    if(!dawnSet && t>=14.5){ flash(255,196,128,0.22); dawnSet=true; }
     // continuous: gentle rain keeps the ponds full (reciprocity); snow on the cold left; fireflies low over the foliage; fireworks finale
     if(t>3.5 && t<11.5){ for(let k=0;k<2;k++){ const x=(W*(0.14+rnd()*0.72))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
     if(t>8 && t<13 && rnd()<0.22){ const x=(W*(0.02+rnd()*0.1))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,SNOW); }
