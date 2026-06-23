@@ -1854,20 +1854,40 @@
 
 
   /* ============================ Attract mode ===================== */
-  let attract=true, attractT=0;
+  // First-run "creation myth": a scripted ~18s arc that shows the engine's soul,
+  // then loops, until the visitor takes over. Each beat just paints into the
+  // grid — the physics and chemistry put on the actual show.
+  let attract=true, attractT=0, attractStage=0;
+  const CINE_LEN=18;
+  function cineClear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); }
+  function cineRow(x0,x1,y,m){ if(y<0||y>=H) return;            // a precise single-cell-thick row (paintLine uses the fat brush)
+    for(let x=Math.max(0,x0|0);x<=Math.min(W-1,x1|0);x++){ const i=y*W+x; if(grid[i]===EMPTY) spawn(i,m); } }
   function runAttract(){
     if(!attract) return;
-    attractT+=0.018;
-    const cx=(W*(0.5+0.32*Math.sin(attractT)))|0;
-    for(let k=0;k<3;k++){
-      const x=cx+((rnd()*6-3)|0);
-      if(x>0&&x<W){ const i=2*W+x; if(grid[i]===EMPTY)
-        spawn(i, rnd()<0.72?SAND:(rnd()<0.5?WATER:RAINBOW)); }
+    attractT += 1/60;
+    const t=attractT, gy=(H*0.8)|0, cx=(W/2)|0;
+    // ---- one-shot stage beats ----
+    if(attractStage===0 && t>=0.05){ cineClear(); for(let r=0;r<4;r++) cineRow(0,W-1,gy+r,STONE); attractStage=1; }
+    if(attractStage===1 && t>=6.4){                 // life takes root on the clear flanks: seeds on soil, rain poured over them
+      for(const fx of [0.2,0.82]){ const x=(W*fx)|0;
+        cineRow(x-6,x+6,gy-1,SAND);
+        for(let s=-4;s<=4;s+=2) spawn((gy-2)*W+x+s,SEED);
+        cineRow(x-4,x+4,gy-6,WATER); }
+      attractStage=2; }
+    // ---- continuous beats ----
+    if(t>1.2 && t<5.5){                              // a small glowing lava vent in the centre, hissing steam where rain meets it
+      const i=(gy-1)*W+cx+((rnd()*6-3)|0); if(grid[i]===EMPTY) spawn(i,LAVA);
+      if(rnd()<0.6){ const j=(gy-4)*W+cx+((rnd()*8-4)|0); if(grid[j]===EMPTY) spawn(j,WATER); }
+      expandActive(cx-8,gy-6,cx+8,gy);
     }
-    expandActive(cx-6, 0, cx+6, 5);
-    if(rnd()<0.012) launchRocket((W*(0.5+0.3*Math.sin(attractT*1.3)))|0, H-4);
+    if(t>2.4 && t<6.4){                              // gentle storm rolls across for atmosphere
+      for(let k=0;k<3;k++){ const x=(W*(0.1+rnd()*0.8))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); }
+      expandActive(0,0,W-1,4);
+    }
+    if(t>10 && t<15 && rnd()<0.045) launchRocket((W*(0.2+rnd()*0.6))|0, H-4);   // fireworks finale
+    if(t>=CINE_LEN){ attractT=0; attractStage=0; }   // the myth begins again
   }
-  function stopAttract(){ if(!attract) return; attract=false; document.getElementById("hint").classList.add("hide"); }
+  function stopAttract(){ if(!attract) return; attract=false; const h=document.getElementById("hint"); if(h) h.classList.add("hide"); }
 
   /* ============================ Snapshot / save =================== */
   function toast(msg){
