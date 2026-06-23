@@ -357,6 +357,7 @@
     const idx=clampInt(worldSize,0,2);
     SCALE=Math.max(WORLD_MINSCALE[idx], Math.ceil(window.innerWidth/WORLD_DIV[idx]));
     allocate(Math.ceil(window.innerWidth/SCALE), Math.ceil(window.innerHeight/SCALE));
+    markRenderFull();
   }
   function setWorldSize(n){
     worldSize=clampInt(n,0,2);
@@ -570,6 +571,7 @@
         if(ti>=0&&ti<N && canDisplace(mm,ti)) swap(i,ti);
       } }
     shakeScreen(power*1.1);
+    markRenderFull();
   }
 
   /* ============================ Screen shake ====================== */
@@ -961,6 +963,7 @@
       }
     }
     shakeScreen(6);
+    markRenderFull();
     discoverRecipe("lightning");
   }
   function emptyNeighbor(x,i){
@@ -1279,21 +1282,33 @@
   function blurLight(){
     for(let p=0;p<4;p++){ blurChan(lightR,lightT,2); blurChan(lightG,lightT,2); blurChan(lightB,lightT,2); }
   }
-  function applyLight(){
+  function applyLight(x0,y0,x1,y1){
     const GAIN=0.62*lightLevel;
-    for(let i=0;i<N;i++){
-      if(grid[i]===EMPTY) continue;
-      const li=((((i/W)|0)/LS|0)*LW)+(((i%W)/LS)|0);
-      const lr=lightR[li]*GAIN, lg=lightG[li]*GAIN, lb=lightB[li]*GAIN;
-      if(lr<0.8&&lg<0.8&&lb<0.8) continue;
-      const px=sim32[i];
-      let r=(px&255)+lr, g=((px>>8)&255)+lg, b=((px>>16)&255)+lb;
-      if(r>255)r=255; if(g>255)g=255; if(b>255)b=255;
-      sim32[i]=(px&0xff000000)|((b|0)<<16)|((g|0)<<8)|(r|0);
+    for(let y=y0;y<=y1;y++){ const row=y*W;
+      for(let x=x0;x<=x1;x++){ const i=row+x;
+        if(grid[i]===EMPTY) continue;
+        const li=((((i/W)|0)/LS|0)*LW)+(((i%W)/LS)|0);
+        const lr=lightR[li]*GAIN, lg=lightG[li]*GAIN, lb=lightB[li]*GAIN;
+        if(lr<0.8&&lg<0.8&&lb<0.8) continue;
+        const px=sim32[i];
+        let r=(px&255)+lr, g=((px>>8)&255)+lg, b=((px>>16)&255)+lb;
+        if(r>255)r=255; if(g>255)g=255; if(b>255)b=255;
+        sim32[i]=(px&0xff000000)|((b|0)<<16)|((g|0)<<8)|(r|0);
+      }
     }
   }
 
   let heatMap=false, pressureMap=false;
+  // render-region tracking: only the active box (plus the particle cloud) is
+  // recomputed and re-uploaded each frame; the rest of the canvas is untouched.
+  let renderFull=true, _pHeat=false,_pPres=false,_pLit=false,_pLL=-1;
+  let ppx0=0,ppy0=0,ppx1=-1,ppy1=-1;   // previous frame's particle bounding box
+  function markRenderFull(){ renderFull=true; }
+  function expandRenderBox(x0,y0,x1,y1){
+    x0=x0<0?0:x0; y0=y0<0?0:y0; x1=x1>W-1?W-1:x1; y1=y1>H-1?H-1:y1;
+    if(bx1<bx0||by1<by0){ bx0=x0;by0=y0;bx1=x1;by1=y1; return; }
+    if(x0<bx0)bx0=x0; if(y0<by0)by0=y0; if(x1>bx1)bx1=x1; if(y1>by1)by1=y1;
+  }
   function scaleGlow(ge,lf){
     if(!ge||lf>=0.999) return ge;
     if(lf<=0) return 0;
@@ -1303,8 +1318,17 @@
     const t=now*0.012;
     const lf=lightFX();
     const lit = lf>0.01 && !heatMap && !pressureMap;
+    // any global mode flip repaints the whole canvas once
+    if(heatMap!==_pHeat||pressureMap!==_pPres||lit!==_pLit||lightLevel!==_pLL) renderFull=true;
+    _pHeat=heatMap; _pPres=pressureMap; _pLit=lit; _pLL=lightLevel;
+    let rx0,ry0,rx1,ry1;
+    if(renderFull||boxFull||bx1<bx0){ rx0=0;ry0=0;rx1=W-1;ry1=H-1; }
+    else { rx0=bx0;ry0=by0;rx1=bx1;ry1=by1; }
     if(lit){ lightR.fill(0); lightG.fill(0); lightB.fill(0); }
-    for(let i=0;i<N;i++){
+    for(let yy=ry0;yy<=ry1;yy++){
+     const rrow=yy*W;
+     for(let xx=rx0;xx<=rx1;xx++){
+      const i=rrow+xx;
       const m=grid[i];
       if(m===EMPTY){
         if(pressureMap){
@@ -1422,6 +1446,7 @@
         const a=(ge>>>24)*0.00392*lightLevel, li=((((i/W)|0)/LS|0)*LW)+(((i%W)/LS)|0);
         lightR[li]+=(ge&255)*a; lightG[li]+=((ge>>8)&255)*a; lightB[li]+=((ge>>16)&255)*a;
       }
+     }
     }
     if(lit){
       for(let k=0;k<pn;k++){
@@ -1430,11 +1455,22 @@
         const li=ly*LW+lx, a=clamp(PL[k]/PM[k],0,1)*0.6*lightLevel;
         lightR[li]+=PR[k]*a; lightG[li]+=PG[k]*a; lightB[li]+=PB[k]*a;
       }
-      blurLight(); applyLight();
+      blurLight(); applyLight(rx0,ry0,rx1,ry1);
     }
-    sctx.putImageData(simImg,0,0);
-    gctx.putImageData(glowImg,0,0);
+    // upload only the dirty rect: render region ∪ this & last frame's particle clouds
+    let ux0=rx0,uy0=ry0,ux1=rx1,uy1=ry1;
+    let cpx0=W,cpy0=H,cpx1=-1,cpy1=-1;
+    for(let k=0;k<pn;k++){ const px=PX[k]|0,py=PY[k]|0;
+      if(px<cpx0)cpx0=px; if(px>cpx1)cpx1=px; if(py<cpy0)cpy0=py; if(py>cpy1)cpy1=py; }
+    if(cpx1>=cpx0){ if(cpx0-2<ux0)ux0=cpx0-2; if(cpy0-2<uy0)uy0=cpy0-2; if(cpx1+2>ux1)ux1=cpx1+2; if(cpy1+2>uy1)uy1=cpy1+2; }
+    if(ppx1>=ppx0){ if(ppx0<ux0)ux0=ppx0; if(ppy0<uy0)uy0=ppy0; if(ppx1>ux1)ux1=ppx1; if(ppy1>uy1)uy1=ppy1; }
+    ux0=ux0<0?0:ux0; uy0=uy0<0?0:uy0; ux1=ux1>W-1?W-1:ux1; uy1=uy1>H-1?H-1:uy1;
+    const dw=ux1-ux0+1, dh=uy1-uy0+1;
+    if(dw>0&&dh>0){ sctx.putImageData(simImg,0,0,ux0,uy0,dw,dh); gctx.putImageData(glowImg,0,0,ux0,uy0,dw,dh); }
     drawParticles();
+    if(cpx1>=cpx0){ ppx0=cpx0-2<0?0:cpx0-2; ppy0=cpy0-2<0?0:cpy0-2; ppx1=cpx1+2>W-1?W-1:cpx1+2; ppy1=cpy1+2>H-1?H-1:cpy1+2; }
+    else { ppx0=0;ppy0=0;ppx1=-1;ppy1=-1; }
+    renderFull=false;
   }
   function drawParticles(){
     if(pn===0) return;
@@ -1469,6 +1505,7 @@
       if(sign>0) temp[i]=Math.min(1500, temp[i]+36*f);
       else temp[i]=Math.max(-50, temp[i]-32*f);
     }
+    expandRenderBox(x0,y0,x1,y1);
   }
   function paintDisc(cx,cy,mat){
     if(mat===FIREWORK){ if(fireworkCooldown<=0){ launchRocket(cx,cy); fireworkCooldown=6; } return; }
@@ -1487,6 +1524,7 @@
       const cur=grid[i];
       if(cur===EMPTY || TYPE[cur]===GAS || TYPE[mat]===STATIC) spawn(i,mat);
     }
+    expandRenderBox(x0,y0,x1,y1);
   }
   function paintSpark(cx,cy){
     const rad=Math.max(2,brush*0.6), r2=rad*rad;
@@ -1500,6 +1538,7 @@
       else if(FLAM[m]){ temp[i]+=120; hit=true; }
     }
     if(!hit){ for(let a=0;a<5;a++){ const ang=rnd()*6.28; addP(cx,cy,Math.cos(ang)*1.2,Math.sin(ang)*1.2,14,180,240,255,KSPARK);} }
+    expandRenderBox(x0,y0,x1,y1);
   }
   function paintLine(x0,y0,x1,y1,mat){
     const dist=Math.hypot(x1-x0,y1-y0);
@@ -1580,7 +1619,7 @@
       const cw=Math.min(o.w,W),chh=Math.min(o.h,H);
       for(let y=0;y<chh;y++)for(let x=0;x<cw;x++){ const i=y*W+x,m=g[y*o.w+x];
         grid[i]=m; shade[i]=r255(); temp[i]=BASET[m]; life[i]=defaultLife(m); }
-      stopAttract(); toast("Scene loaded");
+      stopAttract(); markRenderFull(); toast("Scene loaded");
     }catch(e){ toast("Load failed"); }
   }
 
@@ -1629,6 +1668,7 @@
       if(m>=MAXID){ continue; }
       grid[i]=m; shade[i]=r255(); temp[i]=BASET[m]; life[i]=defaultLife(m);
     }
+    markRenderFull();
   }
   function shareScene(){
     try{
@@ -1970,7 +2010,7 @@
     const playBtn=document.getElementById("btn-play");
     playBtn.addEventListener("click",()=>{ paused=!paused; playBtn.classList.toggle("paused",paused); });
     document.getElementById("btn-step").addEventListener("click",()=>{ stepOnce=true; });
-    document.getElementById("btn-clear").addEventListener("click",()=>{ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; });
+    document.getElementById("btn-clear").addEventListener("click",()=>{ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); });
 
     const brushEl=document.getElementById("brush"), brushOut=document.getElementById("brush-readout");
     const ring=document.getElementById("cursor-ring");
@@ -2091,7 +2131,7 @@
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
     line(x0,y0,x1,y1,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintLine(x0|0,y0|0,x1|0,y1|0,currentMat); },
     erase(x,y,r){ if(r) brush=r; paintDisc(x|0,y|0,EMPTY); },
-    clear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; },
+    clear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); },
     gravity(gx,gy){ setGravity(gx,gy); document.querySelectorAll(".cmp").forEach(b=>b.classList.toggle("active", +b.dataset.gx===gx && +b.dataset.gy===gy)); },
     wind(w){ WIND=w; const el=document.getElementById("wind"); if(el){el.value=Math.round(w*100); document.getElementById("wind-readout").textContent=el.value;} },
     firework(x,y){ stopAttract(); launchRocket(x|0,y|0); },
