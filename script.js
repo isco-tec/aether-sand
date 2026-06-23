@@ -2092,10 +2092,18 @@
     const g=MAT_GROUPS.find(gr=>gr.label===lbl);
     return g?g.mats:PALETTE;
   }
+  function whisperFor(m){   // a teasing hint toward an as-yet-undiscovered recipe that uses this material
+    for(const r of ALCHEMY_RECIPES)
+      if(r.in && r.in.indexOf(m)>=0 && r.hint && !discoveries.has(r.id)) return r.hint;
+    return null;
+  }
   function setMatDesc(m){
     const box=document.getElementById("mat-desc"); if(!box) return;
     box.querySelector(".mat-desc-name").textContent=M[m]?M[m].name:"";
-    box.querySelector(".mat-desc-text").textContent=MAT_BLURB[m]||"";
+    const te=box.querySelector(".mat-desc-text");
+    te.textContent=MAT_BLURB[m]||"";
+    const w=whisperFor(m);
+    if(w){ const s=document.createElement("span"); s.className="mat-whisper"; s.textContent=" "+w; te.appendChild(s); }
   }
   function buildMatButton(m){
     const el=document.createElement("button");
@@ -2107,6 +2115,7 @@
                            : '<span class="mat-swatch" style="--swatch-bg:'+swatchBg(m)+'"></span>';
     el.innerHTML=sw+'<span class="mat-name">'+M[m].name+'</span>';
     el.addEventListener("mouseenter",()=>setMatDesc(m));
+    el.addEventListener("mouseleave",()=>setMatDesc(currentMat));
     el.addEventListener("click",()=>{ currentMat=m; setMatDesc(m); syncPaletteActive(); });
     return el;
   }
@@ -2318,6 +2327,39 @@
     if(el) el.textContent=challengesDone.size+"/"+CHALLENGES.length;
     const btn=document.getElementById("btn-challenges");
     if(btn) btn.classList.toggle("has-new", challengesUnseen);
+    // next-up nudge — always shows one goal to work toward
+    const chip=document.getElementById("next-challenge");
+    if(chip){
+      const next=nextChallenge(), n=challengesDone.size;
+      if(next && n>0 && n<CHALLENGES.length){
+        chip.style.display="";
+        chip.querySelector(".nc-icon").textContent=next.icon;
+        chip.querySelector(".nc-title").textContent=next.title;
+        chip.title="Next challenge: "+next.title+" — "+next.desc;
+      } else chip.style.display="none";
+    }
+  }
+  // a visible mastery ladder so players can see how far the depth goes
+  const CHALLENGE_TIERS=[
+    {name:"Apprentice", ids:["first_pour","storm","wildfire","germinate","saltearth"]},
+    {name:"Adept",      ids:["glass","obsidian","vermilion","slaked","snuffed","freeze","lights","fulgurite","garden"]},
+    {name:"Alchemist",  ids:["gold","acidrain","boom","pressure","inferno","tree"]},
+    {name:"Grandmaster",ids:["diamond","antimatter","magnum_opus","projection"]},
+  ];
+  function nextChallenge(){
+    for(const tier of CHALLENGE_TIERS) for(const id of tier.ids)
+      if(!challengesDone.has(id)){ const c=CHALLENGES.find(x=>x.id===id); if(c) return c; }
+    return null;
+  }
+  function challengeRow(c){
+    const ok=challengesDone.has(c.id);
+    const row=document.createElement("div");
+    row.className="challenge"+(ok?" done":"");
+    row.innerHTML='<div class="challenge-icon">'+c.icon+'</div>'+
+      '<div class="challenge-main"><div class="challenge-title">'+c.title+'</div>'+
+      '<div class="challenge-desc">'+c.desc+'</div></div>'+
+      '<div class="challenge-check">'+(ok?"✓":"")+'</div>';
+    return row;
   }
   function renderChallenges(){
     const body=document.getElementById("challenge-list"); if(!body) return;
@@ -2325,16 +2367,18 @@
     const txt=document.getElementById("challenge-progress-text"); if(txt) txt.textContent=done+" / "+total+" complete";
     const bar=document.getElementById("challenge-bar"); if(bar) bar.style.width=Math.round(done/total*100)+"%";
     body.innerHTML="";
-    CHALLENGES.forEach(c=>{
-      const ok=challengesDone.has(c.id);
-      const row=document.createElement("div");
-      row.className="challenge"+(ok?" done":"");
-      row.innerHTML='<div class="challenge-icon">'+c.icon+'</div>'+
-        '<div class="challenge-main"><div class="challenge-title">'+c.title+'</div>'+
-        '<div class="challenge-desc">'+c.desc+'</div></div>'+
-        '<div class="challenge-check">'+(ok?"✓":"")+'</div>';
-      body.appendChild(row);
-    });
+    const byId={}; CHALLENGES.forEach(c=>byId[c.id]=c); const placed=new Set();
+    for(const tier of CHALLENGE_TIERS){
+      const items=tier.ids.map(id=>byId[id]).filter(Boolean);
+      if(!items.length) continue;
+      const tdone=items.filter(c=>challengesDone.has(c.id)).length;
+      const head=document.createElement("div"); head.className="challenge-tier";
+      head.innerHTML='<span>'+tier.name+'</span><span class="challenge-tier-count">'+tdone+'/'+items.length+'</span>';
+      body.appendChild(head);
+      items.forEach(c=>{ placed.add(c.id); body.appendChild(challengeRow(c)); });
+    }
+    const rest=CHALLENGES.filter(c=>!placed.has(c.id));   // safety net for any untiered challenge
+    if(rest.length){ const head=document.createElement("div"); head.className="challenge-tier"; head.innerHTML='<span>More</span>'; body.appendChild(head); rest.forEach(c=>body.appendChild(challengeRow(c))); }
   }
   function openChallenges(){
     const el=document.getElementById("challenges"); if(!el) return;
@@ -2347,6 +2391,7 @@
   }
   function setupChallenges(){
     document.getElementById("btn-challenges")?.addEventListener("click",openChallenges);
+    document.getElementById("next-challenge")?.addEventListener("click",openChallenges);
     document.getElementById("challenges-close")?.addEventListener("click",closeChallenges);
     document.getElementById("challenges-backdrop")?.addEventListener("click",closeChallenges);
     renderChallenges(); updateChallengeBadge();

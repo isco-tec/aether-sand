@@ -161,6 +161,34 @@ html, body {
   box-shadow: 0 0 8px var(--accent-2);
 }
 
+/* "Next challenge" nudge in the top bar */
+.next-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--panel-brd);
+  color: var(--text-dim); cursor: pointer;
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  transition: background .14s ease, border-color .14s ease, transform .1s ease;
+  max-width: 230px; overflow: hidden;
+}
+.next-chip:hover { background: rgba(255,180,84,0.1); border-color: rgba(255,180,84,0.34); }
+.next-chip:active { transform: scale(0.97); }
+.next-chip .nc-label { font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.next-chip .nc-icon { font-size: 14px; }
+.next-chip .nc-title { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 860px) { .next-chip { display: none !important; } }
+
+/* Challenge tier headers */
+.challenge-tier {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 14px 2px 5px; padding-bottom: 4px;
+  border-bottom: 1px solid var(--panel-brd);
+  font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--accent);
+}
+.challenge-tier:first-child { margin-top: 2px; }
+.challenge-tier-count { color: var(--text-dim); font-weight: 700; letter-spacing: .04em; }
+
 .panel-title {
   font-size: 10px; text-transform: uppercase; letter-spacing: .14em;
   color: var(--text-dim); text-align: center; margin-bottom: 10px;
@@ -282,6 +310,7 @@ html, body {
 }
 .mat-desc-name { font-size: 12px; font-weight: 700; color: var(--text); }
 .mat-desc-text { font-size: 10px; line-height: 1.4; color: var(--text-dim); }
+.mat-whisper { color: var(--accent); font-style: italic; opacity: .9; }
 
 /* ---------- Side panel (forces + scene) ---------- */
 #sidepanel {
