@@ -26,7 +26,8 @@
         SLIME=46, HONEY=47, ACIDCLOUD=48, BULB=49,
         VINE=58, MOLD=59, BRINE=60, CINNABAR=61,
         LIMESTONE=62, QUICKLIME=63, SLAKEDLIME=64, CO2=65, SEED=66,
-        NIGREDO=67, ALBEDO=68, CITRINITAS=69;   // the Magnum Opus stages (rubedo = PHILOSOPHER)
+        NIGREDO=67, ALBEDO=68, CITRINITAS=69,   // the Magnum Opus stages (rubedo = PHILOSOPHER)
+        SAPLING=70;
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -119,10 +120,12 @@
     [NIGREDO]:  { name:"Nigredo", type:POWDER, d:214, c1:[36,33,40], c2:[18,16,22], k:0.05 },
     [ALBEDO]:   { name:"Albedo",  type:POWDER, d:214, c1:[238,240,246], c2:[202,206,216], k:0.05 },
     [CITRINITAS]:{name:"Citrinitas",type:POWDER,d:214, c1:[242,206,74], c2:[206,168,40], k:0.05, emit:0.25 },
+    [SAPLING]:  { name:"Sapling", type:STATIC, d:1e4, c1:[120,184,86], c2:[92,150,64], k:0.04, flam:1,
+                  trans:[{c:1,t:200,to:FIRE,p:0.35}] },
   };
 
   // fast lookup arrays
-  const MAXID = 70;
+  const MAXID = 71;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -142,13 +145,13 @@
   WINDF[HYDROGEN]=1.3; WINDF[OXYGEN]=1; WINDF[ASH]=0.5; WINDF[RUST]=0.08;
   WINDF[SLIME]=0.04; WINDF[HONEY]=0.02; WINDF[BRINE]=0.25; WINDF[CINNABAR]=0.04;
   WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07; WINDF[CO2]=0.8; WINDF[SEED]=0.1;
-  WINDF[NIGREDO]=0.04; WINDF[ALBEDO]=0.04; WINDF[CITRINITAS]=0.04;
+  WINDF[NIGREDO]=0.04; WINDF[ALBEDO]=0.04; WINDF[CITRINITAS]=0.04; WINDF[SAPLING]=0;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; // gold is an excellent conductor
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
-    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,WOOD,SEED,PLANT,VINE,MOLD,WALL] },
+    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,WOOD,SEED,SAPLING,PLANT,VINE,MOLD,WALL] },
     { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,NITRO] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,QUICKLIME,SLAKEDLIME,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
@@ -173,7 +176,8 @@
     [METAL]:"Conductive solid. Melts to lava; amalgamates with mercury.",
     [WOOD]:"Flammable static block.",
     [PLANT]:"Drinks water and climbs toward the light; buried in the dark, it withers to ash.",
-    [SEED]:"Drop it on damp soil and it sprouts into a growing plant.",
+    [SEED]:"Drop it on damp soil and it sprouts — a sapling that climbs into a tree.",
+    [SAPLING]:"A young tree. It climbs a wooden trunk toward the light, then bursts into a leafy crown.",
     [NIGREDO]:"The blackened prima materia — the first stage of the Great Work. Wash it with water.",
     [ALBEDO]:"The whitened matter — purified. Now give it to the fire.",
     [CITRINITAS]:"The yellowing — the dawning solar light. Perfect it with gold to birth the Stone.",
@@ -248,7 +252,8 @@
     { id:"charcoal", cat:"Crafting", name:"Charcoal", in:[WOOD], out:[COAL], note:"Wood heated slowly chars into charcoal instead of burning away.", hint:"Wood, heated gently…" },
     { id:"crystal_grow", cat:"Growth", name:"Crystal garden", in:[CRYSTAL,WATER], out:[CRYSTAL], note:"Crystals drink water to spread.", hint:"A prism beside water…" },
     { id:"plant_grow", cat:"Growth", name:"Verdant spread", in:[PLANT,WATER], out:[PLANT], note:"Plants drink water to climb toward the light.", hint:"Life needs water…" },
-    { id:"germinate", cat:"Growth", name:"Germination", in:[SEED,WATER], out:[PLANT], note:"A seed on damp soil sprouts into a growing plant.", hint:"A seed, soil, and water…" },
+    { id:"germinate", cat:"Growth", name:"Germination", in:[SEED,WATER], out:[SAPLING], note:"A seed on damp soil sprouts into a sapling.", hint:"A seed, soil, and water…" },
+    { id:"tree", cat:"Growth", name:"The Tree", in:[SAPLING], out:[WOOD], note:"A sapling climbs a wooden trunk toward the light, then crowns itself with leaves.", hint:"Let a sapling reach for the sky…" },
     { id:"wilt", cat:"Growth", name:"Withering", in:[PLANT], out:[ASH], note:"Sealed away from air and light, a plant withers to ash.", hint:"Bury a plant in the dark…" },
     { id:"vine_grow", cat:"Growth", name:"Climbing vines", in:[VINE], out:[VINE], note:"Vines creep up surfaces and reach across open space.", hint:"Tendrils seeking a wall…" },
     { id:"mold_spread", cat:"Growth", name:"Creeping rot", in:[MOLD,WOOD], out:[MOLD], note:"Mold spreads over wood, plant and damp stone, then crumbles to ash.", hint:"Decay finds the damp…" },
@@ -306,7 +311,8 @@
     { id:"inferno", icon:"🔥", title:"Inferno", desc:"Heat something past 1500°.", test:s=>s.maxTemp>=1500 },
     { id:"antimatter", icon:"🌀", title:"Annihilation", desc:"Witness an antimatter reaction.", test:s=>s.disc.has("antimatter") },
     { id:"garden", icon:"🌿", title:"Green Thumb", desc:"Grow a sprawling vine.", test:s=>s.disc.has("vine_grow")||s.count(VINE)>=45 },
-    { id:"germinate", icon:"🌱", title:"From a Seed", desc:"Sprout a plant from a seed on damp soil.", test:s=>s.disc.has("germinate") },
+    { id:"germinate", icon:"🌱", title:"From a Seed", desc:"Sprout a sapling from a seed on damp soil.", test:s=>s.disc.has("germinate") },
+    { id:"tree", icon:"🌳", title:"Mighty Oak", desc:"Grow a sapling into a full tree with a leafy crown.", test:s=>s.disc.has("tree") },
     { id:"magnum_opus", icon:"🜍", title:"The Great Work", desc:"Complete the Magnum Opus: nigredo → albedo → citrinitas → the Stone.", test:s=>s.disc.has("nigredo")&&s.disc.has("albedo")&&s.disc.has("citrinitas")&&s.disc.has("rubedo") },
     { id:"projection", icon:"👑", title:"Projection", desc:"Use the Philosopher's Stone to project base matter into gold.", test:s=>s.disc.has("projection") },
     { id:"wildfire", icon:"🌲", title:"Wildfire", desc:"Burn a forest of wood, plant or vine.", test:s=>s.disc.has("wildfire") },
@@ -335,7 +341,7 @@
     [SLIME]:0.92,[HONEY]:0.95,[ACIDCLOUD]:0.55,[BULB]:1,
     [VINE]:1,[MOLD]:1,[BRINE]:0.9,[CINNABAR]:0.88,
     [LIMESTONE]:1,[QUICKLIME]:0.9,[SLAKEDLIME]:0.9,[CO2]:0.6,[SEED]:0.9,
-    [NIGREDO]:0.92,[ALBEDO]:0.92,[CITRINITAS]:0.92,
+    [NIGREDO]:0.92,[ALBEDO]:0.92,[CITRINITAS]:0.92,[SAPLING]:1,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -432,6 +438,7 @@
       case OXYGEN: return 220+(rnd()*180|0);
       case CO2: return 240+(rnd()*200|0);
       case VINE: return 24+(rnd()*18|0);  // growth energy
+      case SAPLING: return 7+(rnd()*10|0);  // trunk height the tree will climb before crowning
       default: return 0;
     }
   }
@@ -822,15 +829,38 @@
     }
   }
   function upSeed(x,y,i){
-    // germinate on damp soil
+    // germinate on damp soil — sprout a sapling that will climb into a tree
     let soil=false;
-    if(i+W<N){ const b=grid[i+W]; if(b===SAND||b===LIMESTONE||b===STONE||b===PLANT||b===SLAKEDLIME) soil=true; }
+    if(i+W<N){ const b=grid[i+W]; if(b===SAND||b===LIMESTONE||b===STONE||b===PLANT||b===SLAKEDLIME||b===ASH) soil=true; }
     if(soil){
-      let water=false;
-      forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===BRINE) water=true; return false; });
-      if(water && rnd()<0.07){ convert(i,PLANT); discoverRecipe("germinate"); return; }
+      let water=false, rich=false;
+      forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===BRINE) water=true; if(nm===ASH) rich=true; return false; });
+      if(water && rnd()<(rich?0.12:0.07)){ convert(i,SAPLING); discoverRecipe("germinate"); return; }  // ash-rich soil sprouts faster
     }
     moveFalling(x,y,i,SEED);
+  }
+  // a sapling climbs a wooden trunk toward the light, then bursts into a leafy crown
+  function upSapling(x,y,i){
+    const up=i-W;
+    const above=(y>0)? grid[up] : WALL;
+    if(above===SAPLING || above===WOOD){ convert(i,WOOD); return; }   // a lower trunk segment — just harden
+    if(life[i]<=0 || y<=2 || above!==EMPTY){ growCanopy(x,y,i); return; }   // the tip: budget spent, sky reached, or blocked → crown
+    // climb: leave trunk behind, advance the tip upward (capture the budget BEFORE convert resets life[i])
+    const budget=life[i]-1, t=temp[i];
+    convert(i,WOOD);
+    grid[up]=SAPLING; shade[up]=r255(); life[up]=budget; temp[up]=t; vel[up]=0; moved[up]=1;
+    expandActive(x-2,y-3,x+2,y+1);
+  }
+  function growCanopy(x,y,i){
+    convert(i,PLANT);                                        // the growing tip becomes the first leaf
+    const r=3+(rnd()*3|0);
+    for(let dy=-r;dy<=2;dy++){ const ny=y+dy; if(ny<0||ny>=H) continue;
+      for(let dx=-r;dx<=r;dx++){ const nx=x+dx; if(nx<0||nx>=W) continue;
+        if(dx*dx+dy*dy>r*r) continue;
+        const j=ny*W+nx;
+        if(grid[j]===EMPTY && rnd()<0.5){ grid[j]=PLANT; shade[j]=r255(); life[j]=0; temp[j]=temp[i]; vel[j]=0; moved[j]=1; } } }
+    expandActive(x-r,y-r,x+r,y+2);
+    discoverRecipe("tree");
   }
   // an empty cell can host a vine if it clings to any solid/powder/vine surface
   function touchesSurface(x,y){
@@ -1411,6 +1441,7 @@
           case SLAKEDLIME: upSlakedlime(x,y,i); break;
           case CO2: upCO2(x,y,i); break;
           case SEED: upSeed(x,y,i); break;
+          case SAPLING: upSapling(x,y,i); break;
           case NIGREDO: upNigredo(x,y,i); break;
           case ALBEDO: upAlbedo(x,y,i); break;
           case CITRINITAS: upCitrinitas(x,y,i); break;
@@ -2277,7 +2308,7 @@
                 limestone:LIMESTONE, chalk:LIMESTONE, quicklime:QUICKLIME, "quick lime":QUICKLIME,
                 lime:QUICKLIME, "slaked lime":SLAKEDLIME, slakedlime:SLAKEDLIME,
                 co2:CO2, "carbon dioxide":CO2, "dry ice":CO2,
-                seed:SEED, seeds:SEED, sprout:SEED,
+                seed:SEED, seeds:SEED, sprout:SEED, sapling:SAPLING, tree:SAPLING,
                 nigredo:NIGREDO, albedo:ALBEDO, citrinitas:CITRINITAS };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
@@ -2289,7 +2320,7 @@
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
     SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,CO2,SEED,
-    NIGREDO,ALBEDO,CITRINITAS,
+    NIGREDO,ALBEDO,CITRINITAS,SAPLING,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
