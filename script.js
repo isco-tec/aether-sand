@@ -1021,6 +1021,16 @@
     });
     if(reacted){ explode(x,y,5); grid[i]=EMPTY; shakeScreen(5); discoverRecipe("antimatter"); }
   }
+  // fulgurite — fuse a little blob of sand into glass (real lightning makes glass tubes)
+  function fuseSand(cx,cy,r){
+    let made=false; const r2=r*r;
+    for(let dy=-r;dy<=r;dy++){ const ny=cy+dy; if(ny<0||ny>=H) continue;
+      for(let dx=-r;dx<=r;dx++){ const nx=cx+dx; if(nx<0||nx>=W) continue;
+        if(dx*dx+dy*dy>r2) continue;
+        const i=ny*W+nx; if(grid[i]===SAND){ convert(i,GLASS); shade[i]=r255(); made=true; } } }
+    if(made) discoverRecipe("fulgurite");
+    return made;
+  }
   function strikeLightning(cx,cy){
     let x=clamp(cx|0,0,W-1), y=clamp(cy|0,0,H-1), steps=0;
     let bminx=x,bmaxx=x,bminy=y;
@@ -1029,18 +1039,18 @@
       temp[i]=Math.max(temp[i],420);
       if(CHCOND[grid[i]]) charge[i]=6;
       if(FLAM[grid[i]]) temp[i]+=180;
-      if(grid[i]===SAND){ convert(i,GLASS); discoverRecipe("fulgurite"); }   // fulgurite — lightning fuses sand to glass
+      if(grid[i]===SAND) fuseSand(x,y,2);   // passing through sand fuses it
       addP(x+0.5,y+0.5,(rnd()-0.5)*0.8,0.6+rnd()*1.4,8+rnd()*8,200,228,255,KSPARK);
       if(x<bminx)bminx=x; if(x>bmaxx)bmaxx=x;
-      if(rnd()<0.45) x += rnd()<0.5?-1:1;
+      if(rnd()<0.28) x += rnd()<0.5?-1:1;   // a straighter, more aimable bolt
       if(x<0)x=0; else if(x>=W)x=W-1;
       y++; steps++;
       const gi=y*W+x, gm=grid[gi];
       if(gm!==EMPTY && TYPE[gm]!==GAS){
-        temp[gi]=Math.max(temp[gi],640);
+        temp[gi]=Math.max(temp[gi],700);
         if(FLAM[gm]) temp[gi]+=320;
         if(CHCOND[gm]) charge[gi]=6;
-        if(gm===SAND){ convert(gi,GLASS); discoverRecipe("fulgurite"); }
+        fuseSand(x,y,3);                     // a glass blob where the bolt lands (incl. nearby sand)
         for(let a=0;a<14;a++){ const ang=rnd()*6.2832, sp=0.6+rnd()*2.4;
           addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,12+rnd()*16,210,232,255,KSPARK); }
         break;
