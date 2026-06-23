@@ -127,6 +127,7 @@
   // fast lookup arrays
   const MAXID = Math.max(...Object.keys(M).map(Number)) + 1;   // derived from the table — no manual bump when ids are added
   const MAX_SCENE_DIM = 1024;       // reject share/save scenes larger than this (covers every real world; blocks OOM payloads)
+  const SCENE_VERSION = 1;          // share/save payload format version — bump if the byte layout or id meanings change
   // flat per-material lookup arrays, derived once from M — the hot loop never touches the M dictionary
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
@@ -1338,7 +1339,7 @@
     while(y<H-1 && steps<H){
       const i=y*W+x;
       temp[i]=Math.max(temp[i],420);
-      if(CHCOND[grid[i]] && grid[i]!==WATER && grid[i]!==BRINE) charge[i]=6;   // energise wires/metal, but don't electrolyse whole lakes
+      if(CHCOND[grid[i]] && grid[i]!==WATER && grid[i]!==BRINE){ charge[i]=6; chargeDirty=true; }   // energise wires/metal, but don't electrolyse whole lakes
       if(FLAM[grid[i]]) temp[i]+=180;
       if(grid[i]===SAND) fuseSand(x,y,2);   // passing through sand fuses it
       addP(x+0.5,y+0.5,(rnd()-0.5)*0.8,0.6+rnd()*1.4,8+rnd()*8,200,228,255,KSPARK);
@@ -1350,7 +1351,7 @@
       if(gm!==EMPTY && TYPE[gm]!==GAS){
         temp[gi]=Math.max(temp[gi],700);
         if(FLAM[gm]) temp[gi]+=320;
-        if(CHCOND[gm] && gm!==WATER && gm!==BRINE) charge[gi]=6;
+        if(CHCOND[gm] && gm!==WATER && gm!==BRINE){ charge[gi]=6; chargeDirty=true; }
         fuseSand(x,y,3);                     // a glass blob where the bolt lands (incl. nearby sand)
         for(let a=0;a<14;a++){ const ang=rnd()*6.2832, sp=0.6+rnd()*2.4;
           addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,12+rnd()*16,210,232,255,KSPARK); }
@@ -1373,10 +1374,14 @@
   /* ============================ Charge (electricity) ============== */
   // Electricity travels as a constant-strength pulse leaving a brief
   // refractory trail (charge<0) so a current can run the full length of a wire.
+  let chargeDirty=false;   // true while any charge/refractory cell exists — lets us skip the full-grid scan when idle
   function propagateCharge(){
+    if(!chargeDirty) return;          // the common case: nothing is energised, so don't scan N cells
+    let any=false;
     for(let i=0;i<N;i++){
       const c=charge[i];
       if(c===0) continue;
+      any=true;
       if(c<0){ charge[i]=c+1; continue; }
       const m=grid[i];
       applySrc(i,140,0.5);
@@ -1395,6 +1400,7 @@
       const nc=c-1;
       charge[i]= nc>0 ? nc : -3;
     }
+    chargeDirty=any;   // once all charge has dissipated, the scan switches itself off until re-energised
   }
 
   /* ============================ Particle system =================== */
@@ -1956,7 +1962,7 @@
     for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
       const dx=x-cx,dy=y-cy; if(dx*dx+dy*dy>r2) continue;
       const i=y*W+x, m=grid[i];
-      if(CHCOND[m]){ charge[i]=6; hit=true; }
+      if(CHCOND[m]){ charge[i]=6; hit=true; chargeDirty=true; }
       else if(FLAM[m]){ temp[i]+=120; hit=true; }
     }
     if(!hit){ for(let a=0;a<5;a++){ const ang=rnd()*6.28; addP(cx,cy,Math.cos(ang)*1.2,Math.sin(ang)*1.2,14,180,240,255,KSPARK);} }
@@ -2131,7 +2137,7 @@
   }
   function b64(arr){ let s="",ch=0x8000; for(let i=0;i<arr.length;i+=ch) s+=String.fromCharCode.apply(null,arr.subarray(i,i+ch)); return btoa(s); }
   function unb64(str){ const bin=atob(str),a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i); return a; }
-  function saveScene(){ try{ localStorage.setItem("aether-sand-scene",JSON.stringify({w:W,h:H,g:b64(grid)})); toast("Scene saved"); }catch(e){ toast("Save failed"); } }
+  function saveScene(){ try{ localStorage.setItem("aether-sand-scene",JSON.stringify({v:SCENE_VERSION,w:W,h:H,g:b64(grid)})); toast("Scene saved"); }catch(e){ toast("Save failed"); } }
   function loadScene(){
     const s=localStorage.getItem("aether-sand-scene"); if(!s){ toast("No saved scene"); return; }
     try{ const o=JSON.parse(s),g=unb64(o.g);
@@ -2175,14 +2181,17 @@
     const bin=atob(str),a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) a[i]=bin.charCodeAt(i); return a;
   }
   function encodeScene(){
-    const rle=rleEncode(grid), all=new Uint8Array(4+rle.length);
-    all[0]=W&255; all[1]=(W>>8)&255; all[2]=H&255; all[3]=(H>>8)&255;
-    all.set(rle,4); return b64url(all);
+    const rle=rleEncode(grid), all=new Uint8Array(5+rle.length);
+    all[0]=SCENE_VERSION;
+    all[1]=W&255; all[2]=(W>>8)&255; all[3]=H&255; all[4]=(H>>8)&255;
+    all.set(rle,5); return b64url(all);
   }
   function applySceneBytes(all){
-    const w=all[0]|(all[1]<<8), h=all[2]|(all[3]<<8);
+    let off, w, h;
+    if(all[0]===SCENE_VERSION){ off=5; w=all[1]|(all[2]<<8); h=all[3]|(all[4]<<8); }
+    else { off=4; w=all[0]|(all[1]<<8); h=all[2]|(all[3]<<8); }   // legacy (pre-version) payload: 4-byte header
     if(w<=0||h<=0||w>MAX_SCENE_DIM||h>MAX_SCENE_DIM) throw new Error("bad scene");   // reject oversized dims (DoS) before allocating
-    const flat=new Uint8Array(w*h); rleDecode(all.subarray(4), flat);
+    const flat=new Uint8Array(w*h); rleDecode(all.subarray(off), flat);
     grid.fill(EMPTY); charge.fill(0); life.fill(0); pres.fill(0); temp.fill(AMBIENT); vel.fill(0); pn=0;
     const cw=Math.min(w,W), chh=Math.min(h,H);
     for(let y=0;y<chh;y++)for(let x=0;x<cw;x++){
@@ -2213,20 +2222,25 @@
 
   /* ============================ Loop ============================== */
   let paused=false, stepOnce=false, frames=0, fpsT=performance.now(), fpsEl, countEl;
-  let acc=0, lastT=performance.now(); const SIMDT=1000/60;
+  let acc=0, lastT=performance.now(), subBudget=4; const SIMDT=1000/60;   // subBudget: adaptive max sim steps/frame
   function loop(now){
     if(fireworkCooldown>0) fireworkCooldown--;
     if(lightningCooldown>0) lightningCooldown--;
     if(opusCooldown>0) opusCooldown--;
     let dt=now-lastT; lastT=now; if(dt>250) dt=250; acc+=dt;
-    if(acc>SIMDT*4) acc=SIMDT*4;   // never hoard more than 4 steps of backlog (no death-spiral after a stall)
-    let runs=0;
+    if(acc>SIMDT*subBudget) acc=SIMDT*subBudget;   // never hoard more backlog than we'll run (no death-spiral after a stall)
+    let runs=0; const simT0=performance.now();
     try{
-      while(acc>=SIMDT && runs<4){
+      while(acc>=SIMDT && runs<subBudget){
         if(!paused||stepOnce){ runAttract(); step(); stepOnce=false; }
         acc-=SIMDT; runs++;
         if(paused) break;
       }
+      // adapt the catch-up budget: if simulating is overrunning the frame, stop trying to do 4 steps (degrade to
+      // slow-motion rather than a juddery stall on Grand/mobile); climb back toward 4 when there's headroom
+      const simMs=performance.now()-simT0;
+      if(simMs>SIMDT*1.4 && subBudget>1) subBudget--;
+      else if(simMs<SIMDT*0.7 && subBudget<4) subBudget++;
       if(painting && lastPx!=null) paintDisc(lastPx,lastPy,eraseBtn?EMPTY:currentMat);
       render(now);
     }catch(err){
