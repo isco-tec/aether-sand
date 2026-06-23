@@ -938,7 +938,8 @@
     const up=i-W;
     const above=(y>0)? grid[up] : WALL;
     if(above===SAPLING || above===WOOD){ convert(i,WOOD); return; }   // a lower trunk segment — just harden
-    if(life[i]<=0 || y<=2 || above!==EMPTY){ growCanopy(x,y,i); return; }   // the tip: budget spent, sky reached, or blocked → crown
+    const clear = (above===EMPTY || above===WATER || above===BRINE);   // it can push up through air or water
+    if(life[i]<=0 || y<=2 || !clear){ growCanopy(x,y,i); return; }   // the tip: budget spent, sky reached, or blocked → crown
     // climb: leave trunk behind, advance the tip upward (capture the budget BEFORE convert resets life[i])
     const budget=life[i]-1, t=temp[i];
     convert(i,WOOD);
@@ -1915,46 +1916,46 @@
   function runAttract(){
     if(!attract) return;
     attractT += 1/60;
-    const t=attractT, cx=(W/2)|0, ty=(H*0.28)|0, baseY=(H*0.78)|0;
-    // stage 0 → the land, then the title materialises out of a soft bloom
+    const t=attractT, cx=(W/2)|0, ty=(H*0.3)|0, baseY=(H*0.78)|0;
+    // stage 0 → a barren land, then the title materialises out of a soft violet bloom, big and centred
     if(attractStage===0 && t>=0.05){
       cineClear(); titleCells.length=0; dissolveIdx=0;
       philoSet=fwFlash=false;
       buildTerrain();
       flash(184,132,228,0.4);                                  // the void breathes
-      titleBox = stampText("Aether Sand", cx, ty, DIAMOND, W*0.082);
-      stampText("by Ori Iscovici", cx, (ty+W*0.075)|0, PHILOSOPHER, W*0.032);
+      titleBox = stampText("Aether Sand", cx, ty, DIAMOND, W*0.086);
+      stampText("by Ori Iscovici", cx, (ty+W*0.078)|0, PHILOSOPHER, W*0.032);
       attractStage=1;
     }
-    // stage 1 → the title holds, sand pours onto it, a crystalline "breath" rises, then the flash
+    // stage 1 → a heavy stream of sand pours back and forth across the title (like pouring by hand with a fat brush),
+    //           burying the glowing letters under sweeping dunes — then the whole thing collapses
     if(attractStage===1){
-      if(t>0.6 && t<3.4){                                       // sand streams onto "Aether Sand"
-        const rate=t<1.8?3:6;
-        for(let k=0;k<rate;k++){ const x=titleBox.x0+((rnd()*(titleBox.x1-titleBox.x0+1))|0);
-          if(x>0&&x<W && grid[2*W+x]===EMPTY) spawn(2*W+x,SAND); }
-        expandActive(titleBox.x0-1,0,titleBox.x1+1,titleBox.y1+1);
+      if(t>0.8 && t<2.9){
+        const span=Math.max(24,titleBox.x1-titleBox.x0), mid=(titleBox.x0+titleBox.x1)*0.5;
+        const sx=(mid + Math.sin((t-0.8)*4.2)*span*0.52)|0;    // the pour sweeps left ↔ right ↔ left
+        for(let xx=-5;xx<=5;xx++){ const gx=sx+xx;             // a ~10-wide brush, a few cells deep → big amounts
+          if(gx>0&&gx<W) for(let gy=2;gy<6;gy++){ if(grid[gy*W+gx]===EMPTY) spawn(gy*W+gx,SAND); } }
+        expandActive(titleBox.x0-3,0,titleBox.x1+3,titleBox.y1+3);
       }
       if(t>0.8 && titleCells.length && rnd()<0.4){ const k=titleCells[(rnd()*titleCells.length)|0];
         addP((k%W)+0.5,((k/W)|0)+0.5,(rnd()-0.5)*0.4,-0.25-rnd()*0.35,18+rnd()*16,200,232,255,KSPARK); }
-      if(t>=3.5){ flash(200,238,255,0.55); shakeScreen(6); attractStage=2; dissolveIdx=0; }
+      if(t>=3.1){ flash(200,238,255,0.55); shakeScreen(7); attractStage=2; dissolveIdx=0; }
     }
-    // stage 2 → the title dissolves into water that fills the basins; the byline showers down as gold dust. NO rained seeds.
+    // stage 2 → the title dissolves into water that fills the basins; the byline showers down as gold dust
     if(attractStage===2){
       const chunk=Math.ceil(titleCells.length/22);
       for(let n=0;n<chunk && dissolveIdx<titleCells.length;n++,dissolveIdx++){
         const k=titleCells[dissolveIdx];
         if(grid[k]===PHILOSOPHER) convert(k,GOLD);             // the credit becomes treasure
-        else convert(k, rnd()<0.72?WATER:SAND);
+        else if(grid[k]===DIAMOND) convert(k, rnd()<0.72?WATER:SAND);
         addP((k%W)+0.5,((k/W)|0)+0.5,(rnd()-0.5)*0.7,-0.1-rnd()*0.4,16+rnd()*16,200,236,255,KSPARK);
       }
       expandActive(0,0,W-1,H-1);
       if(dissolveIdx>=titleCells.length) attractStage=3;
     }
-    // stage 3 → once the rain has stopped and the land has settled, sow seeds on the BANKS (real surface + a splash)
-    // so the saplings have clear air to climb a proper trunk into
+    // stage 3 → once the rain has stopped and the land has settled, sow seeds on the banks so saplings climb proper trunks
     if(attractStage===3 && t>=10){
-      for(const fx of [0.14,0.22,0.34,0.42,0.5,0.58,0.66,0.78]){ const x=(W*fx)|0;
-        // find the current dry surface (first solid below the air, skipping ponds)
+      for(const fx of [0.12,0.19,0.26,0.33,0.41,0.5,0.59,0.67,0.74,0.81,0.88]){ const x=(W*fx)|0;
         let sy=-1; for(let y=(baseY-22)|0; y<H; y++){ const m=grid[y*W+x]; if(m!==EMPTY && TYPE[m]!==GAS && TYPE[m]!==LIQUID){ sy=y; break; } }
         if(sy>3){ for(let s=-2;s<=2;s++){ const sx=x+s; if(sx>0&&sx<W){ const i=(sy-1)*W+sx; if(grid[i]===EMPTY) spawn(i,SEED); } }
           cineRow(x-3,x+3,sy-9,WATER); }
@@ -1963,8 +1964,8 @@
     }
     // the Stone's quiet pulse gilds a dry bank with a little gold
     if(!philoSet && t>=13){ const x=(W*0.86)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-3)*W+x,PHILOSOPHER); philoSet=true; }
-    // continuous: gentle rain keeps the ponds full (reciprocity); snow on the cold left; fireflies low over the foliage; fireworks finale
-    if(t>3.5 && t<9.5){ for(let k=0;k<2;k++){ const x=(W*(0.14+rnd()*0.72))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
+    // continuous: gentle rain keeps the ponds full; snow on the cold left; fireflies low over the foliage; fireworks finale
+    if(t>3.6 && t<9.5){ for(let k=0;k<2;k++){ const x=(W*(0.14+rnd()*0.72))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
     if(t>8 && t<13 && rnd()<0.22){ const x=(W*(0.02+rnd()*0.1))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,SNOW); }
     if(t>8 && rnd()<0.5){ const x=(W*(0.12+rnd()*0.74))|0, y=baseY-4-((rnd()*26)|0);   // low + short life → fireflies, not falling drops
       addP(x+0.5,y+0.5,(rnd()-0.5)*0.22,-0.05-rnd()*0.12,16+rnd()*16,220,255,160,KSPARK); }
