@@ -636,18 +636,18 @@
         const sx=dx>0?1:(dx<0?-1:0), sy=dy>0?1:(dy<0?-1:0), ti=i+sy*W+sx;
         if(ti>=0&&ti<N && canDisplace(mm,ti)) swap(i,ti);
       } }
-    shakeScreen(power*1.1);
+    shakeScreen(power*0.55);
     expandActive(cx-r-1,cy-r-1,cx+r+1,cy+r+1);   // the blast (cells + pressure) needs simulating/redrawing
   }
 
   /* ============================ Screen shake ====================== */
   let shakeAmt=0, stageEl=null;
-  function shakeScreen(a){ if(a>shakeAmt) shakeAmt=a>16?16:a; }
+  function shakeScreen(a){ if(a>shakeAmt) shakeAmt=a>6?6:a; }   // capped low — a hint of impact, not a jolt
   function applyShake(){
     if(!stageEl) stageEl=document.getElementById("stage");
     if(!stageEl) return;
     if(shakeAmt>0.15){
-      const dx=(rnd()-0.5)*shakeAmt, dy=(rnd()-0.5)*shakeAmt;
+      const dx=(rnd()-0.5)*shakeAmt*0.4, dy=(rnd()-0.5)*shakeAmt*0.4;
       stageEl.style.transform="translate("+dx.toFixed(2)+"px,"+dy.toFixed(2)+"px)";
       shakeAmt*=0.86;
     } else if(shakeAmt!==0){ stageEl.style.transform=""; shakeAmt=0; }
@@ -1245,9 +1245,16 @@
       for(let dy=1;dy<=3;dy++){ const ny=y+dy; if(ny>=H) break; const bi=ny*W+x;
         if(grid[bi]===EMPTY){ spawn(bi,rainMat); discoverRecipe(rainMat===ACID?"acid_rain":"rain"); break; } }
     }
-    // a brooding storm hurls the occasional bolt — gated by a global cooldown so a big cloud
-    // (e.g. one grown from evaporation) strikes now and then, never as a barrage
-    if(stormCooldown<=0 && rnd()<0.03){ strikeLightning(x,y); stormCooldown=170+(rnd()*260|0); }
+    // a LIVING storm flickers single bolts here and there across itself — frequent and natural (and
+    // size-independent, so a giant cloud can't barrage). The thunder is DECOUPLED onto its own slow
+    // cadence, so the sky stays alive with light while the sound never piles into a wall.
+    if(stormCooldown<=0 && rnd()<0.06){
+      const bx=clamp(x+((rnd()-0.5)*120|0),2,W-3);
+      const loud = stormThunderCD<=0;
+      strikeLightning(bx, y, !loud);                              // most bolts are silent flashes…
+      if(loud) stormThunderCD=90+(rnd()*100|0);                   // …a thunder clap only every ~1.5-3.2s
+      stormCooldown=14+(rnd()*22|0);                              // a fresh bolt every ~0.25-0.6s
+    }
     // heavy smoke pollution can slowly sour a storm cloud into an acid cloud.
     // Only real smoke counts (no acid-cloud chain reaction), and it needs a proper
     // plume around it, so it stays a deliberate, rare event rather than a sweep.
@@ -1291,8 +1298,8 @@
     if(made) discoverRecipe("fulgurite");
     return made;
   }
-  function strikeLightning(cx,cy){
-    Snd.zap();
+  function strikeLightning(cx,cy,silent){
+    if(!silent) Snd.zap();
     let x=clamp(cx|0,0,W-1), y=clamp(cy|0,0,H-1), steps=0;
     let bminx=x,bmaxx=x,bminy=y;
     while(y<H-1 && steps<H){
@@ -1317,7 +1324,6 @@
         break;
       }
     }
-    shakeScreen(6);
     expandActive(bminx-2, bminy-2, bmaxx+2, y+2);   // the bolt's scorched path
     discoverRecipe("lightning");
   }
@@ -1530,6 +1536,10 @@
 
   /* ============================ Simulation step =================== */
   function step(){
+    // storm timers tick on the SIM step (fixed 60/s), not the render frame, so lightning cadence
+    // is identical whether the game runs at 60fps or 20fps
+    if(stormCooldown>0) stormCooldown--;
+    if(stormThunderCD>0) stormThunderCD--;
     finalizeBox();
     moved.fill(0);
     const ltr = rnd()<0.5;
@@ -1868,7 +1878,7 @@
   let currentMat=SAND, brush=10, painting=false, eraseBtn=false;
   let lastPx=null,lastPy=null;
   let pointerInside=false,pointerX=0,pointerY=0;
-  let fireworkCooldown=0, lightningCooldown=0, stormCooldown=0;
+  let fireworkCooldown=0, lightningCooldown=0, stormCooldown=0, stormThunderCD=0;
 
   function paintTemp(cx,cy,sign){
     const rad=Math.max(2,brush), r2=rad*rad;
@@ -2167,7 +2177,6 @@
   function loop(now){
     if(fireworkCooldown>0) fireworkCooldown--;
     if(lightningCooldown>0) lightningCooldown--;
-    if(stormCooldown>0) stormCooldown--;
     if(opusCooldown>0) opusCooldown--;
     let dt=now-lastT; lastT=now; if(dt>250) dt=250; acc+=dt;
     let runs=0;
