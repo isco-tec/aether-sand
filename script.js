@@ -324,6 +324,9 @@
         const a=y*W+x,b=y*old.W+x; grid[a]=old.grid[b]; temp[a]=old.temp[b];
       }
     }
+    // reset active-region tracking for the new grid dimensions (full rebuild next step)
+    bx0=0; by0=0; bx1=W-1; by1=H-1; boxFull=true;
+    nbx0=0; nby0=0; nbx1=W-1; nby1=H-1; boxTick=BOX_REBUILD;
   }
   // world size: bigger index → smaller cells → more cells → a larger, finer world
   let worldSize = clampInt(+(localStorage.getItem("aether-world")||1), 0, 2);
@@ -555,7 +558,7 @@
         if(ti>=0&&ti<N && canDisplace(mm,ti)) swap(i,ti);
       } }
     shakeScreen(power*1.1);
-    markRenderFull();
+    expandActive(cx-r-1,cy-r-1,cx+r+1,cy+r+1);   // the blast (cells + pressure) needs simulating/redrawing
   }
 
   /* ============================ Screen shake ====================== */
@@ -911,6 +914,7 @@
   }
   function strikeLightning(cx,cy){
     let x=clamp(cx|0,0,W-1), y=clamp(cy|0,0,H-1), steps=0;
+    let bminx=x,bmaxx=x,bminy=y;
     while(y<H-1 && steps<H){
       const i=y*W+x;
       temp[i]=Math.max(temp[i],420);
@@ -918,6 +922,7 @@
       if(FLAM[grid[i]]) temp[i]+=180;
       if(grid[i]===SAND){ convert(i,GLASS); discoverRecipe("fulgurite"); }   // fulgurite — lightning fuses sand to glass
       addP(x+0.5,y+0.5,(rnd()-0.5)*0.8,0.6+rnd()*1.4,8+rnd()*8,200,228,255,KSPARK);
+      if(x<bminx)bminx=x; if(x>bmaxx)bmaxx=x;
       if(rnd()<0.45) x += rnd()<0.5?-1:1;
       if(x<0)x=0; else if(x>=W)x=W-1;
       y++; steps++;
@@ -933,7 +938,7 @@
       }
     }
     shakeScreen(6);
-    markRenderFull();
+    expandActive(bminx-2, bminy-2, bmaxx+2, y+2);   // the bolt's scorched path
     discoverRecipe("lightning");
   }
   function emptyNeighbor(x,i){
@@ -1001,7 +1006,7 @@
       const c=hsl(h,1,0.62);
       addP(x,y,Math.cos(ang)*spd,Math.sin(ang)*spd,28+rnd()*42,c[0],c[1],c[2],KSPARK);
     }
-    const gi=((y|0)*W+(x|0)); if(gi>=0&&gi<N) temp[gi]+=60;
+    const gi=((y|0)*W+(x|0)); if(gi>=0&&gi<N){ temp[gi]+=60; expandActive((x|0)-2,(y|0)-2,(x|0)+2,(y|0)+2); }
   }
   function updateParticles(){
     const wpx=WIND*0.06;
@@ -1033,30 +1038,43 @@
   }
 
   /* ============================ Heat diffusion ==================== */
-  // ---- active-region tracking ----------------------------------------
-  // Only the region that actually contains matter / off-ambient heat /
-  // pressure needs the heavy passes. A single conservative bounding box
-  // (recomputed every frame, with a margin wider than the fastest mover)
-  // is safe by construction: every active cell is always inside it.
-  let bx0=0,by0=0,bx1=0,by1=0,boxFull=true;
-  const BOX_MARGIN=10, TEMP_EPS=0.6, PRES_EPS=0.6;
-  function computeActiveBox(){
-    let minx=W,miny=H,maxx=-1,maxy=-1;
-    const lo=AMBIENT-TEMP_EPS, hi=AMBIENT+TEMP_EPS;
-    for(let y=0;y<H;y++){
-      const row=y*W;
-      for(let x=0;x<W;x++){
-        const i=row+x;
-        if(grid[i]!==EMPTY || temp[i]>hi || temp[i]<lo || pres[i]>PRES_EPS || pres[i]<-PRES_EPS){
-          if(x<minx)minx=x; if(x>maxx)maxx=x;
-          if(y<miny)miny=y; if(y>maxy)maxy=y;
-        }
-      }
+  // ---- incremental active-region tracking ---------------------------
+  // The region that needs the heavy passes is tracked as a bounding box,
+  // grown each frame as a BY-PRODUCT of the diffuse pass (which already visits
+  // every box cell) plus explicit hooks at the few points activity enters from
+  // outside (painting, explosions, lightning, particles, attract). No full-grid
+  // scan per frame. A rare full rebuild (every BOX_REBUILD frames) is the safety
+  // net against any missed hook, so nothing can stay frozen.
+  let bx0=0,by0=0,bx1=0,by1=0,boxFull=true;      // current frame's active box
+  let nbx0=0,nby0=0,nbx1=-1,nby1=-1, boxTick=0;  // accumulator → next frame's box
+  const BOX_MARGIN=10, TEMP_EPS=0.6, PRES_EPS=0.6, BOX_REBUILD=180;
+  // grow the accumulator (and, for current-frame effects, the live box) to a rect
+  function expandActive(x0,y0,x1,y1){
+    if(x0<0)x0=0; if(y0<0)y0=0; if(x1>W-1)x1=W-1; if(y1>H-1)y1=H-1;
+    if(x1<x0||y1<y0) return;
+    if(bx1<bx0||by1<by0){ bx0=x0;by0=y0;bx1=x1;by1=y1; }
+    else { if(x0<bx0)bx0=x0; if(y0<by0)by0=y0; if(x1>bx1)bx1=x1; if(y1>by1)by1=y1; }
+    if(nbx1<nbx0||nby1<nby0){ nbx0=x0;nby0=y0;nbx1=x1;nby1=y1; }
+    else { if(x0<nbx0)nbx0=x0; if(y0<nby0)nby0=y0; if(x1>nbx1)nbx1=x1; if(y1>nby1)nby1=y1; }
+  }
+  // single-cell accumulate, used by the diffuse by-product (accumulator only)
+  function accumCell(x,y){
+    if(x<nbx0)nbx0=x; if(x>nbx1)nbx1=x; if(y<nby0)nby0=y; if(y>nby1)nby1=y;
+  }
+  // turn the accumulator into this frame's box (called at the top of step)
+  function finalizeBox(){
+    if(--boxTick<=0){                              // periodic safety rebuild
+      bx0=0;by0=0;bx1=W-1;by1=H-1; boxFull=true; boxTick=BOX_REBUILD;
+    } else if(nbx1<nbx0||nby1<nby0){               // nothing active
+      bx0=0;by0=0;bx1=-1;by1=-1; boxFull=false;
+    } else {
+      bx0=nbx0-BOX_MARGIN; if(bx0<0)bx0=0;
+      by0=nby0-BOX_MARGIN; if(by0<0)by0=0;
+      bx1=nbx1+BOX_MARGIN; if(bx1>W-1)bx1=W-1;
+      by1=nby1+BOX_MARGIN; if(by1>H-1)by1=H-1;
+      boxFull = ((bx1-bx0+1)*(by1-by0+1)) > N*0.72;
     }
-    if(maxx<0){ bx0=0;by0=0;bx1=-1;by1=-1; boxFull=false; return; }   // empty world
-    bx0=Math.max(0,minx-BOX_MARGIN); by0=Math.max(0,miny-BOX_MARGIN);
-    bx1=Math.min(W-1,maxx+BOX_MARGIN); by1=Math.min(H-1,maxy+BOX_MARGIN);
-    boxFull = ((bx1-bx0+1)*(by1-by0+1)) > N*0.72;   // mostly active → full passes are cheaper
+    nbx0=W;nby0=H;nbx1=-1;nby1=-1;                  // reset accumulator for this frame
   }
   function diffuseCell(x,y,i){
     const t=temp[i]; let sum=0,cnt=0;
@@ -1069,15 +1087,18 @@
     return nt<-60?-60: nt>2200?2200: nt;
   }
   function diffuse(){
+    const lo=AMBIENT-TEMP_EPS, hi=AMBIENT+TEMP_EPS;
     if(boxFull){
       for(let y=0;y<H;y++){ const row=y*W;
-        for(let x=0;x<W;x++){ const i=row+x; tempB[i]=diffuseCell(x,y,i); } }
+        for(let x=0;x<W;x++){ const i=row+x; const nt=tempB[i]=diffuseCell(x,y,i);
+          if(grid[i]!==EMPTY||nt>hi||nt<lo||pres[i]>PRES_EPS||pres[i]<-PRES_EPS) accumCell(x,y); } }
       const tmp=temp; temp=tempB; tempB=tmp;
       return;
     }
     if(bx1<bx0) return;                       // nothing active
     for(let y=by0;y<=by1;y++){ const row=y*W;
-      for(let x=bx0;x<=bx1;x++){ const i=row+x; tempB[i]=diffuseCell(x,y,i); } }
+      for(let x=bx0;x<=bx1;x++){ const i=row+x; const nt=tempB[i]=diffuseCell(x,y,i);
+        if(grid[i]!==EMPTY||nt>hi||nt<lo||pres[i]>PRES_EPS||pres[i]<-PRES_EPS) accumCell(x,y); } }
     for(let y=by0;y<=by1;y++){ const row=y*W;   // copy back only the box (rest is ambient, untouched)
       for(let x=bx0;x<=bx1;x++){ const i=row+x; temp[i]=tempB[i]; } }
   }
@@ -1128,7 +1149,7 @@
 
   /* ============================ Simulation step =================== */
   function step(){
-    computeActiveBox();
+    finalizeBox();
     moved.fill(0);
     const ltr = rnd()<0.5;
     const yLo = boxFull?0:by0, yHi = boxFull?H-1:by1;
@@ -1268,11 +1289,6 @@
   let renderFull=true, _pHeat=false,_pPres=false,_pLit=false,_pLL=-1;
   let ppx0=0,ppy0=0,ppx1=-1,ppy1=-1;   // previous frame's particle bounding box
   function markRenderFull(){ renderFull=true; }
-  function expandRenderBox(x0,y0,x1,y1){
-    x0=x0<0?0:x0; y0=y0<0?0:y0; x1=x1>W-1?W-1:x1; y1=y1>H-1?H-1:y1;
-    if(bx1<bx0||by1<by0){ bx0=x0;by0=y0;bx1=x1;by1=y1; return; }
-    if(x0<bx0)bx0=x0; if(y0<by0)by0=y0; if(x1>bx1)bx1=x1; if(y1>by1)by1=y1;
-  }
   function scaleGlow(ge,lf){
     if(!ge||lf>=0.999) return ge;
     if(lf<=0) return 0;
@@ -1462,7 +1478,7 @@
       if(sign>0) temp[i]=Math.min(1500, temp[i]+36*f);
       else temp[i]=Math.max(-50, temp[i]-32*f);
     }
-    expandRenderBox(x0,y0,x1,y1);
+    expandActive(x0,y0,x1,y1);
   }
   function paintDisc(cx,cy,mat){
     if(mat===FIREWORK){ if(fireworkCooldown<=0){ launchRocket(cx,cy); fireworkCooldown=6; } return; }
@@ -1481,7 +1497,7 @@
       const cur=grid[i];
       if(cur===EMPTY || TYPE[cur]===GAS || TYPE[mat]===STATIC) spawn(i,mat);
     }
-    expandRenderBox(x0,y0,x1,y1);
+    expandActive(x0,y0,x1,y1);
   }
   function paintSpark(cx,cy){
     const rad=Math.max(2,brush*0.6), r2=rad*rad;
@@ -1495,7 +1511,7 @@
       else if(FLAM[m]){ temp[i]+=120; hit=true; }
     }
     if(!hit){ for(let a=0;a<5;a++){ const ang=rnd()*6.28; addP(cx,cy,Math.cos(ang)*1.2,Math.sin(ang)*1.2,14,180,240,255,KSPARK);} }
-    expandRenderBox(x0,y0,x1,y1);
+    expandActive(x0,y0,x1,y1);
   }
   function paintLine(x0,y0,x1,y1,mat){
     const dist=Math.hypot(x1-x0,y1-y0);
@@ -1517,6 +1533,7 @@
       if(x>0&&x<W){ const i=2*W+x; if(grid[i]===EMPTY)
         spawn(i, rnd()<0.72?SAND:(rnd()<0.5?WATER:RAINBOW)); }
     }
+    expandActive(cx-6, 0, cx+6, 5);
     if(rnd()<0.012) launchRocket((W*(0.5+0.3*Math.sin(attractT*1.3)))|0, H-4);
   }
   function stopAttract(){ if(!attract) return; attract=false; document.getElementById("hint").classList.add("hide"); }
@@ -2072,7 +2089,7 @@
     snapshot, save:saveScene, load:loadScene, stopAttract,
     share:shareScene, shareCode:encodeScene,
     loadShared(code){ try{ applySceneBytes(unb64url(String(code).replace(/^.*#s=/,''))); stopAttract(); return true; }catch(e){ return false; } },
-    info(){ let c=0; for(let i=0;i<N;i++) if(grid[i]!==EMPTY) c++; return {W,H,SCALE,cells:c,particles:pn,gravity:[GX,GY],wind:WIND,heatMap}; },
+    info(){ let c=0; for(let i=0;i<N;i++) if(grid[i]!==EMPTY) c++; return {W,H,SCALE,cells:c,particles:pn,gravity:[GX,GY],wind:WIND,heatMap,box:[bx0,by0,bx1,by1],boxFull,boxArea:(bx1>=bx0&&by1>=by0)?(bx1-bx0+1)*(by1-by0+1):0}; },
     probe(x,y){ const i=(y|0)*W+(x|0); if(i<0||i>=N) return null; return {mat:M[grid[i]]?M[grid[i]].name:null, id:grid[i], charge:charge[i], life:life[i], temp:Math.round(temp[i]), pres:Math.round(pres[i])}; },
   };
 
