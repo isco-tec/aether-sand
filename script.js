@@ -25,7 +25,7 @@
         RUST=42, CLOUD=43, LIGHTNING=44, ANTIMATTER=45,
         SLIME=46, HONEY=47, ACIDCLOUD=48, BULB=49,
         VINE=58, MOLD=59, BRINE=60, CINNABAR=61,
-        LIMESTONE=62, QUICKLIME=63, SLAKEDLIME=64;
+        LIMESTONE=62, QUICKLIME=63, SLAKEDLIME=64, CO2=65;
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -112,10 +112,11 @@
     [LIMESTONE]:{ name:"Limestone",type:STATIC,d:1e4, c1:[216,212,198], c2:[178,174,160], k:0.05 },
     [QUICKLIME]:{ name:"Quicklime",type:POWDER, d:200, c1:[240,238,230], c2:[208,206,196], k:0.06 },
     [SLAKEDLIME]:{name:"Slaked Lime",type:POWDER,d:190, c1:[228,230,226], c2:[196,198,194], k:0.06 },
+    [CO2]:      { name:"Carbon Dioxide",type:GAS,d:5, c1:[108,108,116], c2:[74,74,82], a:80, k:0.05 },
   };
 
   // fast lookup arrays
-  const MAXID = 65;
+  const MAXID = 66;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -134,14 +135,14 @@
   WINDF[AQUA]=0.22;
   WINDF[HYDROGEN]=1.3; WINDF[OXYGEN]=1; WINDF[ASH]=0.5; WINDF[RUST]=0.08;
   WINDF[SLIME]=0.04; WINDF[HONEY]=0.02; WINDF[BRINE]=0.25; WINDF[CINNABAR]=0.04;
-  WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07;
+  WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07; WINDF[CO2]=0.8;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; // gold is an excellent conductor
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
     { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,WOOD,PLANT,VINE,MOLD,WALL] },
-    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,HYDROGEN,OXYGEN,NITRO] },
+    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,NITRO] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,QUICKLIME,SLAKEDLIME,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
   ];
@@ -178,7 +179,8 @@
     [FIRE]:"Hot gas. Ignites flammables and heats surroundings.",
     [SMOKE]:"Rising gas. Sulfur smoke can become acid.",
     [HYDROGEN]:"Lightest gas — rises fast and detonates near flame; fiercer with oxygen.",
-    [OXYGEN]:"Feeds combustion — makes nearby fire roar hotter.",
+    [OXYGEN]:"Feeds combustion — makes nearby fire roar hotter, burning to carbon dioxide.",
+    [CO2]:"A heavy, breathless gas — it sinks, pools low, and smothers any flame it settles on.",
     [NITRO]:"Unstable liquid — explodes on impact, heat, or spark.",
     [GOLD]:"Precious heavy powder from transmutation. Conducts electricity.",
     [DIAMOND]:"Hardest crystal — forged from coal under furious heat. Conducts heat superbly.",
@@ -244,6 +246,8 @@
     { id:"thermite_slag", cat:"Pyrotechnics", name:"Thermite slag", in:[THERMITE,METAL], out:[LAVA], note:"White-hot thermite melts straight through metal and stone.", hint:"Incendiary beside steel…" },
     { id:"hydrogen_boom", cat:"Pyrotechnics", name:"Knallgas", in:[HYDROGEN,FIRE], out:[FIRE], note:"Hydrogen ignites violently — far fiercer beside oxygen.", hint:"The lightest gas meets flame…" },
     { id:"oxy_fire", cat:"Pyrotechnics", name:"Oxygen feed", in:[OXYGEN,FIRE], out:[FIRE], note:"Oxygen makes flames burn hotter and longer.", hint:"Fire that can breathe…" },
+    { id:"combust_o2", cat:"Pyrotechnics", name:"Combustion", in:[FIRE,OXYGEN], out:[CO2], note:"Oxygen-fed fire burns to carbon dioxide.", hint:"What fire breathes out…" },
+    { id:"smother", cat:"Pyrotechnics", name:"Smothered", in:[CO2,FIRE], out:[SMOKE], note:"Heavy carbon dioxide settles over a flame and snuffs it. Seal a fire with no air and it suffocates too.", hint:"Starve the flame of air…" },
     { id:"nitro_blast", cat:"Pyrotechnics", name:"Nitro shock", in:[NITRO], out:[FIRE], note:"Agitated nitro detonates on impact, heat, or spark.", hint:"Unstable liquid, sudden stop…" },
     { id:"fuse_chain", cat:"Pyrotechnics", name:"Fuse chain", in:[FUSE], out:[FIRE], note:"Flame crawls the cord to whatever it feeds.", hint:"A slow burning cord…" },
     { id:"gunpowder_boom", cat:"Pyrotechnics", name:"Powder keg", in:[GUNPOWDER,FIRE], out:[FIRE], note:"Fire or heat detonates a powder cache.", hint:"Powder meets flame…" },
@@ -305,7 +309,7 @@
     [RUST]:0.9,[CLOUD]:0.55,[ANTIMATTER]:1,
     [SLIME]:0.92,[HONEY]:0.95,[ACIDCLOUD]:0.55,[BULB]:1,
     [VINE]:1,[MOLD]:1,[BRINE]:0.9,[CINNABAR]:0.88,
-    [LIMESTONE]:1,[QUICKLIME]:0.9,[SLAKEDLIME]:0.9,
+    [LIMESTONE]:1,[QUICKLIME]:0.9,[SLAKEDLIME]:0.9,[CO2]:0.6,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -400,6 +404,7 @@
       case COAL: return 480+(rnd()*320|0);
       case HYDROGEN: return 150+(rnd()*120|0);
       case OXYGEN: return 220+(rnd()*180|0);
+      case CO2: return 240+(rnd()*200|0);
       case VINE: return 24+(rnd()*18|0);  // growth energy
       default: return 0;
     }
@@ -610,17 +615,34 @@
   /* ============================ Per-material ====================== */
   function upFire(x,y,i){
     applySrc(i,650,0.5); heatN(i,18);
-    // wildfire — flame leaps cell-to-cell through connected flammable solids (forests)
+    // wildfire contagion + combustion air-check, in one neighbour scan
+    let air=false, oxy=-1, co2=false;
     forN8(x,i,(ni,nm)=>{
       if(FLAM[nm] && TYPE[nm]===STATIC){
         temp[ni]+=42;
         if(temp[ni]>140 && rnd()<0.07){ convert(ni,FIRE); discoverRecipe("wildfire"); }
       }
+      if(nm===CO2) co2=true;
+      else if(nm===OXYGEN) oxy=ni;
+      else if(nm===EMPTY || TYPE[nm]===GAS) air=true;   // somewhere to draw breath / vent
       return false;
     });
-    if(--life[i]<=0){ if(rnd()<0.5) convert(i,SMOKE); else grid[i]=EMPTY; return; }
+    if(oxy>=0){ applySrc(i,950,0.25); if(rnd()<0.3){ convert(oxy,CO2); discoverRecipe("combust_o2"); } air=true; }
+    // CO2 smothers; sealed (no air) suffocates; oxygen sustains; otherwise normal burn
+    life[i] -= co2 ? 6 : (!air ? 4 : (oxy>=0 ? 0 : 1));
+    if(life[i]<=0){ if(rnd()<0.5) convert(i,SMOKE); else grid[i]=EMPTY; return; }
     if(applyPressure(x,y,i,FIRE)) return;
     moveGas(x,y,i,FIRE); applyWind(x,i,FIRE);
+  }
+  function upCO2(x,y,i){
+    if(--life[i]<=0){ grid[i]=EMPTY; return; }
+    forN8(x,i,(ni,nm)=>{ if(nm===FIRE && life[ni]>2){ life[ni]=2; discoverRecipe("smother"); } return false; });  // snuff flames
+    // a heavy gas: sinks and pools low, spreading sideways, only rarely drifting up
+    if(rnd()<0.7 && y<H-1 && canDisplace(CO2,i+W)){ swap(i,i+W); return; }
+    const dir=rnd()<0.5?1:-1, nx=x+dir;
+    if(nx>=0&&nx<W && canDisplace(CO2,i+dir)){ swap(i,i+dir); return; }
+    if(rnd()<0.08 && i-W>=0 && grid[i-W]===EMPTY){ swap(i,i-W); return; }
+    applyWind(x,i,CO2);
   }
   function upLava(x,y,i){
     applySrc(i,1100,0.55); heatN(i,22);
@@ -1294,6 +1316,7 @@
           case LIMESTONE: upLimestone(x,y,i); break;
           case QUICKLIME: upQuicklime(x,y,i); break;
           case SLAKEDLIME: upSlakedlime(x,y,i); break;
+          case CO2: upCO2(x,y,i); break;
           // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND: thermal/conduction only
         }
       }
@@ -2155,7 +2178,8 @@
                 saltwater:BRINE, "salt water":BRINE, seawater:BRINE, brine:BRINE,
                 vermilion:CINNABAR, vermillion:CINNABAR, hgs:CINNABAR,
                 limestone:LIMESTONE, chalk:LIMESTONE, quicklime:QUICKLIME, "quick lime":QUICKLIME,
-                lime:QUICKLIME, "slaked lime":SLAKEDLIME, slakedlime:SLAKEDLIME };
+                lime:QUICKLIME, "slaked lime":SLAKEDLIME, slakedlime:SLAKEDLIME,
+                co2:CO2, "carbon dioxide":CO2, "dry ice":CO2 };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach(n=>n.classList.toggle("active", +n.dataset.mat===currentMat));
@@ -2165,7 +2189,7 @@
     WOOD,PLANT,GLASS,STONE,METAL,GUNPOWDER,FIREWORK,SPARK,COAL,HEAT,COOL,CLONER,VOID,
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
-    SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,
+    SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,CO2,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
