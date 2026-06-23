@@ -1873,15 +1873,18 @@
 
 
   /* ============================ Attract mode ===================== */
-  // First-run "Genesis": the title forms in glowing matter, an elemental flash
-  // dissolves it into seeds, water and sand that rain down and grow into a living
-  // oasis fed by gathering clouds — then it loops, until the visitor takes over.
+  // First-run "The World Before You": the title forms in diamond, sand pours onto
+  // it, an elemental flash dissolves it into water that fills stone basins, life
+  // takes root on the banks, fireflies drift and fireworks bloom — a living
+  // micro-cosmos that loops until the visitor takes over. (Designed with a
+  // creative-director + technical pass: life is grounded, particles have a source.)
   let attract=true, attractT=0, attractStage=0, titleCells=[], dissolveIdx=0;
-  const CINE_LEN=20;
+  let titleBox={x0:0,x1:0,y0:0,y1:0}, terrainTop=null, crystalSet=false, philoSet=false, fwFlash=false;
+  const CINE_LEN=22;
   function cineClear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); }
   function cineRow(x0,x1,y,m){ if(y<0||y>=H) return;
     for(let x=Math.max(0,x0|0);x<=Math.min(W-1,x1|0);x++){ const i=y*W+x; if(grid[i]===EMPTY) spawn(i,m); } }
-  // rasterise text and stamp it into the grid as material cells
+  // rasterise text into material cells; return its bounding box (for pouring sand on it)
   function stampText(text,cx,cy,mat,fontPx){
     const oc=document.createElement("canvas"); oc.width=W; oc.height=H;
     const o=oc.getContext("2d");
@@ -1889,42 +1892,84 @@
     o.font="800 "+Math.round(fontPx)+"px Inter, Arial, sans-serif";
     o.fillText(text,cx,cy);
     const d=o.getImageData(0,0,W,H).data;
+    let x0=W,x1=0,y0=H,y1=0;
     for(let y=0;y<H;y++)for(let x=0;x<W;x++){ const i=y*W+x;
-      if(d[i*4+3]>140 && grid[i]===EMPTY){ spawn(i,mat); titleCells.push(i); } }
+      if(d[i*4+3]>140 && grid[i]===EMPTY){ spawn(i,mat); titleCells.push(i);
+        if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+    return {x0,x1,y0,y1};
+  }
+  // a barren rocky land with two basins that hold real ponds; remembers the soil surface
+  function buildTerrain(){
+    const baseY=(H*0.82)|0, amp=Math.max(5,(H*0.07)|0), floorY=Math.min(H-1,baseY+amp+9);
+    terrainTop=new Int16Array(W);
+    for(let x=0;x<W;x++){
+      const u=x/W, z1=(u-0.3)*7, z2=(u-0.72)*7;
+      const dip=Math.max(Math.exp(-z1*z1),Math.exp(-z2*z2));   // basins sit lower
+      const top=baseY+Math.round(amp*dip);
+      terrainTop[x]=top;
+      for(let y=top;y<=floorY;y++) spawn(y*W+x,STONE);          // solid rock body (holds ponds)
+      if(top-1>=0) spawn((top-1)*W+x,SAND);                     // a soil skin
+      if(top-2>=0) spawn((top-2)*W+x,SAND);
+    }
   }
   function runAttract(){
     if(!attract) return;
     attractT += 1/60;
-    const t=attractT, gy=(H*0.86)|0, cx=(W/2)|0, ty=(H*0.31)|0;
-    // stage 0 → bare earth, then the title materialises
+    const t=attractT, cx=(W/2)|0, ty=(H*0.3)|0, baseY=(H*0.82)|0;
+    // stage 0 → the land, then the title materialises out of a soft bloom
     if(attractStage===0 && t>=0.05){
       cineClear(); titleCells.length=0; dissolveIdx=0;
-      for(let r=0;r<3;r++) cineRow(0,W-1,gy+r,SAND);
-      stampText("Aether Sand", cx, ty, DIAMOND, W*0.082);
+      crystalSet=philoSet=fwFlash=false;
+      buildTerrain();
+      flash(184,132,228,0.4);                                  // the void breathes
+      titleBox = stampText("Aether Sand", cx, ty, DIAMOND, W*0.082);
       stampText("by Ori Iscovici", cx, (ty+W*0.075)|0, PHILOSOPHER, W*0.032);
       attractStage=1;
     }
-    // stage 1 → the title holds and shimmers, then the elemental flash
+    // stage 1 → the title holds, sand pours onto it, a crystalline "breath" rises, then the flash
     if(attractStage===1){
-      if(t>0.8 && titleCells.length && rnd()<0.45){ const k=titleCells[(rnd()*titleCells.length)|0];
-        addP((k%W)+0.5,((k/W)|0)+0.5,(rnd()-0.5)*0.5,-0.3-rnd()*0.4,16+rnd()*16,255,230,160,KSPARK); }
-      if(t>=3.4){ flash(200,238,255,0.5); shakeScreen(6); attractStage=2; dissolveIdx=0; }
+      if(t>0.6 && t<3.4){                                       // sand streams onto "Aether Sand"
+        const rate=t<1.8?3:6;
+        for(let k=0;k<rate;k++){ const x=titleBox.x0+((rnd()*(titleBox.x1-titleBox.x0+1))|0);
+          if(x>0&&x<W && grid[2*W+x]===EMPTY) spawn(2*W+x,SAND); }
+        expandActive(titleBox.x0-1,0,titleBox.x1+1,titleBox.y1+1);
+      }
+      if(t>0.8 && titleCells.length && rnd()<0.4){ const k=titleCells[(rnd()*titleCells.length)|0];
+        addP((k%W)+0.5,((k/W)|0)+0.5,(rnd()-0.5)*0.4,-0.25-rnd()*0.35,18+rnd()*16,200,232,255,KSPARK); }
+      if(t>=3.5){ flash(200,238,255,0.55); shakeScreen(6); attractStage=2; dissolveIdx=0; }
     }
-    // stage 2 → the title dissolves, top-down, into seeds / water / sand that rain into the world
+    // stage 2 → the title dissolves into water that fills the basins; the byline showers down as gold dust. NO rained seeds.
     if(attractStage===2){
-      const chunk=Math.ceil(titleCells.length/26);
+      const chunk=Math.ceil(titleCells.length/22);
       for(let n=0;n<chunk && dissolveIdx<titleCells.length;n++,dissolveIdx++){
-        const k=titleCells[dissolveIdx], r=rnd();
-        convert(k, r<0.52?SEED:(r<0.84?WATER:SAND));
-        addP((k%W)+0.5,((k/W)|0)+0.5,(rnd()-0.5)*0.7,-0.1-rnd()*0.4,16+rnd()*16,255,224,150,KSPARK);
+        const k=titleCells[dissolveIdx];
+        if(grid[k]===PHILOSOPHER) convert(k,GOLD);             // the credit becomes treasure
+        else convert(k, rnd()<0.72?WATER:SAND);
+        addP((k%W)+0.5,((k/W)|0)+0.5,(rnd()-0.5)*0.7,-0.1-rnd()*0.4,16+rnd()*16,200,236,255,KSPARK);
       }
       expandActive(0,0,W-1,H-1);
       if(dissolveIdx>=titleCells.length) attractStage=3;
     }
-    // continuous: a gentle rain feeds the young oasis (the water cycle — reciprocity), and fireflies drift over it
-    if(t>3.4 && t<15.5){ for(let k=0;k<2;k++){ const x=(W*(0.16+rnd()*0.68))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
-    if(t>8 && rnd()<0.32){ const x=(W*(0.12+rnd()*0.76))|0, y=(H*(0.34+rnd()*0.4))|0;
-      addP(x+0.5,y+0.5,(rnd()-0.5)*0.32,-0.07-rnd()*0.2,48+rnd()*46,170,255,175,KSPARK); }
+    // stage 3 → once the water has settled, sow seeds on the BANKS (on the real surface, with a splash) so trees root on solid ground
+    if(attractStage===3 && t>=7){
+      for(const fx of [0.16,0.26,0.4,0.5,0.6,0.78]){ const x=(W*fx)|0;
+        // find the current dry surface (first solid below the air, skipping ponds)
+        let sy=-1; for(let y=(baseY-22)|0; y<H; y++){ const m=grid[y*W+x]; if(m!==EMPTY && TYPE[m]!==GAS && TYPE[m]!==LIQUID){ sy=y; break; } }
+        if(sy>3){ for(let s=-3;s<=3;s++){ const sx=x+s; if(sx>0&&sx<W){ const i=(sy-1)*W+sx; if(grid[i]===EMPTY) spawn(i,SEED); } }
+          cineRow(x-4,x+4,sy-9,WATER); }
+      }
+      attractStage=4;
+    }
+    // a crystal jewel grows at the left waterline; the Stone's quiet pulse gilds the right bank
+    if(!crystalSet && t>=13){ const x=(W*0.3)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-1)*W+x,CRYSTAL); spawn((top-1)*W+x+1,CRYSTAL); crystalSet=true; }
+    if(!philoSet && t>=14){ const x=(W*0.85)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-2)*W+x,PHILOSOPHER); philoSet=true; }
+    // continuous: gentle rain keeps the ponds full (reciprocity); snow on the cold left; fireflies low over the foliage; fireworks finale
+    if(t>3.5 && t<11.5){ for(let k=0;k<2;k++){ const x=(W*(0.14+rnd()*0.72))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
+    if(t>8 && t<13 && rnd()<0.22){ const x=(W*(0.02+rnd()*0.1))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,SNOW); }
+    if(t>8 && rnd()<0.5){ const x=(W*(0.12+rnd()*0.74))|0, y=baseY-4-((rnd()*26)|0);   // low + short life → fireflies, not falling drops
+      addP(x+0.5,y+0.5,(rnd()-0.5)*0.22,-0.05-rnd()*0.12,16+rnd()*16,220,255,160,KSPARK); }
+    if(t>15.5 && t<20 && rnd()<0.05) launchRocket((W*(0.2+rnd()*0.6))|0, baseY-3);
+    if(!fwFlash && t>=17.5){ flash(255,202,110,0.35); shakeScreen(6); fwFlash=true; }
     if(t>=CINE_LEN){ attractT=0; attractStage=0; }   // and so it begins again
   }
   function stopAttract(){ if(!attract) return; attract=false; const h=document.getElementById("hint"); if(h) h.classList.add("hide"); }
