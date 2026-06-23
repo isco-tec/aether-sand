@@ -1873,38 +1873,59 @@
 
 
   /* ============================ Attract mode ===================== */
-  // First-run "creation myth": a scripted ~18s arc that shows the engine's soul,
-  // then loops, until the visitor takes over. Each beat just paints into the
-  // grid — the physics and chemistry put on the actual show.
-  let attract=true, attractT=0, attractStage=0;
-  const CINE_LEN=18;
+  // First-run "Genesis": the title forms in glowing matter, an elemental flash
+  // dissolves it into seeds, water and sand that rain down and grow into a living
+  // oasis fed by gathering clouds — then it loops, until the visitor takes over.
+  let attract=true, attractT=0, attractStage=0, titleCells=[], dissolveIdx=0;
+  const CINE_LEN=20;
   function cineClear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); }
-  function cineRow(x0,x1,y,m){ if(y<0||y>=H) return;            // a precise single-cell-thick row (paintLine uses the fat brush)
+  function cineRow(x0,x1,y,m){ if(y<0||y>=H) return;
     for(let x=Math.max(0,x0|0);x<=Math.min(W-1,x1|0);x++){ const i=y*W+x; if(grid[i]===EMPTY) spawn(i,m); } }
+  // rasterise text and stamp it into the grid as material cells
+  function stampText(text,cx,cy,mat,fontPx){
+    const oc=document.createElement("canvas"); oc.width=W; oc.height=H;
+    const o=oc.getContext("2d");
+    o.fillStyle="#fff"; o.textAlign="center"; o.textBaseline="middle";
+    o.font="800 "+Math.round(fontPx)+"px Inter, Arial, sans-serif";
+    o.fillText(text,cx,cy);
+    const d=o.getImageData(0,0,W,H).data;
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){ const i=y*W+x;
+      if(d[i*4+3]>140 && grid[i]===EMPTY){ spawn(i,mat); titleCells.push(i); } }
+  }
   function runAttract(){
     if(!attract) return;
     attractT += 1/60;
-    const t=attractT, gy=(H*0.8)|0, cx=(W/2)|0;
-    // ---- one-shot stage beats ----
-    if(attractStage===0 && t>=0.05){ cineClear(); for(let r=0;r<4;r++) cineRow(0,W-1,gy+r,STONE); attractStage=1; }
-    if(attractStage===1 && t>=6.4){                 // life takes root on the clear flanks: seeds on soil, rain poured over them
-      for(const fx of [0.2,0.82]){ const x=(W*fx)|0;
-        cineRow(x-6,x+6,gy-1,SAND);
-        for(let s=-4;s<=4;s+=2) spawn((gy-2)*W+x+s,SEED);
-        cineRow(x-4,x+4,gy-6,WATER); }
-      attractStage=2; }
-    // ---- continuous beats ----
-    if(t>1.2 && t<5.5){                              // a small glowing lava vent in the centre, hissing steam where rain meets it
-      const i=(gy-1)*W+cx+((rnd()*6-3)|0); if(grid[i]===EMPTY) spawn(i,LAVA);
-      if(rnd()<0.6){ const j=(gy-4)*W+cx+((rnd()*8-4)|0); if(grid[j]===EMPTY) spawn(j,WATER); }
-      expandActive(cx-8,gy-6,cx+8,gy);
+    const t=attractT, gy=(H*0.86)|0, cx=(W/2)|0, ty=(H*0.31)|0;
+    // stage 0 → bare earth, then the title materialises
+    if(attractStage===0 && t>=0.05){
+      cineClear(); titleCells.length=0; dissolveIdx=0;
+      for(let r=0;r<3;r++) cineRow(0,W-1,gy+r,SAND);
+      stampText("Aether Sand", cx, ty, DIAMOND, W*0.082);
+      stampText("by Ori Iscovici", cx, (ty+W*0.075)|0, PHILOSOPHER, W*0.032);
+      attractStage=1;
     }
-    if(t>2.4 && t<6.4){                              // gentle storm rolls across for atmosphere
-      for(let k=0;k<3;k++){ const x=(W*(0.1+rnd()*0.8))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); }
-      expandActive(0,0,W-1,4);
+    // stage 1 → the title holds and shimmers, then the elemental flash
+    if(attractStage===1){
+      if(t>0.8 && titleCells.length && rnd()<0.45){ const k=titleCells[(rnd()*titleCells.length)|0];
+        addP((k%W)+0.5,((k/W)|0)+0.5,(rnd()-0.5)*0.5,-0.3-rnd()*0.4,16+rnd()*16,255,230,160,KSPARK); }
+      if(t>=3.4){ flash(200,238,255,0.5); shakeScreen(6); attractStage=2; dissolveIdx=0; }
     }
-    if(t>10 && t<15 && rnd()<0.045) launchRocket((W*(0.2+rnd()*0.6))|0, H-4);   // fireworks finale
-    if(t>=CINE_LEN){ attractT=0; attractStage=0; }   // the myth begins again
+    // stage 2 → the title dissolves, top-down, into seeds / water / sand that rain into the world
+    if(attractStage===2){
+      const chunk=Math.ceil(titleCells.length/26);
+      for(let n=0;n<chunk && dissolveIdx<titleCells.length;n++,dissolveIdx++){
+        const k=titleCells[dissolveIdx], r=rnd();
+        convert(k, r<0.52?SEED:(r<0.84?WATER:SAND));
+        addP((k%W)+0.5,((k/W)|0)+0.5,(rnd()-0.5)*0.7,-0.1-rnd()*0.4,16+rnd()*16,255,224,150,KSPARK);
+      }
+      expandActive(0,0,W-1,H-1);
+      if(dissolveIdx>=titleCells.length) attractStage=3;
+    }
+    // continuous: a gentle rain feeds the young oasis (the water cycle — reciprocity), and fireflies drift over it
+    if(t>3.4 && t<15.5){ for(let k=0;k<2;k++){ const x=(W*(0.16+rnd()*0.68))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
+    if(t>8 && rnd()<0.32){ const x=(W*(0.12+rnd()*0.76))|0, y=(H*(0.34+rnd()*0.4))|0;
+      addP(x+0.5,y+0.5,(rnd()-0.5)*0.32,-0.07-rnd()*0.2,48+rnd()*46,170,255,175,KSPARK); }
+    if(t>=CINE_LEN){ attractT=0; attractStage=0; }   // and so it begins again
   }
   function stopAttract(){ if(!attract) return; attract=false; const h=document.getElementById("hint"); if(h) h.classList.add("hide"); }
 
