@@ -198,7 +198,7 @@
     [ASH]:"Light grey remnant of spent fuel. Drifts on the wind.",
     [RUST]:"Flaky iron oxide — metal left too long in water.",
     [CRYSTAL]:"Prismatic solid that grows by consuming water.",
-    [PHILOSOPHER]:"Catalyst — accelerates nearby transmutations.",
+    [PHILOSOPHER]:"The Great Work made solid. It speeds every transmutation nearby and projects base matter — stone, rust, coal — into gold.",
     [SULFUR]:"Yellow powder. Key gunpowder ingredient.",
     [SALTPETER]:"White oxidiser. Mix with sulfur + coal for gunpowder.",
     [COAL]:"Slow-burning fuel and gunpowder ingredient.",
@@ -229,6 +229,7 @@
     { id:"philosopher_gold", cat:"Transmutation", name:"Catalysed gold", in:[PHILOSOPHER,MERCURY], out:[GOLD], note:"The stone accelerates mercury into gold.", hint:"A pink catalyst and quicksilver…" },
     { id:"philosopher_mercury", cat:"Transmutation", name:"Catalysed amalgam", in:[PHILOSOPHER,METAL], out:[MERCURY], note:"Steel becomes quicksilver far faster.", hint:"Catalyst beside metal…" },
     { id:"philosopher_sand", cat:"Transmutation", name:"Grit to gold", in:[PHILOSOPHER,SAND], out:[GOLD], note:"Rare — common sand transmuted to gold.", hint:"Catalyst and common grit…" },
+    { id:"projection", cat:"Transmutation", name:"Projection", in:[PHILOSOPHER,STONE], out:[GOLD], note:"The Stone's great power — it perfects base matter (stone, rust, coal, limestone) into gold.", hint:"Lay the Stone against base rock…" },
     { id:"diamond", cat:"Transmutation", name:"Diamond synthesis", in:[COAL], out:[DIAMOND], note:"Carbon crystallises into diamond under furious heat (thermite or lava).", hint:"Coal, fiercely heated…" },
     { id:"cinnabar", cat:"Transmutation", name:"Vermilion", in:[MERCURY,SULFUR], out:[CINNABAR], note:"Mercury weds sulfur into cinnabar, the alchemist's blood-red ore.", hint:"Quicksilver meets brimstone…" },
     { id:"cinnabar_roast", cat:"Transmutation", name:"Roasting", in:[CINNABAR], out:[MERCURY], note:"Roast cinnabar fiercely and the quicksilver comes back out.", hint:"Heat the red ore…" },
@@ -303,6 +304,7 @@
     { id:"garden", icon:"🌿", title:"Green Thumb", desc:"Grow a sprawling vine.", test:s=>s.disc.has("vine_grow")||s.count(VINE)>=45 },
     { id:"germinate", icon:"🌱", title:"From a Seed", desc:"Sprout a plant from a seed on damp soil.", test:s=>s.disc.has("germinate") },
     { id:"magnum_opus", icon:"🜍", title:"The Great Work", desc:"Complete the Magnum Opus: nigredo → albedo → citrinitas → the Stone.", test:s=>s.disc.has("nigredo")&&s.disc.has("albedo")&&s.disc.has("citrinitas")&&s.disc.has("rubedo") },
+    { id:"projection", icon:"👑", title:"Projection", desc:"Use the Philosopher's Stone to project base matter into gold.", test:s=>s.disc.has("projection") },
     { id:"wildfire", icon:"🌲", title:"Wildfire", desc:"Burn a forest of wood, plant or vine.", test:s=>s.disc.has("wildfire") },
   ];
   let challengesDone = new Set(JSON.parse(localStorage.getItem("aether-challenges")||"[]"));
@@ -1008,9 +1010,11 @@
   }
   function upPhilosopher(x,y,i){
     forN8(x,i,(ni,nm)=>{
-      if(nm===MERCURY && rnd()<0.025){ convert(ni,GOLD); temp[ni]=temp[i]+40; discoverRecipe("philosopher_gold"); }
-      else if(nm===METAL && rnd()<0.01){ convert(ni,MERCURY); temp[ni]=temp[i]; discoverRecipe("philosopher_mercury"); }
-      else if(nm===SAND && rnd()<0.004){ convert(ni,GOLD); discoverRecipe("philosopher_sand"); }
+      if(nm===MERCURY && rnd()<0.03){ convert(ni,GOLD); temp[ni]=temp[i]+40; discoverRecipe("philosopher_gold"); }
+      else if(nm===METAL && rnd()<0.012){ convert(ni,MERCURY); temp[ni]=temp[i]; discoverRecipe("philosopher_mercury"); }
+      else if(nm===SAND && rnd()<0.005){ convert(ni,GOLD); discoverRecipe("philosopher_sand"); }
+      // projection — the Stone's true power: it perfects common base matter into gold
+      else if((nm===STONE||nm===RUST||nm===COAL||nm===LIMESTONE) && rnd()<0.0045){ convert(ni,GOLD); discoverRecipe("projection"); }
       return false;
     });
   }
