@@ -125,15 +125,19 @@
   };
 
   // fast lookup arrays
-  const MAXID = 71;                 // must stay > the highest material id (SAPLING=70); ids 50-57 are retired gaps
+  const MAXID = Math.max(...Object.keys(M).map(Number)) + 1;   // derived from the table — no manual bump when ids are added
   const MAX_SCENE_DIM = 1024;       // reject share/save scenes larger than this (covers every real world; blocks OOM payloads)
+  // flat per-material lookup arrays, derived once from M — the hot loop never touches the M dictionary
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
-        WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
+        WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID),
+        DISP=new Float32Array(MAXID), HASTRANS=new Uint8Array(MAXID);
+  const TRANS=new Array(MAXID);     // phase-transition rule list per id (or undefined)
   for (let id=0; id<MAXID; id++){
     const m=M[id]; if(!m) continue;
     TYPE[id]=m.type; DENS[id]=m.d||0; COND[id]=m.k!=null?m.k:0.05;
     EMIT[id]=m.emit||0; FLAM[id]=m.flam?1:0; BASET[id]=m.base!=null?m.base:AMBIENT;
+    DISP[id]=m.disp||0; if(m.trans){ TRANS[id]=m.trans; HASTRANS[id]=1; }
   }
   EMIT[FIRE]=1; EMIT[LAVA]=1;
   COND[EMPTY]=0.04;
@@ -596,7 +600,7 @@
 
   /* ============================ Thermal transitions =============== */
   function tryThermal(i,m){
-    const tr=M[m].trans; if(!tr) return false;
+    if(!HASTRANS[m]) return false; const tr=TRANS[m];   // flat-array gate — no M[m] dictionary hit per cell
     const t=temp[i];
     for(let k=0;k<tr.length;k++){
       const r=tr[k];
@@ -835,7 +839,7 @@
       return false;
     });
     if(gone) return;
-    moveLiquid(x,y,i,WATER,M[WATER].disp); applyWind(x,i,WATER);
+    moveLiquid(x,y,i,WATER,DISP[WATER]); applyWind(x,i,WATER);
   }
   function upSteam(x,y,i){
     if(--life[i]<=0){ convert(i, rnd()<0.4?WATER:EMPTY); return; }
@@ -872,7 +876,7 @@
       return false;
     });
     if(gone) return;
-    moveLiquid(x,y,i,ACID,M[ACID].disp); applyWind(x,i,ACID);
+    moveLiquid(x,y,i,ACID,DISP[ACID]); applyWind(x,i,ACID);
   }
   function tryCraftGunpowder(x,i){
     let s=-1,n=-1,c=-1;
@@ -910,7 +914,7 @@
       convert(i,SALT); if(e>=0) spawn(e,STEAM);
       discoverRecipe("brine_evap"); return;
     }
-    moveLiquid(x,y,i,BRINE,M[BRINE].disp); applyWind(x,i,BRINE);
+    moveLiquid(x,y,i,BRINE,DISP[BRINE]); applyWind(x,i,BRINE);
   }
   function upCinnabar(x,y,i){
     if(temp[i]>580 && rnd()<0.05){      // roasting decomposes it back to quicksilver + sulfur
@@ -1129,7 +1133,7 @@
       if(nm===METAL && rnd()<(phil?0.012:0.0035)){ convert(ni,MERCURY); temp[ni]=temp[i]; discoverRecipe("mercury_amalgam"); }
       return false;
     });
-    moveLiquid(x,y,i,MERCURY,M[MERCURY].disp); applyWind(x,i,MERCURY);
+    moveLiquid(x,y,i,MERCURY,DISP[MERCURY]); applyWind(x,i,MERCURY);
   }
   // Magnum Opus, stages II–IV — black → white → yellow → the red Stone (rubedo = Philosopher's Stone)
   function upNigredo(x,y,i){
@@ -1171,7 +1175,7 @@
     forN8(x,i,(ni,nm)=>{ if(nm===FIRE||nm===LAVA||(charge[ni]>0&&CHCOND[nm])){ boom=true; return true; } return false; });
     if(boom){ explode(x,y,8); grid[i]=EMPTY; discoverRecipe("nitro_blast"); return; }
     const v=vel[i];
-    const hit=!moveLiquid(x,y,i,NITRO,M[NITRO].disp);
+    const hit=!moveLiquid(x,y,i,NITRO,DISP[NITRO]);
     if(hit && v>5){ explode(x,y,7); grid[i]=EMPTY; discoverRecipe("nitro_blast"); return; }
     applyWind(x,i,NITRO);
   }
@@ -1243,7 +1247,7 @@
       return false;
     });
     if(gone) return;
-    moveLiquid(x,y,i,AQUA,M[AQUA].disp); applyWind(x,i,AQUA);
+    moveLiquid(x,y,i,AQUA,DISP[AQUA]); applyWind(x,i,AQUA);
   }
   function upHydrogen(x,y,i){
     if(--life[i]<=0){ grid[i]=EMPTY; return; }
@@ -1565,6 +1569,46 @@
   }
 
   /* ============================ Simulation step =================== */
+  // Per-material dispatch table (indexed by id) — replaces a giant switch. A new material registers its
+  // behaviour here and nowhere else in the step. Movement-only materials get a tiny wrapper; materials with
+  // no entry (WOOD/GLASS/STONE/METAL/OBSIDIAN/DIAMOND) are inert except for thermal/conduction.
+  const upFall =(x,y,i,m)=>moveFalling(x,y,i,m);
+  const upDrift=(x,y,i,m)=>{ moveFalling(x,y,i,m); applyWind(x,i,m); };
+  const upOil  =(x,y,i)=>{ moveLiquid(x,y,i,OIL,DISP[OIL]); applyWind(x,i,OIL); };
+  const upCloudRain    =(x,y,i)=>cloudBehavior(x,y,i,CLOUD,WATER);
+  const upAcidCloudRain=(x,y,i)=>cloudBehavior(x,y,i,ACIDCLOUD,ACID);
+  const upIceCell=(x,y,i)=>upIce(i);
+  const UPDATE=new Array(MAXID);
+  const reg=(fn,...ids)=>ids.forEach(id=>{ UPDATE[id]=fn; });
+  reg(upFall, SAND, RAINBOW, GOLD);
+  reg(upDrift, ASH, RUST);
+  reg(upOil, OIL); reg(upSalt, SALT); reg(upSnow, SNOW); reg(upWater, WATER); reg(upAcid, ACID);
+  reg(upLava, LAVA); reg(upFire, FIRE); reg(upSmoke, SMOKE); reg(upSteam, STEAM); reg(upPlant, PLANT);
+  reg(upIceCell, ICE); reg(upGunpowder, GUNPOWDER); reg(upCoal, COAL); reg(upFirework, FIREWORK);
+  reg(upCloner, CLONER); reg(upVoid, VOID); reg(upMercury, MERCURY); reg(upThermite, THERMITE);
+  reg(upFuse, FUSE); reg(upNitro, NITRO); reg(upSulfur, SULFUR); reg(upSaltpeter, SALTPETER);
+  reg(upCrystal, CRYSTAL); reg(upPhilosopher, PHILOSOPHER); reg(upAqua, AQUA); reg(upHydrogen, HYDROGEN);
+  reg(upOxygen, OXYGEN); reg(upCloudRain, CLOUD); reg(upAcidCloudRain, ACIDCLOUD); reg(upAntimatter, ANTIMATTER);
+  reg(upSlime, SLIME); reg(upHoney, HONEY); reg(upBulb, BULB); reg(upVine, VINE); reg(upMold, MOLD);
+  reg(upBrine, BRINE); reg(upCinnabar, CINNABAR); reg(upLimestone, LIMESTONE); reg(upQuicklime, QUICKLIME);
+  reg(upSlakedlime, SLAKEDLIME); reg(upCO2, CO2); reg(upSeed, SEED); reg(upSapling, SAPLING);
+  reg(upNigredo, NIGREDO); reg(upAlbedo, ALBEDO); reg(upCitrinitas, CITRINITAS);
+  // integrity check — turn the material system's SILENT failures (a material with no dispatch, no blurb, or
+  // missing from the palette; a recipe/group pointing at a non-existent id) into a LOUD boot-time warning
+  (function validateMaterials(){
+    const inGroup=new Set(MAT_GROUPS.flatMap(g=>g.mats));
+    const inert=new Set([WALL,WOOD,GLASS,STONE,METAL,OBSIDIAN,DIAMOND]);   // intentionally simulated by thermal/conduction only
+    const internal=new Set([STEAM,NIGREDO,ALBEDO,CITRINITAS]);             // produced by reactions, intentionally not paintable
+    const warn=[];
+    for(let id=0; id<MAXID; id++){ const m=M[id]; if(!m||id===EMPTY) continue;
+      if(!UPDATE[id] && !HASTRANS[id] && !inert.has(id) && TYPE[id]!==TOOL) warn.push(m.name+" #"+id+": no update or transition (inert by accident?)");
+      if(!MAT_BLURB[id] && !internal.has(id)) warn.push(m.name+" #"+id+": no blurb");
+      if(!inGroup.has(id) && id!==WALL && !internal.has(id)) warn.push(m.name+" #"+id+": not in any palette group (invisible)");
+    }
+    ALCHEMY_RECIPES.forEach(r=>[...(r.in||[]),...(r.out||[])].forEach(id=>{ if(id!==EMPTY && !M[id]) warn.push("recipe '"+r.id+"' references unknown id "+id); }));
+    MAT_GROUPS.forEach(g=>g.mats.forEach(id=>{ if(id!==EMPTY && !M[id]) warn.push("palette '"+g.label+"' has unknown id "+id); }));
+    if(warn.length) try{ console.warn("[Aether Sand] material integrity:\n  "+warn.join("\n  ")); }catch(_){}
+  })();
   function step(){
     // storm timers tick on the SIM step (fixed 60/s), so the lightning cadence is identical at any
     // frame rate. A bolt strikes from a uniformly-random cell of the WHOLE cloud (sampled across it
@@ -1591,59 +1635,7 @@
         const i=row+x, m=grid[i];
         if(m===EMPTY||m===WALL||moved[i]) continue;
         if(tryThermal(i,m)) continue;
-        switch(m){
-          case SAND: case RAINBOW: moveFalling(x,y,i,m); break;
-          case SALT: upSalt(x,y,i); break;
-          case SNOW: upSnow(x,y,i); break;
-          case WATER: upWater(x,y,i); break;
-          case OIL: moveLiquid(x,y,i,OIL,M[OIL].disp); applyWind(x,i,OIL); break;
-          case ACID: upAcid(x,y,i); break;
-          case LAVA: upLava(x,y,i); break;
-          case FIRE: upFire(x,y,i); break;
-          case SMOKE: upSmoke(x,y,i); break;
-          case STEAM: upSteam(x,y,i); break;
-          case PLANT: upPlant(x,y,i); break;
-          case ICE: upIce(i); break;
-          case GUNPOWDER: upGunpowder(x,y,i); break;
-          case COAL: upCoal(x,y,i); break;
-          case FIREWORK: upFirework(x,y,i); break;
-          case CLONER: upCloner(x,y,i); break;
-          case VOID: upVoid(x,y,i); break;
-          case MERCURY: upMercury(x,y,i); break;
-          case THERMITE: upThermite(x,y,i); break;
-          case FUSE: upFuse(x,y,i); break;
-          case GOLD: moveFalling(x,y,i,GOLD); break;
-          case NITRO: upNitro(x,y,i); break;
-          case SULFUR: upSulfur(x,y,i); break;
-          case SALTPETER: upSaltpeter(x,y,i); break;
-          case CRYSTAL: upCrystal(x,y,i); break;
-          case PHILOSOPHER: upPhilosopher(x,y,i); break;
-          case AQUA: upAqua(x,y,i); break;
-          case HYDROGEN: upHydrogen(x,y,i); break;
-          case OXYGEN: upOxygen(x,y,i); break;
-          case ASH: moveFalling(x,y,i,ASH); applyWind(x,i,ASH); break;
-          case RUST: moveFalling(x,y,i,RUST); applyWind(x,i,RUST); break;
-          case CLOUD: cloudBehavior(x,y,i,CLOUD,WATER); break;
-          case ACIDCLOUD: cloudBehavior(x,y,i,ACIDCLOUD,ACID); break;
-          case ANTIMATTER: upAntimatter(x,y,i); break;
-          case SLIME: upSlime(x,y,i); break;
-          case HONEY: upHoney(x,y,i); break;
-          case BULB: upBulb(x,y,i); break;
-          case VINE: upVine(x,y,i); break;
-          case MOLD: upMold(x,y,i); break;
-          case BRINE: upBrine(x,y,i); break;
-          case CINNABAR: upCinnabar(x,y,i); break;
-          case LIMESTONE: upLimestone(x,y,i); break;
-          case QUICKLIME: upQuicklime(x,y,i); break;
-          case SLAKEDLIME: upSlakedlime(x,y,i); break;
-          case CO2: upCO2(x,y,i); break;
-          case SEED: upSeed(x,y,i); break;
-          case SAPLING: upSapling(x,y,i); break;
-          case NIGREDO: upNigredo(x,y,i); break;
-          case ALBEDO: upAlbedo(x,y,i); break;
-          case CITRINITAS: upCitrinitas(x,y,i); break;
-          // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND: thermal/conduction only
-        }
+        const fn=UPDATE[m]; if(fn) fn(x,y,i,m);
       }
     }
     propagateCharge();
