@@ -25,7 +25,8 @@
         RUST=42, CLOUD=43, LIGHTNING=44, ANTIMATTER=45,
         SLIME=46, HONEY=47, ACIDCLOUD=48, BULB=49,
         VINE=58, MOLD=59, BRINE=60, CINNABAR=61,
-        LIMESTONE=62, QUICKLIME=63, SLAKEDLIME=64, CO2=65, SEED=66;
+        LIMESTONE=62, QUICKLIME=63, SLAKEDLIME=64, CO2=65, SEED=66,
+        NIGREDO=67, ALBEDO=68, CITRINITAS=69;   // the Magnum Opus stages (rubedo = PHILOSOPHER)
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -115,10 +116,13 @@
     [CO2]:      { name:"Carbon Dioxide",type:GAS,d:5, c1:[108,108,116], c2:[74,74,82], a:80, k:0.05 },
     [SEED]:     { name:"Seed",    type:POWDER, d:120, c1:[150,112,62], c2:[106,78,44], k:0.04, flam:1,
                   trans:[{c:1,t:220,to:FIRE,p:0.3}] },
+    [NIGREDO]:  { name:"Nigredo", type:POWDER, d:214, c1:[36,33,40], c2:[18,16,22], k:0.05 },
+    [ALBEDO]:   { name:"Albedo",  type:POWDER, d:214, c1:[238,240,246], c2:[202,206,216], k:0.05 },
+    [CITRINITAS]:{name:"Citrinitas",type:POWDER,d:214, c1:[242,206,74], c2:[206,168,40], k:0.05, emit:0.25 },
   };
 
   // fast lookup arrays
-  const MAXID = 67;
+  const MAXID = 70;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -138,6 +142,7 @@
   WINDF[HYDROGEN]=1.3; WINDF[OXYGEN]=1; WINDF[ASH]=0.5; WINDF[RUST]=0.08;
   WINDF[SLIME]=0.04; WINDF[HONEY]=0.02; WINDF[BRINE]=0.25; WINDF[CINNABAR]=0.04;
   WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07; WINDF[CO2]=0.8; WINDF[SEED]=0.1;
+  WINDF[NIGREDO]=0.04; WINDF[ALBEDO]=0.04; WINDF[CITRINITAS]=0.04;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; // gold is an excellent conductor
 
@@ -169,6 +174,9 @@
     [WOOD]:"Flammable static block.",
     [PLANT]:"Drinks water and climbs toward the light; buried in the dark, it withers to ash.",
     [SEED]:"Drop it on damp soil and it sprouts into a growing plant.",
+    [NIGREDO]:"The blackened prima materia — the first stage of the Great Work. Wash it with water.",
+    [ALBEDO]:"The whitened matter — purified. Now give it to the fire.",
+    [CITRINITAS]:"The yellowing — the dawning solar light. Perfect it with gold to birth the Stone.",
     [WALL]:"Immovable barrier.",
     [VINE]:"Climbing plant — creeps up surfaces and across open space. Flammable.",
     [MOLD]:"Creeping rot — spreads over wood, plant and damp stone, then crumbles to ash.",
@@ -224,6 +232,10 @@
     { id:"diamond", cat:"Transmutation", name:"Diamond synthesis", in:[COAL], out:[DIAMOND], note:"Carbon crystallises into diamond under furious heat (thermite or lava).", hint:"Coal, fiercely heated…" },
     { id:"cinnabar", cat:"Transmutation", name:"Vermilion", in:[MERCURY,SULFUR], out:[CINNABAR], note:"Mercury weds sulfur into cinnabar, the alchemist's blood-red ore.", hint:"Quicksilver meets brimstone…" },
     { id:"cinnabar_roast", cat:"Transmutation", name:"Roasting", in:[CINNABAR], out:[MERCURY], note:"Roast cinnabar fiercely and the quicksilver comes back out.", hint:"Heat the red ore…" },
+    { id:"nigredo", cat:"Magnum Opus", name:"I · Nigredo", in:[MERCURY,SULFUR,SALT], out:[NIGREDO], note:"The Great Work begins: the tria prima — mercury, sulfur and salt — put to the fire and blackened into the prima materia.", hint:"Heat the three first principles together…" },
+    { id:"albedo", cat:"Magnum Opus", name:"II · Albedo", in:[NIGREDO,WATER], out:[ALBEDO], note:"Ablution — wash the black matter until it whitens.", hint:"Wash the blackened matter…" },
+    { id:"citrinitas", cat:"Magnum Opus", name:"III · Citrinitas", in:[ALBEDO,FIRE], out:[CITRINITAS], note:"Solar fire ripens the white matter to gold-yellow.", hint:"Give the white matter to the fire…" },
+    { id:"rubedo", cat:"Magnum Opus", name:"IV · Rubedo", in:[CITRINITAS,GOLD], out:[PHILOSOPHER], note:"The reddening — perfected with gold, the matter is reborn as the Philosopher's Stone.", hint:"Perfect the yellow matter with gold…" },
     { id:"calcine", cat:"Phase", name:"Calcination", in:[LIMESTONE], out:[QUICKLIME], note:"Fierce heat drives the breath (CO₂) from limestone, leaving caustic quicklime.", hint:"Roast the soft pale rock…" },
     { id:"slake", cat:"Phase", name:"Slaking", in:[QUICKLIME,WATER], out:[SLAKEDLIME], note:"Quicklime meets water and reacts hard — heat, hiss, and slaked lime.", hint:"Splash the white powder…" },
     { id:"neutralise", cat:"Phase", name:"Neutralisation", in:[ACID,SLAKEDLIME], out:[SALT], note:"Acid meets a base and the two cancel into salt and water.", hint:"Acid against a mild base…" },
@@ -290,6 +302,7 @@
     { id:"antimatter", icon:"🌀", title:"Annihilation", desc:"Witness an antimatter reaction.", test:s=>s.disc.has("antimatter") },
     { id:"garden", icon:"🌿", title:"Green Thumb", desc:"Grow a sprawling vine.", test:s=>s.disc.has("vine_grow")||s.count(VINE)>=45 },
     { id:"germinate", icon:"🌱", title:"From a Seed", desc:"Sprout a plant from a seed on damp soil.", test:s=>s.disc.has("germinate") },
+    { id:"magnum_opus", icon:"🜍", title:"The Great Work", desc:"Complete the Magnum Opus: nigredo → albedo → citrinitas → the Stone.", test:s=>s.disc.has("nigredo")&&s.disc.has("albedo")&&s.disc.has("citrinitas")&&s.disc.has("rubedo") },
     { id:"wildfire", icon:"🌲", title:"Wildfire", desc:"Burn a forest of wood, plant or vine.", test:s=>s.disc.has("wildfire") },
   ];
   let challengesDone = new Set(JSON.parse(localStorage.getItem("aether-challenges")||"[]"));
@@ -316,6 +329,7 @@
     [SLIME]:0.92,[HONEY]:0.95,[ACIDCLOUD]:0.55,[BULB]:1,
     [VINE]:1,[MOLD]:1,[BRINE]:0.9,[CINNABAR]:0.88,
     [LIMESTONE]:1,[QUICKLIME]:0.9,[SLAKEDLIME]:0.9,[CO2]:0.6,[SEED]:0.9,
+    [NIGREDO]:0.92,[ALBEDO]:0.92,[CITRINITAS]:0.92,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -890,8 +904,12 @@
     });
   }
   function upMercury(x,y,i){
-    let phil=false;
-    forN8(x,i,(ni,nm)=>{ if(nm===PHILOSOPHER) phil=true; return false; });
+    let phil=false, sul=-1, sal=-1;
+    forN8(x,i,(ni,nm)=>{ if(nm===PHILOSOPHER) phil=true; else if(nm===SULFUR) sul=ni; else if(nm===SALT) sal=ni; return false; });
+    // Magnum Opus, stage I — the tria prima (mercury + sulfur + salt), put to the fire, blacken into the prima materia
+    if(sul>=0 && sal>=0 && temp[i]>110 && rnd()<0.05){
+      convert(i,NIGREDO); grid[sul]=EMPTY; grid[sal]=EMPTY; discoverRecipe("nigredo"); return;
+    }
     // amalgamation — quicksilver slowly transmutes touching metal into more mercury
     forN8(x,i,(ni,nm)=>{
       if(nm===ACID && rnd()<(phil?0.035:0.01)){ convert(i,GOLD); discoverRecipe("acid_gold"); return true; }
@@ -900,6 +918,30 @@
       return false;
     });
     moveLiquid(x,y,i,MERCURY,M[MERCURY].disp); applyWind(x,i,MERCURY);
+  }
+  // Magnum Opus, stages II–IV — black → white → yellow → the red Stone (rubedo = Philosopher's Stone)
+  function upNigredo(x,y,i){
+    let washed=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===BRINE){ convert(i,ALBEDO); grid[ni]=EMPTY; washed=true; discoverRecipe("albedo"); return true; } return false; });
+    if(washed) return;
+    moveFalling(x,y,i,NIGREDO);
+  }
+  function upAlbedo(x,y,i){
+    let fire=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===FIRE||nm===LAVA) fire=true; return false; });
+    if((fire||temp[i]>260) && rnd()<0.06){ convert(i,CITRINITAS); discoverRecipe("citrinitas"); return; }
+    moveFalling(x,y,i,ALBEDO);
+  }
+  function upCitrinitas(x,y,i){
+    let gold=-1;
+    forN8(x,i,(ni,nm)=>{ if(nm===GOLD) gold=ni; return false; });
+    if(gold>=0 && rnd()<0.05){            // perfected with gold — the matter reddens into the Stone
+      convert(i,PHILOSOPHER); discoverRecipe("rubedo");
+      for(let a=0;a<14;a++){ const ang=rnd()*6.2832, sp=0.5+rnd()*2.2;
+        addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,16+rnd()*18,255,210,120,KSPARK); }
+      shakeScreen(3); return;
+    }
+    moveFalling(x,y,i,CITRINITAS);
   }
   function upNitro(x,y,i){
     if(charge[i]>0 || temp[i]>85){
@@ -1353,6 +1395,9 @@
           case SLAKEDLIME: upSlakedlime(x,y,i); break;
           case CO2: upCO2(x,y,i); break;
           case SEED: upSeed(x,y,i); break;
+          case NIGREDO: upNigredo(x,y,i); break;
+          case ALBEDO: upAlbedo(x,y,i); break;
+          case CITRINITAS: upCitrinitas(x,y,i); break;
           // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND: thermal/conduction only
         }
       }
@@ -2216,7 +2261,8 @@
                 limestone:LIMESTONE, chalk:LIMESTONE, quicklime:QUICKLIME, "quick lime":QUICKLIME,
                 lime:QUICKLIME, "slaked lime":SLAKEDLIME, slakedlime:SLAKEDLIME,
                 co2:CO2, "carbon dioxide":CO2, "dry ice":CO2,
-                seed:SEED, seeds:SEED, sprout:SEED };
+                seed:SEED, seeds:SEED, sprout:SEED,
+                nigredo:NIGREDO, albedo:ALBEDO, citrinitas:CITRINITAS };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach(n=>n.classList.toggle("active", +n.dataset.mat===currentMat));
@@ -2227,6 +2273,7 @@
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
     SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,CO2,SEED,
+    NIGREDO,ALBEDO,CITRINITAS,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
