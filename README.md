@@ -26,16 +26,16 @@ Aether Sand is a physics-rich **falling-sand simulator** written from scratch in
 - **Real thermodynamics.** A per-cell heat field with diffusion drives phase changes that *emerge* rather than scripting them: water ⇄ ice ⇄ steam, sand → glass, stone ⇄ lava, metal melting, spontaneous ignition.
 - **Blackbody incandescence.** Anything hot enough self-glows — heated metal and stone smoulder red → orange → yellow → white as the temperature climbs.
 - **Pressure & shockwaves.** Gases build real pressure and jet through gaps; explosions emit a shockwave that physically shoves loose matter outward and can shatter glass back into sand. Toggle the pressure-map overlay with `P`.
-- **Electricity & circuits.** A full kit: **batteries** push steady current down copper **wire**, **switches** you click to open or close, momentary **buttons**, **AND / OR / NOT / XOR logic gates**, and **bulbs** that glow when a live wire reaches them. Charge also runs through metal, gold, water, acid and mercury, and drives **electrolysis** that splits water into hydrogen and oxygen.
+- **Electricity.** Charge is a *physical phenomenon*, not a circuit kit: a **spark** tool energizes any conductor — metal, gold, water, acid, mercury — and the current races through it; **lightning** strikes scorch and electrify; **bulbs** glow when charge reaches them; **fulgurite** forms where a bolt fuses sand into glass; and charge drives **electrolysis**, splitting water into hydrogen and oxygen.
 - **Weather.** Paint **storm clouds** that drift on the wind, shed rain, and hurl **lightning**; pollute a cloud with smoke and it sours into an **acid-rain cloud**. A dedicated **Lightning** tool calls strikes on demand.
 - **A living world.** **Vines** climb walls and creep across surfaces; **mold** spreads over wood, plant and damp stone, then crumbles to ash; and **wildfire** races cell-to-cell through any connected forest until the fuel runs out.
-- **50+ materials & tools** across five families — **Natural · Reactive · Alchemy · Circuits · Tools** — including sand, rainbow sand, water, ice, snow, salt, stone, glass, obsidian, metal, rust, wood, plant, vine, mold, wall; oil, acid, aqua regia, mercury, slime, honey, lava, fire, smoke, hydrogen, oxygen, nitro; gold, diamond, crystal, philosopher's stone, sulfur, saltpeter, coal, ash, gunpowder, thermite, fuse; battery, wire, switch, button, AND/OR/NOT/XOR gates, bulb, spark; firework, lightning, storm cloud, acid cloud, heat torch, freeze, **Cloner**, **Void**, **Antimatter** and eraser.
+- **45+ materials & tools** across four families — **Natural · Reactive · Alchemy · Tools** — including sand, rainbow sand, water, ice, snow, salt, stone, glass, obsidian, metal, rust, wood, plant, vine, mold, wall; oil, acid, aqua regia, mercury, slime, honey, lava, fire, smoke, hydrogen, oxygen, nitro; gold, diamond, crystal, philosopher's stone, sulfur, saltpeter, coal, ash, gunpowder, thermite, fuse; firework, spark, lightning, bulb, storm cloud, acid cloud, heat torch, freeze, **Cloner**, **Void**, **Antimatter** and eraser.
 - **Real chemistry & alchemy.** Lava + water → obsidian (+ steam); coal → diamond under furious heat; metal + water → rust; wood chars to charcoal; acid + metal releases hydrogen; spent fuel → ash. Then the alchemy: acid + mercury → gold; **aqua regia** (acid + saltpeter) dissolves gold back to mercury; a **philosopher's stone** catalyses transmutation nearby; crystal grows on water; smoke + sulfur → acid; sulfur + saltpeter + coal → gunpowder — with thermite, fuse and nitro for the pyrotechnics, and antimatter that annihilates matter in a burst of energy.
 - **Dynamic lighting.** Every emitter — fire, lava, red-hot metal, sparks, fireworks, bulbs — casts coloured light onto the matter around it, layered over emissive bloom, so a stone wall beside a lava pool actually warms to orange. Tune it with the Light slider (defaults to ~54%) or toggle with `L`.
 - **Ballistic particles & screen-shake.** A floating-point particle layer drives fireworks, embers and explosions with smooth motion on top of the grid — and a big blast punches the whole screen.
 - **Gravity & wind.** Point gravity in any of 8 directions, flip to zero-G, and blow particles around with adjustable wind, all from a compact compass.
 - **Scales to bigger worlds.** A **World** control (Cozy / Balanced / Grand) trades cell size for canvas detail. Under the hood, an **active-region tracker** bounds both the heavy simulation passes *and* the rendering — recompute and re-upload only the part of the world that's actually doing something — so a sprawling, mostly-quiet world stays smooth.
-- **Challenges.** A set of bite-sized objectives — *light 5 bulbs at once, forge a diamond, quench obsidian, build serious pressure, run a circuit* — that tick off as you play, with progress saved locally and a little confetti when you nail one. Open them from the trophy in the top bar.
+- **Challenges.** A set of bite-sized objectives — *light 5 bulbs at once, forge a diamond, quench obsidian, build serious pressure, fuse fulgurite with lightning* — that tick off as you play, with progress saved locally and a little confetti when you nail one. Open them from the trophy in the top bar.
 - **Shareable links, snapshots & saves.** Hit **Share link** to pack your entire scene into a URL (run-length compressed, so it stays short) — send it to anyone and the world rebuilds itself the moment they open it. Plus export a PNG, or save and restore scenes locally.
 - **A genuinely good UI.** A **tabbed, searchable material palette** (Natural / Reactive / Alchemy / Tools / All) with full-width readable buttons and a live description of whatever you've selected; live FPS + particle counters; heat-map and pressure-map overlays; and an **Alchemy Book** that reveals recipes as you discover them through play — ingredient swatch-chips, a discovery progress bar, **NEW** badges, and a sandbox "reveal all" toggle. Plus an elegant About panel, full keyboard shortcuts, mouse + touch, and responsive resize that preserves your artwork.
 
@@ -59,7 +59,6 @@ Aether Sand is a physics-rich **falling-sand simulator** written from scratch in
 | Toggle dynamic lighting | `L` |
 | Open alchemy book | `B` |
 | Challenges | `G` or the trophy |
-| Toggle a switch / press a button | Click it |
 | About panel | Click the title |
 | Brush size | `[` / `]` or the slider |
 | Pick material | `1`–`9` or the palette |
@@ -97,7 +96,7 @@ A.paint(x, y, "crystal", 3);    // grows by consuming adjacent water
 A.paint(x, y, "sulfur", 3);     // sulfur + saltpeter + coal → gunpowder
 A.paint(x, y, "thermite", 4);   // ignite it to burn through metal
 A.line(x0, y0, x1, y1, "fuse"); // slow-burning cord to a gunpowder cache
-A.paint(x, y, "bulb", 1);       // lights up when a charged wire reaches it
+A.paint(x, y, "bulb", 1);       // glows when a spark or lightning charges a nearby conductor
 A.paint(x, y, "hydrogen", 5);   // splits from water by electrolysis; detonates near flame
 A.paint(x, y, "cloud", 5);      // storm cloud — drifts on the wind, rains, and strikes
 A.paint(x, y, "antimatter");    // annihilates any matter it touches (contain with walls)

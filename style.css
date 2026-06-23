@@ -322,12 +322,12 @@ html, body {
 .cmp:nth-child(4){ grid-area: 2 / 3; }
 .cmp:nth-child(5){ grid-area: 3 / 2; }
 
-.seg { display: flex; gap: 4px; }
+.seg { display: flex; gap: 4px; width: 100%; }
 .seg button {
-  flex: 1; padding: 7px 3px; border-radius: 8px;
+  flex: 1 1 0; min-width: 0; padding: 6px 2px; border-radius: 8px;
   border: 1px solid var(--panel-brd); background: rgba(255,255,255,0.03);
-  color: var(--text-dim); font: 700 10px var(--font); letter-spacing: .02em;
-  text-transform: uppercase; cursor: pointer;
+  color: var(--text-dim); font: 700 9px var(--font); letter-spacing: 0;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: clip;
   transition: background .14s ease, color .14s ease, border-color .14s ease;
 }
 .seg button:hover { background: rgba(255,255,255,0.09); color: var(--text); }

@@ -17,9 +17,9 @@
         OBSIDIAN=37, DIAMOND=38, HYDROGEN=39, OXYGEN=40, ASH=41,
         RUST=42, CLOUD=43, LIGHTNING=44, ANTIMATTER=45,
         SLIME=46, HONEY=47, ACIDCLOUD=48, BULB=49,
-        BATTERY=50, WIRE=51, SWITCH=52, BUTTON=53,
-        GATE_AND=54, GATE_OR=55, GATE_NOT=56, GATE_XOR=57,
         VINE=58, MOLD=59;
+  // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
+  //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
   // cell types
   const STATIC=0, POWDER=1, LIQUID=2, GAS=3, TOOL=4;
@@ -94,14 +94,6 @@
                   trans:[{c:1,t:210,to:FIRE,p:0.3}] },
     [ACIDCLOUD]:{ name:"Acid Cloud",type:GAS,  d:1,   c1:[156,176,82], c2:[104,124,52], a:185, k:0.04, emit:0.12 },
     [BULB]:     { name:"Bulb",    type:STATIC, d:1e4, c1:[206,206,184], c2:[150,150,128], a:205, k:0.08 },
-    [BATTERY]:  { name:"Battery", type:STATIC, d:1e4, c1:[110,222,150], c2:[58,140,92], k:0.05, emit:0.22 },
-    [WIRE]:     { name:"Wire",    type:STATIC, d:1e4, c1:[206,132,72], c2:[150,88,44], k:0.40, cond:1 },
-    [SWITCH]:   { name:"Switch",  type:STATIC, d:1e4, c1:[120,200,120], c2:[80,150,80], k:0.05 },
-    [BUTTON]:   { name:"Button",  type:STATIC, d:1e4, c1:[212,150,92], c2:[150,100,60], k:0.05 },
-    [GATE_AND]: { name:"AND Gate",type:STATIC, d:1e4, c1:[120,160,255], c2:[64,96,200], k:0.05 },
-    [GATE_OR]:  { name:"OR Gate", type:STATIC, d:1e4, c1:[110,214,255], c2:[58,140,200], k:0.05 },
-    [GATE_NOT]: { name:"NOT Gate",type:STATIC, d:1e4, c1:[255,140,162], c2:[200,76,110], k:0.05 },
-    [GATE_XOR]: { name:"XOR Gate",type:STATIC, d:1e4, c1:[198,150,255], c2:[136,86,210], k:0.05 },
     [VINE]:     { name:"Vine",    type:STATIC, d:1e4, c1:[82,166,68], c2:[48,118,46], k:0.03, flam:1,
                   trans:[{c:1,t:200,to:FIRE,p:0.4}] },
     [MOLD]:     { name:"Mold",    type:STATIC, d:1e4, c1:[124,150,98], c2:[78,108,70], k:0.04, flam:1,
@@ -130,15 +122,13 @@
   WINDF[SLIME]=0.04; WINDF[HONEY]=0.02;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; // gold is an excellent conductor
-  CHCOND[WIRE]=1; // copper wire — the circuit-builder's conductor
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
     { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,GLASS,OBSIDIAN,METAL,WOOD,PLANT,VINE,MOLD,WALL] },
     { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,SLIME,HONEY,LAVA,FIRE,SMOKE,HYDROGEN,OXYGEN,NITRO] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
-    { label:"Circuits", icon:"⚡", mats:[BATTERY,WIRE,SWITCH,BUTTON,BULB,GATE_AND,GATE_OR,GATE_NOT,GATE_XOR,SPARK] },
-    { label:"Tools", icon:"🛠", mats:[FIREWORK,LIGHTNING,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
+    { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
   ];
   const PALETTE = MAT_GROUPS.flatMap(g=>g.mats);
 
@@ -185,15 +175,7 @@
     [FIREWORK]:"Rocket powder — launches sky bursts.",
     [SPARK]:"Electric brush — energizes conductors.",
     [LIGHTNING]:"Calls down a lightning bolt that scorches and electrifies.",
-    [BULB]:"Light bulb — glows warm when a charged wire reaches it.",
-    [BATTERY]:"Power source — feeds steady current into any wire it touches.",
-    [WIRE]:"Copper wire — carries current and never melts. The circuit-builder's friend.",
-    [SWITCH]:"Click to open or close it — closed wire conducts, open blocks the current.",
-    [BUTTON]:"Click to fire a momentary pulse of current down the wire.",
-    [GATE_AND]:"AND gate — outputs current only when 2+ neighbours are charged.",
-    [GATE_OR]:"OR gate — outputs current when any neighbour is charged.",
-    [GATE_NOT]:"NOT gate — outputs when NO neighbour is charged (an inverter / clock).",
-    [GATE_XOR]:"XOR gate — outputs when exactly one neighbour is charged.",
+    [BULB]:"Light bulb — glows warm when charge reaches it through metal, water or a lightning strike.",
     [CLOUD]:"Storm cloud — drifts on the wind, rains water, and strikes lightning.",
     [ACIDCLOUD]:"Acid-rain cloud — born of pollution; rains corrosive acid below.",
     [HEAT]:"Torch tool — paints heat onto matter.",
@@ -217,11 +199,8 @@
     { id:"diamond", cat:"Transmutation", name:"Diamond synthesis", in:[COAL], out:[DIAMOND], note:"Carbon crystallises into diamond under furious heat (thermite or lava).", hint:"Coal, fiercely heated…" },
     { id:"smoke_acid", cat:"Crafting", name:"Sulfurous acid", in:[SMOKE,SULFUR], out:[ACID], note:"Gas and yellow powder brew a corrosive liquid.", hint:"Smoke meets yellow powder…" },
     { id:"electrolysis", cat:"Crafting", name:"Electrolysis", in:[WATER,SPARK], out:[HYDROGEN,OXYGEN], note:"A current splits water into hydrogen and oxygen gas.", hint:"Charge run through water…" },
-    { id:"bulb_light", cat:"Circuits", name:"Light bulb", in:[SPARK,BULB], out:[BULB], note:"Spark a conductive wire beside a bulb and it glows warm.", hint:"Charge reaching glass and filament…" },
-    { id:"battery_power", cat:"Circuits", name:"Powered circuit", in:[BATTERY,WIRE], out:[BULB], note:"A battery feeds steady current down wire — wire it to bulbs.", hint:"A source and a conductor…" },
-    { id:"switch_toggle", cat:"Circuits", name:"Switch", in:[SWITCH], out:[WIRE], note:"Click a switch to open or close the circuit it sits in.", hint:"A gap you can open and close…" },
-    { id:"button_press", cat:"Circuits", name:"Push button", in:[BUTTON], out:[SPARK], note:"Click a button to send a momentary pulse of current.", hint:"Press for a pulse…" },
-    { id:"logic_gates", cat:"Circuits", name:"Logic gates", in:[GATE_AND,GATE_OR], out:[GATE_NOT], note:"AND, OR, NOT and XOR gates react to their charged neighbours.", hint:"Reason with current…" },
+    { id:"bulb_light", cat:"Electric", name:"Filament glow", in:[SPARK,BULB], out:[BULB], note:"Charge reaching a bulb — through metal, water, or a lightning strike — lights its filament.", hint:"Spark a conductor beside glass…" },
+    { id:"fulgurite", cat:"Electric", name:"Fulgurite", in:[LIGHTNING,SAND], out:[GLASS], note:"Lightning striking sand fuses it into glass in a heartbeat.", hint:"When the bolt finds the dunes…" },
     { id:"acid_metal", cat:"Crafting", name:"Acid corrosion", in:[ACID,METAL], out:[HYDROGEN], note:"Acid eating metal releases flammable hydrogen.", hint:"Acid eats steel…" },
     { id:"charcoal", cat:"Crafting", name:"Charcoal", in:[WOOD], out:[COAL], note:"Wood heated slowly chars into charcoal instead of burning away.", hint:"Wood, heated gently…" },
     { id:"crystal_grow", cat:"Growth", name:"Crystal garden", in:[CRYSTAL,WATER], out:[CRYSTAL], note:"Crystals drink water to spread.", hint:"A prism beside water…" },
@@ -265,9 +244,8 @@
     { id:"gold", icon:"🪙", title:"Transmuter", desc:"Turn mercury into gold.", test:s=>s.disc.has("acid_gold")||s.disc.has("philosopher_gold")||s.count(GOLD)>=8 },
     { id:"diamond", icon:"💎", title:"Diamond Hands", desc:"Forge a diamond from coal under furious heat.", test:s=>s.disc.has("diamond")||s.count(DIAMOND)>=1 },
     { id:"obsidian", icon:"🪨", title:"Quenched", desc:"Quench lava in water to make obsidian.", test:s=>s.disc.has("obsidian")||s.count(OBSIDIAN)>=10 },
-    { id:"powered", icon:"🔋", title:"Power Grid", desc:"Run a battery-powered circuit.", test:s=>s.disc.has("battery_power") },
-    { id:"lights", icon:"💡", title:"Let There Be Light", desc:"Light up 5 bulbs at once.", test:s=>s.litBulbs>=5 },
-    { id:"logic", icon:"🔌", title:"Logician", desc:"Build any logic gate that fires.", test:s=>s.disc.has("logic_gates") },
+    { id:"lights", icon:"💡", title:"Let There Be Light", desc:"Light up 5 bulbs at once with a spark or a strike.", test:s=>s.litBulbs>=5 },
+    { id:"fulgurite", icon:"⚡", title:"Fulgurite", desc:"Fuse glass by striking sand with lightning.", test:s=>s.disc.has("fulgurite") },
     { id:"storm", icon:"⛈️", title:"Storm Chaser", desc:"Summon a lightning strike.", test:s=>s.disc.has("lightning") },
     { id:"acidrain", icon:"☣️", title:"Acid Rain", desc:"Pollute a cloud until it rains acid.", test:s=>s.disc.has("acid_rain") },
     { id:"boom", icon:"💥", title:"Demolitions", desc:"Set off a proper explosion.", test:s=>s.disc.has("nitro_blast")||s.disc.has("gunpowder_boom") },
@@ -300,8 +278,6 @@
     [OBSIDIAN]:1,[DIAMOND]:1,[HYDROGEN]:0.85,[OXYGEN]:0.85,[ASH]:0.85,
     [RUST]:0.9,[CLOUD]:0.55,[ANTIMATTER]:1,
     [SLIME]:0.92,[HONEY]:0.95,[ACIDCLOUD]:0.55,[BULB]:1,
-    [BATTERY]:1,[WIRE]:1,[SWITCH]:1,[BUTTON]:1,
-    [GATE_AND]:1,[GATE_OR]:1,[GATE_NOT]:1,[GATE_XOR]:1,
     [VINE]:1,[MOLD]:1,
   };
 
@@ -362,7 +338,16 @@
   function setWorldSize(n){
     worldSize=clampInt(n,0,2);
     try{ localStorage.setItem("aether-world", String(worldSize)); }catch(_){}
-    resize(); setGravity(GX,GY);
+    const og=grid, oW=W, oH=H;          // keep the current scene before the grid is reallocated
+    resize();                            // changes SCALE / W / H / grid
+    if(og && oW>0 && oH>0 && (oW!==W||oH!==H)){
+      // rescale (nearest-neighbour) the whole scene into the new world instead of cropping it
+      grid.fill(EMPTY); charge.fill(0); life.fill(0); pres.fill(0); temp.fill(AMBIENT); vel.fill(0);
+      for(let y=0;y<H;y++){ const srow=((y*oH/H)|0)*oW, drow=y*W;
+        for(let x=0;x<W;x++){ const m=og[srow+((x*oW/W)|0)]; if(m===EMPTY) continue;
+          const i=drow+x; grid[i]=m; shade[i]=r255(); temp[i]=BASET[m]; life[i]=defaultLife(m); } }
+    }
+    setGravity(GX,GY); markRenderFull();
   }
 
   /* ============================ Helpers ============================ */
@@ -379,7 +364,6 @@
       case COAL: return 480+(rnd()*320|0);
       case HYDROGEN: return 150+(rnd()*120|0);
       case OXYGEN: return 220+(rnd()*180|0);
-      case SWITCH: return 1;  // switches start closed (on)
       case VINE: return 24+(rnd()*18|0);  // growth energy
       default: return 0;
     }
@@ -892,11 +876,13 @@
     }
     // a brooding storm occasionally hurls a bolt
     if(rnd()<0.0010) strikeLightning(x,y);
-    // smoke pollution turns a storm cloud sour — it becomes an acid cloud
+    // heavy smoke pollution can slowly sour a storm cloud into an acid cloud.
+    // Only real smoke counts (no acid-cloud chain reaction), and it needs a proper
+    // plume around it, so it stays a deliberate, rare event rather than a sweep.
     if(m===CLOUD){
-      let smog=false;
-      forN8(x,i,(ni,nm)=>{ if(nm===SMOKE||nm===ACIDCLOUD){ smog=true; return true; } return false; });
-      if(smog && rnd()<0.02){ convert(i,ACIDCLOUD); discoverRecipe("acid_rain"); return; }
+      let smoke=0;
+      forN8(x,i,(ni,nm)=>{ if(nm===SMOKE) smoke++; return false; });
+      if(smoke>=3 && rnd()<0.004){ convert(i,ACIDCLOUD); discoverRecipe("acid_rain"); return; }
     }
     // drift with the wind (or a gentle wander when still)
     const dir = WIND>0?1:(WIND<0?-1:(rnd()<0.5?1:-1));
@@ -915,24 +901,6 @@
     if(powered){ life[i]=24; discoverRecipe("bulb_light"); }
     else if(life[i]>0) life[i]--;
   }
-  /* ---- electricity components ---- */
-  // push a charge into idle conductors (and closed switches) around a cell
-  function energize(i,val){
-    let fed=false;
-    forCard(i,(ni)=>{
-      if(charge[ni]===0 && (CHCOND[grid[ni]] || (grid[ni]===SWITCH && life[ni]>0))){ charge[ni]=val; fed=true; }
-    });
-    return fed;
-  }
-  function chargedCount(i){ let c=0; forCard(i,(ni)=>{ if(charge[ni]>0) c++; }); return c; }
-  function upBattery(i){ if(energize(i,6)) discoverRecipe("battery_power"); }     // steady source
-  function upButton(i){ if(life[i]>0){ energize(i,6); life[i]--; } }              // momentary pulse
-  function upGate(i,kind){                                                        // 0=AND 1=OR 2=NOT 3=XOR
-    const c=chargedCount(i);
-    const out = kind===0 ? c>=2 : kind===1 ? c>=1 : kind===2 ? c===0 : c===1;
-    if(out){ energize(i,6); life[i]=4; discoverRecipe("logic_gates"); }
-    else if(life[i]>0) life[i]--;
-  }
   function upAntimatter(x,y,i){
     let reacted=false;
     forN8(x,i,(ni,nm)=>{
@@ -948,6 +916,7 @@
       temp[i]=Math.max(temp[i],420);
       if(CHCOND[grid[i]]) charge[i]=6;
       if(FLAM[grid[i]]) temp[i]+=180;
+      if(grid[i]===SAND){ convert(i,GLASS); discoverRecipe("fulgurite"); }   // fulgurite — lightning fuses sand to glass
       addP(x+0.5,y+0.5,(rnd()-0.5)*0.8,0.6+rnd()*1.4,8+rnd()*8,200,228,255,KSPARK);
       if(rnd()<0.45) x += rnd()<0.5?-1:1;
       if(x<0)x=0; else if(x>=W)x=W-1;
@@ -957,6 +926,7 @@
         temp[gi]=Math.max(temp[gi],640);
         if(FLAM[gm]) temp[gi]+=320;
         if(CHCOND[gm]) charge[gi]=6;
+        if(gm===SAND){ convert(gi,GLASS); discoverRecipe("fulgurite"); }
         for(let a=0;a<14;a++){ const ang=rnd()*6.2832, sp=0.6+rnd()*2.4;
           addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,12+rnd()*16,210,232,255,KSPARK); }
         break;
@@ -998,7 +968,7 @@
         discoverRecipe("electrolysis");
         continue;
       }
-      forCard(i,(ni)=>{ if(charge[ni]===0 && (CHCOND[grid[ni]] || (grid[ni]===SWITCH && life[ni]>0))) charge[ni]=4; });
+      forCard(i,(ni)=>{ if(charge[ni]===0 && CHCOND[grid[ni]]) charge[ni]=4; });
       const nc=c-1;
       charge[i]= nc>0 ? nc : -3;
     }
@@ -1209,15 +1179,9 @@
           case SLIME: upSlime(x,y,i); break;
           case HONEY: upHoney(x,y,i); break;
           case BULB: upBulb(x,y,i); break;
-          case BATTERY: upBattery(i); break;
-          case BUTTON: upButton(i); break;
-          case GATE_AND: upGate(i,0); break;
-          case GATE_OR: upGate(i,1); break;
-          case GATE_NOT: upGate(i,2); break;
-          case GATE_XOR: upGate(i,3); break;
           case VINE: upVine(x,y,i); break;
           case MOLD: upMold(x,y,i); break;
-          // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND, WIRE, SWITCH: thermal/conduction only
+          // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND: thermal/conduction only
         }
       }
     }
@@ -1401,11 +1365,6 @@
       } else if(m===BULB){
         if(life[i]>0){ const u=clamp(life[i]/24,0,1); r=255; g=lerp(208,246,u); b=lerp(118,196,u); }
         else { r=lerp(mat.c1[0],mat.c2[0],sh); g=lerp(mat.c1[1],mat.c2[1],sh); b=lerp(mat.c1[2],mat.c2[2],sh); }
-      } else if(m===SWITCH){
-        if(life[i]>0){ r=92; g=226; b=122; } else { r=132; g=72; b=74; }   // closed=green, open=dim red
-      } else if(m===BUTTON){
-        if(life[i]>0){ r=255; g=206; b=132; }
-        else { r=lerp(mat.c1[0],mat.c2[0],sh); g=lerp(mat.c1[1],mat.c2[1],sh); b=lerp(mat.c1[2],mat.c2[2],sh); }
       } else {
         r=lerp(mat.c1[0],mat.c2[0],sh); g=lerp(mat.c1[1],mat.c2[1],sh); b=lerp(mat.c1[2],mat.c2[2],sh);
         if(charge[i]>0){ const u=clamp(charge[i]/10,0,1);
@@ -1436,8 +1395,6 @@
         else if(m===CRYSTAL){ ge=(100<<24)|(b<<16)|(g<<8)|r; }
         else if(m===PHILOSOPHER){ ge=(150<<24)|(120<<16)|(200<<8)|255; }
         else if(m===BULB && life[i]>0){ const u=clamp(life[i]/24,0,1); ge=((u*230|0)<<24)|((b|0)<<16)|((g|0)<<8)|(r|0); }
-        else if(m===BUTTON && life[i]>0){ ge=(200<<24)|(132<<16)|(206<<8)|255; }
-        else if(m>=GATE_AND && m<=GATE_XOR && life[i]>0){ ge=(190<<24)|((b|0)<<16)|((g|0)<<8)|(r|0); }
         else if(m===NITRO && vel[i]>4){ const u=clamp((vel[i]-4)/5,0,1); ge=((u*170|0)<<24)|(50<<16)|(220<<8)|160; }
         ge=scaleGlow(ge,lf);
       }
@@ -1548,30 +1505,6 @@
   }
   const toGrid=(cx,cy)=>[Math.floor(cx/SCALE),Math.floor(cy/SCALE)];
 
-  // flood the connected blob of one material, applying fn to each cell
-  function floodComponent(start,mat,fn){
-    const stack=[start], seen=new Set();
-    while(stack.length){
-      const c=stack.pop(); if(seen.has(c)) continue; seen.add(c);
-      if(grid[c]!==mat) continue;
-      fn(c);
-      const x=c%W;
-      if(c-W>=0)stack.push(c-W); if(c+W<N)stack.push(c+W);
-      if(x>0)stack.push(c-1); if(x<W-1)stack.push(c+1);
-    }
-  }
-  // clicking a switch toggles the whole switch; clicking a button pulses it
-  function interactAt(gx,gy){
-    if(gx<0||gx>=W||gy<0||gy>=H) return false;
-    const i=gy*W+gx, m=grid[i];
-    if(m===SWITCH){
-      const on=life[i]>0?0:1;
-      floodComponent(i,SWITCH,(c)=>{ life[c]=on; });
-      toast(on?"Switch closed":"Switch open"); discoverRecipe("switch_toggle"); return true;
-    }
-    if(m===BUTTON){ floodComponent(i,BUTTON,(c)=>{ life[c]=10; }); discoverRecipe("button_press"); return true; }
-    return false;
-  }
 
   /* ============================ Attract mode ===================== */
   let attract=true, attractT=0;
@@ -2077,10 +2010,8 @@
     const stage=document.getElementById("stage");
     stage.addEventListener("contextmenu",e=>e.preventDefault());
     stage.addEventListener("pointerdown",(e)=>{
-      stopAttract(); eraseBtn=(e.button===2||e.shiftKey);
-      const [gx,gy]=toGrid(e.clientX,e.clientY);
-      if(!eraseBtn && interactAt(gx,gy)) return;   // clicked a switch/button — interact, don't paint
-      painting=true; lastPx=gx; lastPy=gy;
+      stopAttract(); painting=true; eraseBtn=(e.button===2||e.shiftKey);
+      const [gx,gy]=toGrid(e.clientX,e.clientY); lastPx=gx; lastPy=gy;
       paintDisc(gx,gy,eraseBtn?EMPTY:currentMat);
       try{ stage.setPointerCapture(e.pointerId); }catch(_){}
     });
@@ -2111,9 +2042,6 @@
                 "anti-matter":ANTIMATTER, antimater:ANTIMATTER,
                 goo:SLIME, ooze:SLIME, syrup:HONEY, "acid cloud":ACIDCLOUD, acidcloud:ACIDCLOUD,
                 smog:ACIDCLOUD, "acid rain":ACIDCLOUD, lamp:BULB, light:BULB,
-                copper:WIRE, cable:WIRE, cell:BATTERY, power:BATTERY, toggle:SWITCH, push:BUTTON,
-                and:GATE_AND, or:GATE_OR, not:GATE_NOT, xor:GATE_XOR, inverter:GATE_NOT,
-                "and gate":GATE_AND, "or gate":GATE_OR, "not gate":GATE_NOT, "xor gate":GATE_XOR,
                 ivy:VINE, creeper:VINE, moss:MOLD, rot:MOLD, fungus:MOLD };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
@@ -2124,8 +2052,7 @@
     WOOD,PLANT,GLASS,STONE,METAL,GUNPOWDER,FIREWORK,SPARK,COAL,HEAT,COOL,CLONER,VOID,
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
-    SLIME,HONEY,ACIDCLOUD,BULB,BATTERY,WIRE,SWITCH,BUTTON,
-    GATE_AND,GATE_OR,GATE_NOT,GATE_XOR,VINE,MOLD,
+    SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
