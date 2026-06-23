@@ -800,9 +800,10 @@
   function upPlant(x,y,i){
     let water=-1; let lit=false; const empties=[];
     forN8(x,i,(ni,nm)=>{
-      if(nm===WATER) water=ni;
+      if(nm===WATER){ water=ni; lit=true; }
       else if(nm===EMPTY){ empties.push(ni); lit=true; }
-      else if(TYPE[nm]===GAS||nm===PLANT||nm===VINE||nm===SEED) lit=true;   // open to air, or part of the living mass
+      // alive if it can reach air, light (through liquids/ice/glass), or its own kind — only opaque burial wilts it
+      else if(TYPE[nm]===GAS||TYPE[nm]===LIQUID||nm===PLANT||nm===VINE||nm===SEED||nm===ICE||nm===GLASS) lit=true;
       return false;
     });
     // photosynthesis — a plant sealed in the dark (buried, no air/light, no kin) withers to ash
@@ -907,13 +908,13 @@
     let phil=false, sul=-1, sal=-1;
     forN8(x,i,(ni,nm)=>{ if(nm===PHILOSOPHER) phil=true; else if(nm===SULFUR) sul=ni; else if(nm===SALT) sal=ni; return false; });
     // Magnum Opus, stage I — the tria prima (mercury + sulfur + salt), put to the fire, blacken into the prima materia
-    if(sul>=0 && sal>=0 && temp[i]>110 && rnd()<0.05){
-      convert(i,NIGREDO); grid[sul]=EMPTY; grid[sal]=EMPTY; discoverRecipe("nigredo"); return;
+    if(sul>=0 && sal>=0 && temp[i]>110 && rnd()<0.06){
+      convert(i,NIGREDO); grid[sul]=EMPTY; discoverRecipe("nigredo"); return;   // sulfur is consumed; salt persists as the fixed medium that keeps the Work pure
     }
     // amalgamation — quicksilver slowly transmutes touching metal into more mercury
     forN8(x,i,(ni,nm)=>{
       if(nm===ACID && rnd()<(phil?0.035:0.01)){ convert(i,GOLD); discoverRecipe("acid_gold"); return true; }
-      if(nm===SULFUR && rnd()<0.02){ convert(i,CINNABAR); grid[ni]=EMPTY; discoverRecipe("cinnabar"); return true; }   // Hg + S → cinnabar
+      if(nm===SULFUR && sal<0 && rnd()<0.02){ convert(i,CINNABAR); grid[ni]=EMPTY; discoverRecipe("cinnabar"); return true; }   // Hg + S → cinnabar (but salt present means the Great Work — leave it for nigredo)
       if(nm===METAL && rnd()<(phil?0.012:0.0035)){ convert(ni,MERCURY); temp[ni]=temp[i]; discoverRecipe("mercury_amalgam"); }
       return false;
     });
@@ -921,9 +922,16 @@
   }
   // Magnum Opus, stages II–IV — black → white → yellow → the red Stone (rubedo = Philosopher's Stone)
   function upNigredo(x,y,i){
-    let washed=false;
-    forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===BRINE){ convert(i,ALBEDO); grid[ni]=EMPTY; washed=true; discoverRecipe("albedo"); return true; } return false; });
+    let washed=false, merc=-1, sulf=-1, cinn=-1;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===WATER||nm===BRINE){ convert(i,ALBEDO); grid[ni]=EMPTY; washed=true; discoverRecipe("albedo"); return true; }
+      if(nm===MERCURY) merc=ni; else if(nm===SULFUR) sulf=ni; else if(nm===CINNABAR) cinn=ni;
+      return false;
+    });
     if(washed) return;
+    // the putrefaction spreads: it blackens neighbouring quicksilver (eating sulfur) and reclaims any premature cinnabar
+    if(merc>=0 && sulf>=0 && rnd()<0.09){ convert(merc,NIGREDO); grid[sulf]=EMPTY; discoverRecipe("nigredo"); return; }
+    if(cinn>=0 && rnd()<0.08){ convert(cinn,NIGREDO); return; }
     moveFalling(x,y,i,NIGREDO);
   }
   function upAlbedo(x,y,i){
