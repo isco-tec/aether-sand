@@ -1879,7 +1879,7 @@
   // micro-cosmos that loops until the visitor takes over. (Designed with a
   // creative-director + technical pass: life is grounded, particles have a source.)
   let attract=true, attractT=0, attractStage=0, titleCells=[], dissolveIdx=0;
-  let titleBox={x0:0,x1:0,y0:0,y1:0}, terrainTop=null, philoSet=false, fwFlash=false, dawnSet=false;
+  let titleBox={x0:0,x1:0,y0:0,y1:0}, terrainTop=null, philoSet=false, fwFlash=false;
   const CINE_LEN=22;
   function cineClear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); }
   function cineRow(x0,x1,y,m){ if(y<0||y>=H) return;
@@ -1912,15 +1912,6 @@
       if(top-2>=0) spawn((top-2)*W+x,SAND);
     }
   }
-  // fade in / out the cinematic dawn sky (a warm gradient + a rising sun, in the DOM)
-  let skyEl=null;
-  function dawnSky(on){
-    if(!skyEl){ const stage=document.getElementById("stage"); if(!stage) return;
-      skyEl=document.createElement("div"); skyEl.id="cine-sky"; skyEl.innerHTML='<div id="cine-sun"></div>';
-      stage.appendChild(skyEl); }
-    skyEl.style.opacity = on?"1":"0";
-    skyEl.classList.toggle("dawn", on);
-  }
   function runAttract(){
     if(!attract) return;
     attractT += 1/60;
@@ -1928,8 +1919,7 @@
     // stage 0 → the land, then the title materialises out of a soft bloom
     if(attractStage===0 && t>=0.05){
       cineClear(); titleCells.length=0; dissolveIdx=0;
-      philoSet=fwFlash=dawnSet=false;
-      dawnSky(false);                                          // night again
+      philoSet=fwFlash=false;
       buildTerrain();
       flash(184,132,228,0.4);                                  // the void breathes
       titleBox = stampText("Aether Sand", cx, ty, DIAMOND, W*0.082);
@@ -1960,8 +1950,9 @@
       expandActive(0,0,W-1,H-1);
       if(dissolveIdx>=titleCells.length) attractStage=3;
     }
-    // stage 3 → once the water has settled, sow seeds on the BANKS (on the real surface, with a splash) so trees root on solid ground
-    if(attractStage===3 && t>=7){
+    // stage 3 → once the rain has stopped and the land has settled, sow seeds on the BANKS (real surface + a splash)
+    // so the saplings have clear air to climb a proper trunk into
+    if(attractStage===3 && t>=10){
       for(const fx of [0.14,0.22,0.34,0.42,0.5,0.58,0.66,0.78]){ const x=(W*fx)|0;
         // find the current dry surface (first solid below the air, skipping ponds)
         let sy=-1; for(let y=(baseY-22)|0; y<H; y++){ const m=grid[y*W+x]; if(m!==EMPTY && TYPE[m]!==GAS && TYPE[m]!==LIQUID){ sy=y; break; } }
@@ -1972,10 +1963,8 @@
     }
     // the Stone's quiet pulse gilds a dry bank with a little gold
     if(!philoSet && t>=13){ const x=(W*0.86)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-3)*W+x,PHILOSOPHER); philoSet=true; }
-    // a warm dawn breaks over the world — the sky glows and the sun rises — before the fireworks
-    if(!dawnSet && t>=13){ dawnSky(true); flash(255,205,140,0.16); dawnSet=true; }
     // continuous: gentle rain keeps the ponds full (reciprocity); snow on the cold left; fireflies low over the foliage; fireworks finale
-    if(t>3.5 && t<11.5){ for(let k=0;k<2;k++){ const x=(W*(0.14+rnd()*0.72))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
+    if(t>3.5 && t<9.5){ for(let k=0;k<2;k++){ const x=(W*(0.14+rnd()*0.72))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
     if(t>8 && t<13 && rnd()<0.22){ const x=(W*(0.02+rnd()*0.1))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,SNOW); }
     if(t>8 && rnd()<0.5){ const x=(W*(0.12+rnd()*0.74))|0, y=baseY-4-((rnd()*26)|0);   // low + short life → fireflies, not falling drops
       addP(x+0.5,y+0.5,(rnd()-0.5)*0.22,-0.05-rnd()*0.12,16+rnd()*16,220,255,160,KSPARK); }
@@ -1983,7 +1972,7 @@
     if(!fwFlash && t>=17.5){ flash(255,202,110,0.35); shakeScreen(6); fwFlash=true; }
     if(t>=CINE_LEN){ attractT=0; attractStage=0; }   // and so it begins again
   }
-  function stopAttract(){ if(!attract) return; attract=false; dawnSky(false); const h=document.getElementById("hint"); if(h) h.classList.add("hide"); }
+  function stopAttract(){ if(!attract) return; attract=false; const h=document.getElementById("hint"); if(h) h.classList.add("hide"); }
 
   /* ============================ Snapshot / save =================== */
   function toast(msg){
