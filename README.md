@@ -35,6 +35,7 @@ Aether Sand is a physics-rich **falling-sand simulator** written from scratch in
 - **The Magnum Opus.** The philosopher's stone is no longer just painted — it can be *earned*. Put the **tria prima** (mercury + sulfur + salt) to the fire and the Great Work begins: the matter blackens (**nigredo**), washes white in water (**albedo**), ripens gold in the fire (**citrinitas**), and — perfected with gold — reddens into the **Philosopher's Stone** itself (**rubedo**). Four stages, discovered the way the old alchemists worked: by doing the work. And the Stone you earn is no mere trinket — lay it against base matter and it **projects**, perfecting stone, rust and coal into gold.
 - **Dynamic lighting.** Every emitter — fire, lava, red-hot metal, sparks, fireworks, bulbs — casts coloured light onto the matter around it, layered over emissive bloom, so a stone wall beside a lava pool actually warms to orange. Tune it with the Light slider (defaults to ~54%) or toggle with `L`.
 - **Ballistic particles & screen-shake.** A floating-point particle layer drives fireworks, embers and explosions with smooth motion on top of the grid — and a big blast punches the whole screen.
+- **Procedural sound.** A fully synthesized soundtrack — no audio files — built live with the Web Audio API: fire crackles, water runs and lava rumbles in ambient voices that track the world, while explosions thud, lightning cracks, fireworks pop, and a soft chime rings every time you discover new alchemy. It starts on your first touch and remembers your mute preference (toggle with the speaker button or `M`).
 - **Gravity & wind.** Point gravity in any of 8 directions, flip to zero-G, and blow particles around with adjustable wind, all from a compact compass.
 - **Scales to bigger worlds.** A **World** control (Cozy / Balanced / Grand) trades cell size for canvas detail. Under the hood, an **active-region tracker** bounds both the heavy simulation passes *and* the rendering — recompute and re-upload only the part of the world that's actually doing something — so a sprawling, mostly-quiet world stays smooth.
 - **Challenges.** A set of bite-sized objectives — *light 5 bulbs at once, forge a diamond, quench obsidian, build serious pressure, fuse fulgurite with lightning* — that tick off as you play, with progress saved locally and a little confetti when you nail one. Open them from the trophy in the top bar.
@@ -59,6 +60,7 @@ Aether Sand is a physics-rich **falling-sand simulator** written from scratch in
 | Heat-map overlay | `H` |
 | Pressure-map overlay | `P` |
 | Toggle dynamic lighting | `L` |
+| Mute / unmute sound | `M` |
 | Open alchemy book | `B` |
 | Challenges | `G` or the trophy |
 | About panel | Click the title |

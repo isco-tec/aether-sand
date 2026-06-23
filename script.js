@@ -327,6 +327,7 @@
     try{ localStorage.setItem("aether-discoveries", JSON.stringify([...discoveries])); }catch(_){}
     renderBooklet();
     toast("📖 Discovered: "+RECIPE_BY_ID[id].name);
+    Snd.chime();
   }
 
   const SPAWN_PROB = {
@@ -594,6 +595,7 @@
 
   /* ============================ Explosions ======================== */
   function explode(cx,cy,power){
+    Snd.boom();
     const r=power, r2=r*r;
     for(let dy=-r;dy<=r;dy++){
       const ny=cy+dy; if(ny<0||ny>=H) continue;
@@ -662,9 +664,70 @@
     shakeScreen(7); flash(255,205,120,0.5);
     let first=false; try{ first=!localStorage.getItem("aether-first-stone"); if(first) localStorage.setItem("aether-first-stone","1"); }catch(_){}
     if(first){ flash(255,228,150,0.82); for(let k=0;k<5;k++){ burst((W*(0.3+rnd()*0.4))|0,(H*0.3)|0); }
-      toast("✨ The Great Work is complete — the Philosopher's Stone is born"); }
+      toast("✨ The Great Work is complete — the Philosopher's Stone is born"); Snd.chime(true); }
     else toast("The Stone reddens — rubedo");
   }
+
+  /* ===================== Procedural audio (Web Audio API) ====================
+     All synthesised — no assets. Ambient noise voices (fire/water/lava) track
+     the world; one-shots fire on events. Starts on the first user gesture
+     (autoplay policy) and remembers a mute preference. */
+  const Snd = (() => {
+    let ctx=null, master=null, started=false, noiseBuf=null;
+    let muted=false; try{ muted=localStorage.getItem("aether-mute")==="1"; }catch(_){}
+    const V={};   // ambient voices
+    function buildNoise(){ const n=ctx.sampleRate*2, b=ctx.createBuffer(1,n,ctx.sampleRate), d=b.getChannelData(0);
+      for(let i=0;i<n;i++) d[i]=Math.random()*2-1; return b; }
+    function voice(type){
+      const src=ctx.createBufferSource(); src.buffer=noiseBuf; src.loop=true;
+      const f=ctx.createBiquadFilter(), g=ctx.createGain(); g.gain.value=0;
+      if(type==="fire"){ f.type="bandpass"; f.frequency.value=1100; f.Q.value=0.6; }
+      else if(type==="water"){ f.type="lowpass"; f.frequency.value=480; }
+      else { f.type="lowpass"; f.frequency.value=110; }   // lava rumble
+      src.connect(f); f.connect(g); g.connect(master); src.start();
+      return g;
+    }
+    function ensure(){
+      if(ctx) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+      try{ ctx=new AC(); }catch(_){ return; }
+      master=ctx.createGain(); master.gain.value=0; master.connect(ctx.destination);
+      noiseBuf=buildNoise(); V.fire=voice("fire"); V.water=voice("water"); V.lava=voice("lava");
+    }
+    function start(){ ensure(); if(!ctx) return; if(ctx.state==="suspended") ctx.resume();
+      if(!started){ started=true; master.gain.setTargetAtTime(muted?0:0.62, ctx.currentTime, 0.2); } }
+    function on(){ return ctx && started && !muted; }
+    function tone(freq,dur,type,vol,sweep){
+      if(!on()) return; const t=ctx.currentTime;
+      const o=ctx.createOscillator(); o.type=type||"sine"; o.frequency.value=freq;
+      if(sweep) o.frequency.exponentialRampToValueAtTime(sweep, t+dur);
+      const g=ctx.createGain(); g.gain.value=0;
+      g.gain.linearRampToValueAtTime(vol, t+0.006); g.gain.exponentialRampToValueAtTime(0.0006, t+dur);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.03);
+    }
+    function noise(dur,hp,vol){
+      if(!on()) return; const t=ctx.currentTime;
+      const s=ctx.createBufferSource(); s.buffer=noiseBuf;
+      const f=ctx.createBiquadFilter(); f.type="highpass"; f.frequency.value=hp;
+      const g=ctx.createGain(); g.gain.value=vol; g.gain.exponentialRampToValueAtTime(0.0005, t+dur);
+      s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t+dur+0.03);
+    }
+    return {
+      start,
+      state:()=>({hasCtx:!!ctx, running:ctx?ctx.state:null, started, muted}),
+      isMuted:()=>muted,
+      setMuted(m){ muted=m; try{ localStorage.setItem("aether-mute", m?"1":"0"); }catch(_){}
+        if(master&&ctx) master.gain.setTargetAtTime(m?0:0.62, ctx.currentTime, 0.06); },
+      ambient(fN,wN,lN){ if(!ctx||!started) return; const t=ctx.currentTime;
+        V.fire.gain.setTargetAtTime(Math.min(0.16, fN*0.0009), t, 0.25);
+        V.water.gain.setTargetAtTime(Math.min(0.11, wN*0.00035), t, 0.45);
+        V.lava.gain.setTargetAtTime(Math.min(0.22, lN*0.0014), t, 0.45); },
+      boom(){ tone(120,0.55,"sine",0.6,38); noise(0.4,70,0.55); },           // explosion
+      zap(){ noise(0.16,2600,0.5); tone(880,0.12,"square",0.16,180); },      // lightning crack
+      chime(grand){ tone(880,0.5,"triangle",0.2); setTimeout(()=>tone(1318,0.55,"sine",0.15),70);
+        if(grand) setTimeout(()=>tone(1760,0.7,"sine",0.13),150); },         // new alchemy (grand = the Stone)
+      pop(){ tone(440,0.16,"sine",0.16,200); },                             // firework
+    };
+  })();
 
   /* ============================ Per-material ====================== */
   function upFire(x,y,i){
@@ -1167,6 +1230,7 @@
     return made;
   }
   function strikeLightning(cx,cy){
+    Snd.zap();
     let x=clamp(cx|0,0,W-1), y=clamp(cy|0,0,H-1), steps=0;
     let bminx=x,bmaxx=x,bminy=y;
     while(y<H-1 && steps<H){
@@ -1253,6 +1317,7 @@
     addP(x,y, -GX*sp+(rnd()-0.5)*0.8, -GY*sp+(rnd()-0.5)*0.8, 36+rnd()*22, 255,210,150, KROCKET);
   }
   function burst(x,y){
+    Snd.pop();
     const rainbow=rnd()<0.45, baseH=rnd()*360, count=70+(rnd()*60|0);
     for(let a=0;a<count;a++){
       const ang=rnd()*6.2832, spd=0.5+rnd()*2.6;
@@ -1925,8 +1990,11 @@
     frames++;
     if(now-fpsT>=500){
       fpsEl.textContent=Math.round((frames*1000)/(now-fpsT)); frames=0; fpsT=now;
-      let c=0; for(let i=0;i<N;i++) if(grid[i]!==EMPTY) c++;
+      let c=0,fN=0,wN=0,lN=0;
+      for(let i=0;i<N;i++){ const m=grid[i]; if(m!==EMPTY){ c++;
+        if(m===FIRE)fN++; else if(m===WATER||m===BRINE)wN++; else if(m===LAVA)lN++; } }
       countEl.textContent=(c+pn).toLocaleString();
+      Snd.ambient(fN,wN,lN);
       checkChallenges();
     }
     requestAnimationFrame(loop);
@@ -2269,11 +2337,18 @@
     document.getElementById("btn-share").addEventListener("click",shareScene);
     document.getElementById("btn-save").addEventListener("click",saveScene);
     document.getElementById("btn-load").addEventListener("click",loadScene);
+    const soundBtn=document.getElementById("btn-sound");
+    const syncSound=()=>{ const m=Snd.isMuted(); soundBtn.classList.toggle("on",!m);
+      soundBtn.querySelector("span").innerHTML=m?"Sound&nbsp;off":"Sound&nbsp;on"; };
+    soundBtn.addEventListener("click",()=>{ Snd.start(); Snd.setMuted(!Snd.isMuted()); syncSound(); });
+    syncSound();
 
     window.addEventListener("keydown",(e)=>{
       const tag=e.target&&e.target.tagName;
       if(tag==="INPUT"||tag==="TEXTAREA"){ if(e.code==="Escape") e.target.blur(); return; }
+      Snd.start();
       if(e.code==="Space"){ e.preventDefault(); playBtn.click(); }
+      else if(e.code==="KeyM"){ const sb=document.getElementById("btn-sound"); if(sb) sb.click(); }
       else if(e.code==="KeyC") document.getElementById("btn-clear").click();
       else if(e.code==="KeyH") heatBtn.click();
       else if(e.code==="KeyL"){ lighting=!lighting; syncLightUI(); toast(lighting?"Lighting on":"Lighting off"); }
@@ -2294,6 +2369,7 @@
     const stage=document.getElementById("stage");
     stage.addEventListener("contextmenu",e=>e.preventDefault());
     stage.addEventListener("pointerdown",(e)=>{
+      Snd.start();
       stopAttract(); painting=true; eraseBtn=(e.button===2||e.shiftKey);
       const [gx,gy]=toGrid(e.clientX,e.clientY); lastPx=gx; lastPy=gy;
       paintDisc(gx,gy,eraseBtn?EMPTY:currentMat);
@@ -2365,6 +2441,7 @@
     share:shareScene, shareCode:encodeScene,
     loadShared(code){ try{ applySceneBytes(unb64url(String(code).replace(/^.*#s=/,''))); stopAttract(); return true; }catch(e){ return false; } },
     info(){ let c=0; for(let i=0;i<N;i++) if(grid[i]!==EMPTY) c++; return {W,H,SCALE,cells:c,particles:pn,gravity:[GX,GY],wind:WIND,heatMap,box:[bx0,by0,bx1,by1],boxFull,boxArea:(bx1>=bx0&&by1>=by0)?(bx1-bx0+1)*(by1-by0+1):0}; },
+    audio(){ return Snd.state(); },
     probe(x,y){ const i=(y|0)*W+(x|0); if(i<0||i>=N) return null; return {mat:M[grid[i]]?M[grid[i]].name:null, id:grid[i], charge:charge[i], life:life[i], temp:Math.round(temp[i]), pres:Math.round(pres[i])}; },
   };
 
