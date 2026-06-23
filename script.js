@@ -1,10 +1,16 @@
 /* =====================================================================
    AETHER SAND  —  a high-fidelity falling-sand simulator
    Vanilla JS · cellular-automata + real heat field + ballistic particles
+
+   © 2026 Ori Iscovici (isco-tec) · https://labs.iscovici.com
+   Live:    https://isco-tec.github.io/aether-sand/
+   License: MIT (code). Please keep the credit if you fork or embed it.
    ===================================================================== */
 
 (() => {
   "use strict";
+  try { console.log("%cAether Sand%c — by Ori Iscovici · labs.iscovici.com",
+    "font-weight:700;color:#ffb454", "color:#9aa0b5"); } catch(_) {}
 
   /* ============================ Material IDs ======================== */
   const EMPTY=0, WALL=1, SAND=2, RAINBOW=3, WATER=4, ICE=5, SNOW=6, SALT=7,
@@ -321,7 +327,8 @@
     if(old){
       const cw=Math.min(old.W,W),ch=Math.min(old.H,H);
       for(let y=0;y<ch;y++)for(let x=0;x<cw;x++){
-        const a=y*W+x,b=y*old.W+x; grid[a]=old.grid[b]; temp[a]=old.temp[b];
+        const a=y*W+x,b=y*old.W+x, m=old.grid[b];
+        grid[a]=m; temp[a]=old.temp[b]; shade[a]=r255(); life[a]=defaultLife(m);  // re-init shade/life so cells render & behave
       }
     }
     // reset active-region tracking for the new grid dimensions (full rebuild next step)
@@ -330,19 +337,24 @@
   }
   // world size: bigger index → smaller cells → more cells → a larger, finer world
   let worldSize = clampInt(+(localStorage.getItem("aether-world")||1), 0, 2);
-  const WORLD_DIV=[430,560,820], WORLD_MINSCALE=[4,3,2];
+  // Target cell-counts across the viewport, per size. Fixed (not derived from a
+  // screen-dependent divisor that collapsed on wide screens), so Cozy / Balanced
+  // / Grand are always visibly distinct: chunky pixels ⇄ fine detail.
+  const WORLD_W=[240,420,660];
   function clampInt(v,a,b){ v=v|0; return v<a?a:v>b?b:v; }
   function resize(){
-    const idx=clampInt(worldSize,0,2);
-    SCALE=Math.max(WORLD_MINSCALE[idx], Math.ceil(window.innerWidth/WORLD_DIV[idx]));
-    allocate(Math.ceil(window.innerWidth/SCALE), Math.ceil(window.innerHeight/SCALE));
+    const tw=WORLD_W[clampInt(worldSize,0,2)];
+    SCALE=window.innerWidth/tw;                       // display scale (may be fractional)
+    allocate(Math.round(tw), Math.max(1,Math.round(window.innerHeight/SCALE)));
     markRenderFull();
   }
   function setWorldSize(n){
-    worldSize=clampInt(n,0,2);
+    n=clampInt(n,0,2);
+    if(n===worldSize) return;                         // already this size — do nothing (no glitchy realloc)
+    worldSize=n;
     try{ localStorage.setItem("aether-world", String(worldSize)); }catch(_){}
-    const og=grid, oW=W, oH=H;          // keep the current scene before the grid is reallocated
-    resize();                            // changes SCALE / W / H / grid
+    const og=grid, oW=W, oH=H;                        // keep the current scene before the grid is reallocated
+    resize();                                          // changes SCALE / W / H / grid
     if(og && oW>0 && oH>0 && (oW!==W||oH!==H)){
       // rescale (nearest-neighbour) the whole scene into the new world instead of cropping it
       grid.fill(EMPTY); charge.fill(0); life.fill(0); pres.fill(0); temp.fill(AMBIENT); vel.fill(0);

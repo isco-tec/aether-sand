@@ -76,9 +76,9 @@ python3 -m http.server 8000
 
 Or paste each file into the matching panel on [CodePen](https://codepen.io). That's the whole setup.
 
-## 🧰 Scripting API
+## 🧰 Embed &amp; extend — the `AetherSand` API
 
-Aether Sand exposes a small `window.AetherSand` API so you can script, automate, or embed it. All coordinates are in grid cells:
+Aether Sand exposes a small `window.AetherSand` API so you can script, automate, or embed it in your own project. Want it integrated into something you're building? Reach me at [labs.iscovici.com](https://labs.iscovici.com). All coordinates are in grid cells:
 
 ```js
 const A = window.AetherSand;
@@ -125,6 +125,12 @@ The renderer writes the grid into an `ImageData` buffer scaled up with crisp pix
 
 Built by **Ori Iscovici**. More experiments live at **[labs.iscovici.com](https://labs.iscovici.com)** — and the source for this one is on [GitHub](https://github.com/isco-tec/aether-sand).
 
-## 📄 License
+## 📄 License & credit
 
-[MIT](./LICENSE)
+The code is **[MIT](./LICENSE)** — free to use, fork, learn from, and build on.
+
+If you do, please keep the credit. This one line is perfect:
+
+> Aether Sand by **Ori Iscovici** — [labs.iscovici.com](https://labs.iscovici.com)
+
+Want to use it commercially or embed it in a product? I'd love to hear about it — reach me through [labs.iscovici.com](https://labs.iscovici.com).
