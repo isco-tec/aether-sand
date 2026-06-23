@@ -69,6 +69,24 @@ html, body {
   transition: border-color .18s ease, box-shadow .18s ease;   /* glows in the held material's colour */
 }
 
+/* "Get in your element" — the invitation that breathes over the finished oasis */
+#cine-cta {
+  position: absolute; left: 0; right: 0; top: 34%;
+  text-align: center; pointer-events: none;
+  opacity: 0; transition: opacity 1.8s ease; z-index: 4;
+}
+#cine-cta .cta-title {
+  font-size: clamp(24px, 4.4vw, 56px); font-weight: 800; letter-spacing: 0.03em;
+  color: #eef4ff;
+  text-shadow: 0 2px 34px rgba(150,186,255,0.55), 0 1px 6px rgba(0,0,0,0.45);
+}
+#cine-cta .cta-sub {
+  margin-top: 12px; font-size: clamp(11px, 1.3vw, 14px);
+  letter-spacing: 0.26em; text-transform: uppercase;
+  color: rgba(206,220,246,0.72); animation: ctaPulse 2.6s ease-in-out infinite;
+}
+@keyframes ctaPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
 /* ---------- Shared panel ---------- */
 .panel {
   position: fixed;

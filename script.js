@@ -1881,7 +1881,6 @@
   // creative-director + technical pass: life is grounded, particles have a source.)
   let attract=true, attractT=0, attractStage=0, titleCells=[], dissolveIdx=0;
   let titleBox={x0:0,x1:0,y0:0,y1:0}, terrainTop=null, philoSet=false, fwFlash=false;
-  const CINE_LEN=22;
   function cineClear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); }
   function cineRow(x0,x1,y,m){ if(y<0||y>=H) return;
     for(let x=Math.max(0,x0|0);x<=Math.min(W-1,x1|0);x++){ const i=y*W+x; if(grid[i]===EMPTY) spawn(i,m); } }
@@ -1912,6 +1911,15 @@
       if(top-1>=0) spawn((top-1)*W+x,SAND);                     // a soil skin
       if(top-2>=0) spawn((top-2)*W+x,SAND);
     }
+  }
+  // the "Get in your element" invitation that rests over the finished oasis (a UI label, not faux-scenery)
+  let ctaEl=null;
+  function cineCTA(on){
+    if(!ctaEl){ const stage=document.getElementById("stage"); if(!stage) return;
+      ctaEl=document.createElement("div"); ctaEl.id="cine-cta";
+      ctaEl.innerHTML='<div class="cta-title">Get in your element</div><div class="cta-sub">click anywhere to begin</div>';
+      stage.appendChild(ctaEl); }
+    ctaEl.style.opacity = on?"1":"0";
   }
   function runAttract(){
     if(!attract) return;
@@ -1955,12 +1963,21 @@
     }
     // stage 3 → once the rain has stopped and the land has settled, sow seeds on the banks so saplings climb proper trunks
     if(attractStage===3 && t>=10){
-      for(const fx of [0.12,0.19,0.26,0.33,0.41,0.5,0.59,0.67,0.74,0.81,0.88]){ const x=(W*fx)|0;
+      for(const fx of [0.1,0.16,0.22,0.28,0.34,0.4,0.46,0.52,0.58,0.64,0.7,0.76,0.82,0.88]){ const x=(W*fx)|0;
         let sy=-1; for(let y=(baseY-22)|0; y<H; y++){ const m=grid[y*W+x]; if(m!==EMPTY && TYPE[m]!==GAS && TYPE[m]!==LIQUID){ sy=y; break; } }
         if(sy>3){ for(let s=-2;s<=2;s++){ const sx=x+s; if(sx>0&&sx<W){ const i=(sy-1)*W+sx; if(grid[i]===EMPTY) spawn(i,SEED); } }
           cineRow(x-3,x+3,sy-9,WATER); }
       }
       attractStage=4;
+    }
+    // stage 4 → a second wave of seeds (offset, between the first) fills the grove out lusher
+    if(attractStage===4 && t>=13.5){
+      for(const fx of [0.13,0.2,0.31,0.37,0.43,0.55,0.61,0.67,0.79,0.85]){ const x=(W*fx)|0;
+        let sy=-1; for(let y=(baseY-22)|0; y<H; y++){ const m=grid[y*W+x]; if(m!==EMPTY && TYPE[m]!==GAS && TYPE[m]!==LIQUID){ sy=y; break; } }
+        if(sy>3){ for(let s=-2;s<=2;s++){ const sx=x+s; if(sx>0&&sx<W){ const i=(sy-1)*W+sx; if(grid[i]===EMPTY) spawn(i,SEED); } }
+          cineRow(x-3,x+3,sy-9,WATER); }
+      }
+      attractStage=5;
     }
     // the Stone's quiet pulse gilds a dry bank with a little gold
     if(!philoSet && t>=13){ const x=(W*0.86)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-3)*W+x,PHILOSOPHER); philoSet=true; }
@@ -1971,9 +1988,12 @@
       addP(x+0.5,y+0.5,(rnd()-0.5)*0.22,-0.05-rnd()*0.12,16+rnd()*16,220,255,160,KSPARK); }
     if(t>15.5 && t<20 && rnd()<0.05) launchRocket((W*(0.2+rnd()*0.6))|0, baseY-3);
     if(!fwFlash && t>=17.5){ flash(255,202,110,0.35); shakeScreen(6); fwFlash=true; }
-    if(t>=CINE_LEN){ attractT=0; attractStage=0; }   // and so it begins again
+    // the show is done → the oasis simply LIVES (fireflies above keep drifting, the odd firework blooms),
+    // and the invitation breathes in. No replay — it rests here until the visitor steps in.
+    if(t>=19) cineCTA(true);
+    if(t>22 && rnd()<0.0016) launchRocket((W*(0.18+rnd()*0.64))|0, baseY-3);   // a gentle, occasional celebration
   }
-  function stopAttract(){ if(!attract) return; attract=false; const h=document.getElementById("hint"); if(h) h.classList.add("hide"); }
+  function stopAttract(){ if(!attract) return; attract=false; cineCTA(false); const h=document.getElementById("hint"); if(h) h.classList.add("hide"); }
 
   /* ============================ Snapshot / save =================== */
   function toast(msg){
