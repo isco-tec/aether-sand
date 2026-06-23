@@ -953,24 +953,31 @@
     });
   }
   function upPlant(x,y,i){
-    let water=-1; let lit=false, co2=-1; const empties=[];
+    let water=-1; let lit=false, co2=-1, kin=0; const empties=[];
     forN8(x,i,(ni,nm)=>{
       if(nm===WATER){ water=ni; lit=true; }
       else if(nm===EMPTY){ empties.push(ni); lit=true; }
       else if(nm===CO2) co2=ni;
-      // alive if it can reach air, light (through liquids/ice/glass), or its own kind — only opaque burial wilts it
-      else if(TYPE[nm]===GAS||TYPE[nm]===LIQUID||nm===PLANT||nm===VINE||nm===SEED||nm===ICE||nm===GLASS) lit=true;
+      else {
+        if(nm===PLANT||nm===WOOD||nm===VINE||nm===SAPLING) kin++;   // neighbouring foliage = shade
+        // alive if it can reach air, light (through liquids/ice/glass), or its own kind — only opaque burial wilts it
+        if(TYPE[nm]===GAS||TYPE[nm]===LIQUID||nm===PLANT||nm===VINE||nm===SEED||nm===ICE||nm===GLASS) lit=true;
+      }
       return false;
     });
     // photosynthesis — a plant sealed in the dark (buried, no air/light, no kin) withers to ash
     if(!lit){ if(rnd()<0.004){ convert(i,ASH); discoverRecipe("wilt"); } return; }
     // a lit, watered leaf breathes CO2 in and oxygen out (the carbon/oxygen cycle)
     if(co2>=0 && water>=0 && rnd()<0.05){ convert(co2,OXYGEN); discoverRecipe("photosynthesis"); }
-    if(water>=0 && empties.length && rnd()<0.1){
-      // grow toward the light: prefer the highest (lowest-index) open cell
+    // grow SLOWLY toward the light, only when watered and NOT already crowded by a thicket (light-limited),
+    // and only into a cell that leans on something solid — so foliage stays a rooted, supported mass
+    // instead of shooting tendrils up through the falling rain to fill the whole sky
+    if(water>=0 && empties.length && kin<5 && rnd()<0.04){
       empties.sort((a,b)=>a-b);
-      const tgt = rnd()<0.78?empties[0]:empties[(rnd()*empties.length)|0];
-      convert(tgt,PLANT); temp[tgt]=temp[i]; grid[water]=EMPTY; discoverRecipe("plant_grow");
+      const tgt = rnd()<0.7?empties[0]:empties[(rnd()*empties.length)|0];
+      const tx=tgt%W; let support=0;
+      forN8(tx,tgt,(nj,nmj)=>{ if(nmj===PLANT||nmj===WOOD||nmj===VINE||nmj===STONE||nmj===SAND||nmj===SLAKEDLIME||nmj===LIMESTONE||nmj===ASH) support++; return false; });
+      if(support>=2){ convert(tgt,PLANT); temp[tgt]=temp[i]; grid[water]=EMPTY; discoverRecipe("plant_grow"); }
     }
   }
   function upSeed(x,y,i){
