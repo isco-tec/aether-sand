@@ -23,7 +23,7 @@
         OBSIDIAN=37, DIAMOND=38, HYDROGEN=39, OXYGEN=40, ASH=41,
         RUST=42, CLOUD=43, LIGHTNING=44, ANTIMATTER=45,
         SLIME=46, HONEY=47, ACIDCLOUD=48, BULB=49,
-        VINE=58, MOLD=59;
+        VINE=58, MOLD=59, BRINE=60, CINNABAR=61;
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -104,10 +104,13 @@
                   trans:[{c:1,t:200,to:FIRE,p:0.4}] },
     [MOLD]:     { name:"Mold",    type:STATIC, d:1e4, c1:[124,150,98], c2:[78,108,70], k:0.04, flam:1,
                   trans:[{c:1,t:165,to:FIRE,p:0.35}] },
+    [BRINE]:    { name:"Brine",   type:LIQUID, d:103, disp:6, c1:[72,150,168], c2:[48,116,150], a:205, k:0.12,
+                  trans:[{c:-1,t:-12,to:ICE,p:0.18}] },
+    [CINNABAR]: { name:"Cinnabar",type:POWDER, d:216, c1:[202,42,46], c2:[150,24,30], k:0.06 },
   };
 
   // fast lookup arrays
-  const MAXID = 60;
+  const MAXID = 62;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -125,15 +128,15 @@
   WINDF[SULFUR]=0.07; WINDF[SALTPETER]=0.07; WINDF[GOLD]=0.04;
   WINDF[AQUA]=0.22;
   WINDF[HYDROGEN]=1.3; WINDF[OXYGEN]=1; WINDF[ASH]=0.5; WINDF[RUST]=0.08;
-  WINDF[SLIME]=0.04; WINDF[HONEY]=0.02;
+  WINDF[SLIME]=0.04; WINDF[HONEY]=0.02; WINDF[BRINE]=0.25; WINDF[CINNABAR]=0.04;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; // gold is an excellent conductor
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
     { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,GLASS,OBSIDIAN,METAL,WOOD,PLANT,VINE,MOLD,WALL] },
-    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,SLIME,HONEY,LAVA,FIRE,SMOKE,HYDROGEN,OXYGEN,NITRO] },
-    { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
+    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,HYDROGEN,OXYGEN,NITRO] },
+    { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
   ];
   const PALETTE = MAT_GROUPS.flatMap(g=>g.mats);
@@ -144,7 +147,9 @@
     [WATER]:"Liquid. Freezes to ice, boils to steam.",
     [ICE]:"Frozen water. Melts when warmed.",
     [SNOW]:"Light powder. Melts into water.",
-    [SALT]:"Dissolves in water on contact.",
+    [SALT]:"Dissolves in water into brine; crystallises back when the brine boils away.",
+    [BRINE]:"Salt water — denser than fresh water, freezes harder, and leaves salt behind when it evaporates.",
+    [CINNABAR]:"Vermilion ore — mercury married to sulfur. Roast it and the quicksilver returns.",
     [STONE]:"Solid rock. Melts to lava when white-hot.",
     [GLASS]:"Brittle solid from molten sand.",
     [OBSIDIAN]:"Volcanic glass — born when lava is quenched in water.",
@@ -203,6 +208,8 @@
     { id:"philosopher_mercury", cat:"Transmutation", name:"Catalysed amalgam", in:[PHILOSOPHER,METAL], out:[MERCURY], note:"Steel becomes quicksilver far faster.", hint:"Catalyst beside metal…" },
     { id:"philosopher_sand", cat:"Transmutation", name:"Grit to gold", in:[PHILOSOPHER,SAND], out:[GOLD], note:"Rare — common sand transmuted to gold.", hint:"Catalyst and common grit…" },
     { id:"diamond", cat:"Transmutation", name:"Diamond synthesis", in:[COAL], out:[DIAMOND], note:"Carbon crystallises into diamond under furious heat (thermite or lava).", hint:"Coal, fiercely heated…" },
+    { id:"cinnabar", cat:"Transmutation", name:"Vermilion", in:[MERCURY,SULFUR], out:[CINNABAR], note:"Mercury weds sulfur into cinnabar, the alchemist's blood-red ore.", hint:"Quicksilver meets brimstone…" },
+    { id:"cinnabar_roast", cat:"Transmutation", name:"Roasting", in:[CINNABAR], out:[MERCURY], note:"Roast cinnabar fiercely and the quicksilver comes back out.", hint:"Heat the red ore…" },
     { id:"smoke_acid", cat:"Crafting", name:"Sulfurous acid", in:[SMOKE,SULFUR], out:[ACID], note:"Gas and yellow powder brew a corrosive liquid.", hint:"Smoke meets yellow powder…" },
     { id:"electrolysis", cat:"Crafting", name:"Electrolysis", in:[WATER,SPARK], out:[HYDROGEN,OXYGEN], note:"A current splits water into hydrogen and oxygen gas.", hint:"Charge run through water…" },
     { id:"bulb_light", cat:"Electric", name:"Filament glow", in:[SPARK,BULB], out:[BULB], note:"Charge reaching a bulb — through metal, water, or a lightning strike — lights its filament.", hint:"Spark a conductor beside glass…" },
@@ -217,7 +224,8 @@
     { id:"obsidian", cat:"Phase", name:"Obsidian quench", in:[LAVA,WATER], out:[OBSIDIAN], note:"Molten rock quenched in water freezes into volcanic glass.", hint:"Fire-rock meets water…" },
     { id:"rust", cat:"Phase", name:"Oxidation", in:[METAL,WATER], out:[RUST], note:"Iron left in water slowly oxidises to flaky rust.", hint:"Metal left wet too long…" },
     { id:"ash", cat:"Phase", name:"Ashes to ashes", in:[COAL], out:[ASH], note:"Spent fuel crumbles into light grey ash.", hint:"What remains when fuel dies…" },
-    { id:"salt_melt", cat:"Phase", name:"Brine dissolve", in:[SALT,WATER], out:[WATER], note:"Salt vanishes into the water it touches.", hint:"Crystal and liquid…" },
+    { id:"brine_dissolve", cat:"Phase", name:"Dissolution", in:[SALT,WATER], out:[BRINE], note:"Salt dissolves into the water it touches, making brine.", hint:"Crystal melts into liquid…" },
+    { id:"brine_evap", cat:"Phase", name:"Crystallisation", in:[BRINE], out:[SALT], note:"Boil brine dry and the salt crystallises back out as steam escapes.", hint:"Boil the salt water away…" },
     { id:"lava_stone", cat:"Phase", name:"Igneous cooling", in:[LAVA], out:[STONE], note:"Cooling molten rock solidifies to stone.", hint:"Molten rock cooling…" },
     { id:"sand_glass", cat:"Phase", name:"Vitric fusion", in:[SAND], out:[GLASS], note:"Fierce heat fuses sand grains into glass.", hint:"Sand under fierce heat…" },
     { id:"glass_shatter", cat:"Phase", name:"Shatter", in:[GLASS], out:[SAND], note:"A blast's pressure wave shatters glass back into sand.", hint:"Glass under sudden pressure…" },
@@ -284,7 +292,7 @@
     [OBSIDIAN]:1,[DIAMOND]:1,[HYDROGEN]:0.85,[OXYGEN]:0.85,[ASH]:0.85,
     [RUST]:0.9,[CLOUD]:0.55,[ANTIMATTER]:1,
     [SLIME]:0.92,[HONEY]:0.95,[ACIDCLOUD]:0.55,[BULB]:1,
-    [VINE]:1,[MOLD]:1,
+    [VINE]:1,[MOLD]:1,[BRINE]:0.9,[CINNABAR]:0.88,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -613,11 +621,13 @@
     if(rnd()<0.6) moveLiquid(x,y,i,LAVA,1);
   }
   function upWater(x,y,i){
+    let gone=false;
     forN8(x,i,(ni,nm)=>{
-      if(nm===SALT && rnd()<0.02){ grid[ni]=EMPTY; }
-      else if(nm===METAL && temp[ni]<120 && rnd()<0.0006){ convert(ni,RUST); discoverRecipe("rust"); }
+      if(nm===SALT && rnd()<0.025){ convert(i,BRINE); grid[ni]=EMPTY; discoverRecipe("brine_dissolve"); gone=true; return true; }  // dissolve salt → brine
+      if(nm===METAL && temp[ni]<120 && rnd()<0.0006){ convert(ni,RUST); discoverRecipe("rust"); }
       return false;
     });
+    if(gone) return;
     moveLiquid(x,y,i,WATER,M[WATER].disp); applyWind(x,i,WATER);
   }
   function upSteam(x,y,i){
@@ -672,8 +682,24 @@
   }
   function upSalt(x,y,i){
     let d=false;
-    forCard(i,(ni)=>{ if(grid[ni]===WATER && rnd()<0.012){ grid[i]=EMPTY; discoverRecipe("salt_melt"); d=true; } });
+    forCard(i,(ni)=>{ if(grid[ni]===WATER && rnd()<0.03){ convert(ni,BRINE); grid[i]=EMPTY; discoverRecipe("brine_dissolve"); d=true; } });  // salt dissolves into brine
     if(!d) moveFalling(x,y,i,SALT);
+  }
+  function upBrine(x,y,i){
+    if(temp[i]>=100 && rnd()<0.05){     // boils dry → salt crystallises in place, water leaves as steam
+      const e=emptyNeighbor(x,i);
+      convert(i,SALT); if(e>=0) spawn(e,STEAM);
+      discoverRecipe("brine_evap"); return;
+    }
+    moveLiquid(x,y,i,BRINE,M[BRINE].disp); applyWind(x,i,BRINE);
+  }
+  function upCinnabar(x,y,i){
+    if(temp[i]>580 && rnd()<0.05){      // roasting decomposes it back to quicksilver + sulfur
+      const e=emptyNeighbor(x,i);
+      convert(i,MERCURY); if(e>=0) spawn(e,SULFUR);
+      discoverRecipe("cinnabar_roast"); return;
+    }
+    moveFalling(x,y,i,CINNABAR);
   }
   function upSnow(x,y,i){
     applySrc(i,-3,0.2);
@@ -774,6 +800,7 @@
     // amalgamation — quicksilver slowly transmutes touching metal into more mercury
     forN8(x,i,(ni,nm)=>{
       if(nm===ACID && rnd()<(phil?0.035:0.01)){ convert(i,GOLD); discoverRecipe("acid_gold"); return true; }
+      if(nm===SULFUR && rnd()<0.02){ convert(i,CINNABAR); grid[ni]=EMPTY; discoverRecipe("cinnabar"); return true; }   // Hg + S → cinnabar
       if(nm===METAL && rnd()<(phil?0.012:0.0035)){ convert(ni,MERCURY); temp[ni]=temp[i]; discoverRecipe("mercury_amalgam"); }
       return false;
     });
@@ -1214,6 +1241,8 @@
           case BULB: upBulb(x,y,i); break;
           case VINE: upVine(x,y,i); break;
           case MOLD: upMold(x,y,i); break;
+          case BRINE: upBrine(x,y,i); break;
+          case CINNABAR: upCinnabar(x,y,i); break;
           // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND: thermal/conduction only
         }
       }
@@ -2071,7 +2100,9 @@
                 "anti-matter":ANTIMATTER, antimater:ANTIMATTER,
                 goo:SLIME, ooze:SLIME, syrup:HONEY, "acid cloud":ACIDCLOUD, acidcloud:ACIDCLOUD,
                 smog:ACIDCLOUD, "acid rain":ACIDCLOUD, lamp:BULB, light:BULB,
-                ivy:VINE, creeper:VINE, moss:MOLD, rot:MOLD, fungus:MOLD };
+                ivy:VINE, creeper:VINE, moss:MOLD, rot:MOLD, fungus:MOLD,
+                saltwater:BRINE, "salt water":BRINE, seawater:BRINE, brine:BRINE,
+                vermilion:CINNABAR, vermillion:CINNABAR, hgs:CINNABAR };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach(n=>n.classList.toggle("active", +n.dataset.mat===currentMat));
@@ -2081,7 +2112,7 @@
     WOOD,PLANT,GLASS,STONE,METAL,GUNPOWDER,FIREWORK,SPARK,COAL,HEAT,COOL,CLONER,VOID,
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
-    SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,
+    SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
