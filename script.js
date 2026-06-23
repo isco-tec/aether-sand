@@ -125,7 +125,8 @@
   };
 
   // fast lookup arrays
-  const MAXID = 71;
+  const MAXID = 71;                 // must stay > the highest material id (SAPLING=70); ids 50-57 are retired gaps
+  const MAX_SCENE_DIM = 1024;       // reject share/save scenes larger than this (covers every real world; blocks OOM payloads)
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -288,11 +289,13 @@
     { id:"antimatter", cat:"Special", name:"Annihilation", in:[ANTIMATTER], out:[FIRE], note:"Antimatter meeting any matter releases a burst of raw energy.", hint:"Forbidden pink matter…" },
   ];
   const RECIPE_BY_ID = Object.fromEntries(ALCHEMY_RECIPES.map(r=>[r.id,r]));
+  // never let a corrupt / tampered localStorage value throw and brick startup
+  const safeParseArray = (key)=>{ try{ const a=JSON.parse(localStorage.getItem(key)||"[]"); return Array.isArray(a)?a:[]; }catch(_){ return []; } };
   let revealAll = localStorage.getItem("aether-reveal-all")==="1";
-  let discoveries = new Set(JSON.parse(localStorage.getItem("aether-discoveries")||"[]"));
+  let discoveries = new Set(safeParseArray("aether-discoveries"));
   ALCHEMY_RECIPES.filter(r=>r.starter).forEach(r=>discoveries.add(r.id));
   // recipes the player has already viewed in the book — drives the "NEW" badge
-  let seenRecipes = new Set(JSON.parse(localStorage.getItem("aether-seen")||"[]"));
+  let seenRecipes = new Set(safeParseArray("aether-seen"));
 
   /* ============================ Challenges ======================== */
   // Each test receives a live snapshot of the world: { cells, litBulbs, minTemp,
@@ -323,7 +326,7 @@
     { id:"projection", icon:"👑", title:"Projection", desc:"Use the Philosopher's Stone to project base matter into gold.", test:s=>s.disc.has("projection") },
     { id:"wildfire", icon:"🌲", title:"Wildfire", desc:"Burn a forest of wood, plant or vine.", test:s=>s.disc.has("wildfire") },
   ];
-  let challengesDone = new Set(JSON.parse(localStorage.getItem("aether-challenges")||"[]"));
+  let challengesDone = new Set(safeParseArray("aether-challenges"));
   let challengesUnseen = false;  // a challenge completed since the panel was last opened
 
   function isRecipeKnown(id){ return revealAll || RECIPE_BY_ID[id]?.starter || discoveries.has(id); }
@@ -378,6 +381,8 @@
   function allocate(w,h){
     const old = grid ? {grid,temp,W,H} : null;
     W=w; H=h; N=W*H;
+    N8OFF=[-W-1,-W,-W+1,-1,1,W-1,W,W+1];   // 8-neighbour linear offsets for this width (see forN8)
+    CARD_OFF=[-W,W,-1,1];                   // 4-cardinal linear offsets for this width (see emptyNeighbor)
     grid=new Uint8Array(N); shade=new Uint8Array(N); life=new Int16Array(N);
     vel=new Float32Array(N); charge=new Int8Array(N); moved=new Uint8Array(N);
     temp=new Float32Array(N).fill(AMBIENT); tempB=new Float32Array(N);
@@ -475,12 +480,16 @@
     if(i-W>=0)temp[i-W]+=amt; if(i+W<N)temp[i+W]+=amt;
     if(x>0)temp[i-1]+=amt; if(x<W-1)temp[i+1]+=amt;
   }
+  // 8-neighbour scan. The offset/delta arrays are module-level constants (rebuilt on resize) rather than
+  // re-allocated on every call — forN8 is the single hottest function in the engine.
+  const N8DX=[-1,0,1,-1,1,-1,0,1];   // x-deltas, for the row-edge (wrap-around) guard
+  let N8OFF=[-1,0,1,-1,1,-1,0,1];    // linear offsets [-W-1,-W,...]; rebuilt for the live W in allocate()
+  const CARD_DX=[0,0,-1,1];          // up/down/left/right x-deltas (for emptyNeighbor)
+  let CARD_OFF=[-1,1,-1,1];          // matching linear offsets [-W,W,-1,1]; rebuilt in allocate()
   function forN8(x,i,fn){
-    const off=[-W-1,-W,-W+1,-1,1,W-1,W,W+1];
-    const dxs=[-1,0,1,-1,1,-1,0,1];
     for(let k=0;k<8;k++){
-      const ni=i+off[k]; if(ni<0||ni>=N) continue;
-      const nx=x+dxs[k]; if(nx<0||nx>=W) continue;
+      const ni=i+N8OFF[k]; if(ni<0||ni>=N) continue;
+      const nx=x+N8DX[k]; if(nx<0||nx>=W) continue;
       if(fn(ni,grid[ni])) return true;
     }
     return false;
@@ -540,8 +549,9 @@
       if(canDisplace(m,ni)){ swap(ci,ni); ci=ni;cx=nx;cy=ny;did=true; } else break;
     }
     if(did) return true;
-    const dl=FALL.dias, order = rnd()<0.5?[dl[0],dl[1]]:[dl[1],dl[0]];
-    for(const d of order){
+    const dl=FALL.dias, flip=rnd()<0.5;   // try the two diagonals in random order — without allocating an array per fall
+    for(let q=0;q<2;q++){
+      const d=dl[flip?1-q:q];
       const nx=x+d[1],ny=y+d[2];
       if(nx<0||nx>=W||ny<0||ny>=H) continue;
       const ni=i+d[0];
@@ -1042,8 +1052,13 @@
     discoverRecipe("vine_grow");
   }
   function upMold(x,y,i){
+    let damp=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===BRINE||nm===ICE||nm===SNOW) damp=true; return false; });
     forN8(x,i,(ni,nm)=>{
-      if((nm===WOOD||nm===PLANT||nm===VINE||nm===STONE) && rnd()<0.018){ convert(ni,MOLD); temp[ni]=temp[i]; discoverRecipe("mold_spread"); }
+      // creeps readily over organic matter (which it consumes → finite); over STONE only when DAMP, so it
+      // can't blanket an inexhaustible stone substrate dry
+      if((nm===WOOD||nm===PLANT||nm===VINE) && rnd()<0.014){ convert(ni,MOLD); temp[ni]=temp[i]; discoverRecipe("mold_spread"); }
+      else if(nm===STONE && damp && rnd()<0.01){ convert(ni,MOLD); temp[ni]=temp[i]; discoverRecipe("mold_spread"); }
       return false;
     });
     if(temp[i]>120 && rnd()<0.25){ grid[i]=EMPTY; return; }   // dries / burns off when warm
@@ -1193,8 +1208,11 @@
     if(ignite) life[i]=18+(rnd()*8|0);
   }
   function upCrystal(x,y,i){
-    forN8(x,i,(ni,nm)=>{ if(nm===WATER && rnd()<0.04){ grid[ni]=EMPTY; } return false; });
-    if(rnd()<0.09){ const e=emptyNeighbor(x,i); if(e>=0){ convert(e,CRYSTAL); discoverRecipe("crystal_grow"); } }
+    // crystals drink water to spread — growth is gated on (and consumes) a water cell, so one water in
+    // makes one crystal out (mass-conserving; can't tile the world from a single seed in dry air)
+    let drank=-1;
+    forN8(x,i,(ni,nm)=>{ if(nm===WATER && rnd()<0.05){ drank=ni; return true; } return false; });
+    if(drank>=0){ convert(drank,CRYSTAL); discoverRecipe("crystal_grow"); }
   }
   function upPhilosopher(x,y,i){
     forN8(x,i,(ni,nm)=>{
@@ -1332,11 +1350,10 @@
     discoverRecipe("lightning");
   }
   function emptyNeighbor(x,i){
-    const c=[[-W,0,-1],[W,0,1],[-1,-1,0],[1,1,0]];
     const s=rnd()*4|0;
     for(let k=0;k<4;k++){
-      const d=c[(s+k)%4]; const nx=x+d[1];
-      if(nx<0||nx>=W) continue; const ni=i+d[0];
+      const j=(s+k)&3, nx=x+CARD_DX[j];
+      if(nx<0||nx>=W) continue; const ni=i+CARD_OFF[j];
       if(ni>=0&&ni<N&&grid[ni]===EMPTY) return ni;
     }
     return -1;
@@ -1418,6 +1435,7 @@
         if(cell!==EMPTY){
           if(cell===SLIME){ PVY[k]=-PVY[k]*0.6; PVX[k]*=0.55; PX[k]+=PVX[k]; PY[k]+=PVY[k]; }
           else {
+            if(FLAM[cell] || TYPE[cell]===STATIC || TYPE[cell]===POWDER) expandActive(gx-1,gy-1,gx+1,gy+1);   // a heating ember must wake its cell
             if(FLAM[cell]) temp[ci]+=34;
             if(TYPE[cell]===STATIC || TYPE[cell]===POWDER){ temp[ci]+=8; killP(k); continue; }
           }
@@ -1475,6 +1493,7 @@
     if(x<W-1){sum+=temp[i+1];cnt++;}
     let nt=t+(sum/cnt-t)*COND[grid[i]];
     if(grid[i]===EMPTY) nt+=(AMBIENT-nt)*0.02;
+    if(nt!==nt) return AMBIENT;                       // NaN-safe: one bad value must not poison the whole field
     return nt<-60?-60: nt>2200?2200: nt;
   }
   function diffuse(){
@@ -1508,7 +1527,7 @@
     if(m===EMPTY) np*=0.84;            // open space relieves pressure
     else if(TYPE[m]===GAS) np+=0.9;     // gases push outward
     else np*=0.97;                      // solids/liquids hold, then decay
-    np = np<-40?-40: np>600?600: np;
+    np = (np!==np) ? 0 : (np<-40?-40: np>600?600: np);   // NaN-safe
     // a strong pressure wave (a blast, or an over-pressured vessel) shatters glass back to sand
     if(m===GLASS && np>90 && rnd()<0.06){ grid[i]=SAND; shade[i]=r255(); discoverRecipe("glass_shatter"); }
     return np;
@@ -1678,8 +1697,12 @@
         for(let k=-r;k<=r;k++){ const yy=y+k; if(yy<0||yy>=LH)continue; s+=tmp[yy*LW+x]; c++; }
         buf[y*LW+x]=s/c; } }
   }
+  // soft coloured light = a few box-blur passes over the 3×-downsampled light buffer. 2 passes reads
+  // visually the same as 4 on this low-res grid but halves the per-frame lighting cost (it runs every frame
+  // the lights are on, regardless of how many emitters exist).
+  const LIGHT_BLUR_PASSES=2;
   function blurLight(){
-    for(let p=0;p<4;p++){ blurChan(lightR,lightT,2); blurChan(lightG,lightT,2); blurChan(lightB,lightT,2); }
+    for(let p=0;p<LIGHT_BLUR_PASSES;p++){ blurChan(lightR,lightT,2); blurChan(lightG,lightT,2); blurChan(lightB,lightT,2); }
   }
   function applyLight(x0,y0,x1,y1){
     const GAIN=0.62*lightLevel;
@@ -1703,6 +1726,8 @@
   let renderFull=true, _pHeat=false,_pPres=false,_pLit=false,_pLL=-1;
   let ppx0=0,ppy0=0,ppx1=-1,ppy1=-1;   // previous frame's particle bounding box
   function markRenderFull(){ renderFull=true; }
+  // wipe every field to its empty/ambient default (the canonical "blank canvas" — one source of truth)
+  function clearWorld(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); }
   function scaleGlow(ge,lf){
     if(!ge||lf>=0.999) return ge;
     if(lf<=0) return 0;
@@ -1955,7 +1980,7 @@
   // creative-director + technical pass: life is grounded, particles have a source.)
   let attract=true, attractT=0, attractStage=0, titleCells=[], dissolveIdx=0;
   let titleBox={x0:0,x1:0,y0:0,y1:0}, terrainTop=null, philoSet=false, fwFlash=false;
-  function cineClear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); }
+  function cineClear(){ clearWorld(); }
   // rasterise text into material cells; return its bounding box (for pouring sand on it)
   function stampText(text,cx,cy,mat,fontPx){
     const oc=document.createElement("canvas"); oc.width=W; oc.height=H;
@@ -2110,9 +2135,12 @@
   function saveScene(){ try{ localStorage.setItem("aether-sand-scene",JSON.stringify({w:W,h:H,g:b64(grid)})); toast("Scene saved"); }catch(e){ toast("Save failed"); } }
   function loadScene(){
     const s=localStorage.getItem("aether-sand-scene"); if(!s){ toast("No saved scene"); return; }
-    try{ const o=JSON.parse(s),g=unb64(o.g); grid.fill(EMPTY); charge.fill(0);
+    try{ const o=JSON.parse(s),g=unb64(o.g);
+      if(!(o.w>0)||!(o.h>0)) throw new Error("bad save");
+      grid.fill(EMPTY); charge.fill(0);
       const cw=Math.min(o.w,W),chh=Math.min(o.h,H);
       for(let y=0;y<chh;y++)for(let x=0;x<cw;x++){ const i=y*W+x,m=g[y*o.w+x];
+        if(m>=MAXID || !M[m]){ grid[i]=EMPTY; continue; }   // guard corrupt / foreign-version ids
         grid[i]=m; shade[i]=r255(); temp[i]=BASET[m]; life[i]=defaultLife(m); }
       stopAttract(); markRenderFull(); toast("Scene loaded");
     }catch(e){ toast("Load failed"); }
@@ -2154,13 +2182,13 @@
   }
   function applySceneBytes(all){
     const w=all[0]|(all[1]<<8), h=all[2]|(all[3]<<8);
-    if(w<=0||h<=0||w>4096||h>4096) throw new Error("bad scene");
+    if(w<=0||h<=0||w>MAX_SCENE_DIM||h>MAX_SCENE_DIM) throw new Error("bad scene");   // reject oversized dims (DoS) before allocating
     const flat=new Uint8Array(w*h); rleDecode(all.subarray(4), flat);
     grid.fill(EMPTY); charge.fill(0); life.fill(0); pres.fill(0); temp.fill(AMBIENT); vel.fill(0); pn=0;
     const cw=Math.min(w,W), chh=Math.min(h,H);
     for(let y=0;y<chh;y++)for(let x=0;x<cw;x++){
       const i=y*W+x, m=flat[y*w+x];
-      if(m>=MAXID){ continue; }
+      if(m>=MAXID || !M[m]){ continue; }   // skip unknown / retired ids (the [0,MAXID) range is NOT contiguous)
       grid[i]=m; shade[i]=r255(); temp[i]=BASET[m]; life[i]=defaultLife(m);
     }
     markRenderFull();
@@ -2192,14 +2220,22 @@
     if(lightningCooldown>0) lightningCooldown--;
     if(opusCooldown>0) opusCooldown--;
     let dt=now-lastT; lastT=now; if(dt>250) dt=250; acc+=dt;
+    if(acc>SIMDT*4) acc=SIMDT*4;   // never hoard more than 4 steps of backlog (no death-spiral after a stall)
     let runs=0;
-    while(acc>=SIMDT && runs<4){
-      if(!paused||stepOnce){ runAttract(); step(); stepOnce=false; }
-      acc-=SIMDT; runs++;
-      if(paused) break;
+    try{
+      while(acc>=SIMDT && runs<4){
+        if(!paused||stepOnce){ runAttract(); step(); stepOnce=false; }
+        acc-=SIMDT; runs++;
+        if(paused) break;
+      }
+      if(painting && lastPx!=null) paintDisc(lastPx,lastPy,eraseBtn?EMPTY:currentMat);
+      render(now);
+    }catch(err){
+      // a corrupt scene (e.g. a crafted #s= link) must NEVER brick the loop — wipe it, drop the bad hash, recover
+      try{ history.replaceState(null,"",location.pathname); }catch(_){}
+      try{ clearWorld(); acc=0; }catch(_){}
+      try{ toast("⚠️ That scene was corrupt — cleared it"); }catch(_){}
     }
-    if(painting && lastPx!=null) paintDisc(lastPx,lastPy,eraseBtn?EMPTY:currentMat);
-    render(now);
     applyShake();
     frames++;
     if(now-fpsT>=500){
@@ -2278,7 +2314,8 @@
     const wrap=document.getElementById("material-grid-wrap"); if(!wrap) return;
     wrap.innerHTML="";
     const mats=matsForView();
-    if(mats.length===0){ wrap.innerHTML='<div class="mat-empty">No materials match “'+matSearch+'”.</div>'; return; }
+    if(mats.length===0){ const d=document.createElement("div"); d.className="mat-empty";
+      d.textContent='No materials match “'+matSearch+'”.'; wrap.replaceChildren(d); return; }   // textContent → the typed query can't inject markup
     const grid=document.createElement("div");
     grid.className="material-grid";
     mats.forEach(m=>grid.appendChild(buildMatButton(m)));
@@ -2556,7 +2593,7 @@
     const playBtn=document.getElementById("btn-play");
     playBtn.addEventListener("click",()=>{ paused=!paused; playBtn.classList.toggle("paused",paused); });
     document.getElementById("btn-step").addEventListener("click",()=>{ stepOnce=true; });
-    document.getElementById("btn-clear").addEventListener("click",()=>{ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); });
+    document.getElementById("btn-clear").addEventListener("click",()=>{ clearWorld(); });
 
     const brushEl=document.getElementById("brush"), brushOut=document.getElementById("brush-readout");
     const ring=document.getElementById("cursor-ring");
@@ -2580,7 +2617,7 @@
     pressBtn.addEventListener("click",()=>{ pressureMap=!pressureMap; if(pressureMap) heatMap=false; pressBtn.classList.toggle("on",pressureMap); heatBtn.classList.toggle("on",heatMap); });
     const lightBtn=document.getElementById("btn-light");
     lightBtn.addEventListener("click",()=>{ lighting=!lighting; syncLightUI(); toast(lighting?"Lighting on":"Lighting off"); });
-    const lightEl=document.getElementById("light"), lightOut=document.getElementById("light-readout");
+    const lightEl=document.getElementById("light");
     lightEl.addEventListener("input",()=>{ lightLevel=(+lightEl.value)/100; syncLightUI(); });
     syncLightUI();
 
@@ -2696,7 +2733,7 @@
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
     line(x0,y0,x1,y1,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintLine(x0|0,y0|0,x1|0,y1|0,currentMat); },
     erase(x,y,r){ if(r) brush=r; paintDisc(x|0,y|0,EMPTY); },
-    clear(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); },
+    clear(){ clearWorld(); },
     gravity(gx,gy){ setGravity(gx,gy); document.querySelectorAll(".cmp").forEach(b=>b.classList.toggle("active", +b.dataset.gx===gx && +b.dataset.gy===gy)); },
     wind(w){ WIND=w; const el=document.getElementById("wind"); if(el){el.value=Math.round(w*100); document.getElementById("wind-readout").textContent=el.value;} },
     firework(x,y){ stopAttract(); launchRocket(x|0,y|0); },
