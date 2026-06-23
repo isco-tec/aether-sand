@@ -439,7 +439,7 @@
       case OXYGEN: return 220+(rnd()*180|0);
       case CO2: return 240+(rnd()*200|0);
       case VINE: return 24+(rnd()*18|0);  // growth energy
-      case SAPLING: return 7+(rnd()*10|0);  // trunk height the tree will climb before crowning
+      case SAPLING: return 11+(rnd()*16|0);  // trunk height the tree will climb before crowning
       default: return 0;
     }
   }
@@ -947,12 +947,12 @@
   }
   function growCanopy(x,y,i){
     convert(i,PLANT);                                        // the growing tip becomes the first leaf
-    const r=3+(rnd()*3|0);
+    const r=4+(rnd()*4|0);
     for(let dy=-r;dy<=2;dy++){ const ny=y+dy; if(ny<0||ny>=H) continue;
       for(let dx=-r;dx<=r;dx++){ const nx=x+dx; if(nx<0||nx>=W) continue;
         if(dx*dx+dy*dy>r*r) continue;
         const j=ny*W+nx;
-        if(grid[j]===EMPTY && rnd()<0.5){ grid[j]=PLANT; shade[j]=r255(); life[j]=0; temp[j]=temp[i]; vel[j]=0; moved[j]=1; } } }
+        if(grid[j]===EMPTY && rnd()<0.6){ grid[j]=PLANT; shade[j]=r255(); life[j]=0; temp[j]=temp[i]; vel[j]=0; moved[j]=1; } } }
     expandActive(x-r,y-r,x+r,y+2);
     discoverRecipe("tree");
   }
@@ -1912,6 +1912,15 @@
       if(top-2>=0) spawn((top-2)*W+x,SAND);
     }
   }
+  // fade in / out the cinematic dawn sky (a warm gradient + a rising sun, in the DOM)
+  let skyEl=null;
+  function dawnSky(on){
+    if(!skyEl){ const stage=document.getElementById("stage"); if(!stage) return;
+      skyEl=document.createElement("div"); skyEl.id="cine-sky"; skyEl.innerHTML='<div id="cine-sun"></div>';
+      stage.appendChild(skyEl); }
+    skyEl.style.opacity = on?"1":"0";
+    skyEl.classList.toggle("dawn", on);
+  }
   function runAttract(){
     if(!attract) return;
     attractT += 1/60;
@@ -1920,6 +1929,7 @@
     if(attractStage===0 && t>=0.05){
       cineClear(); titleCells.length=0; dissolveIdx=0;
       philoSet=fwFlash=dawnSet=false;
+      dawnSky(false);                                          // night again
       buildTerrain();
       flash(184,132,228,0.4);                                  // the void breathes
       titleBox = stampText("Aether Sand", cx, ty, DIAMOND, W*0.082);
@@ -1962,8 +1972,8 @@
     }
     // the Stone's quiet pulse gilds a dry bank with a little gold
     if(!philoSet && t>=13){ const x=(W*0.86)|0, top=terrainTop?terrainTop[x]:baseY; spawn((top-3)*W+x,PHILOSOPHER); philoSet=true; }
-    // a warm dawn breaks over the world before the fireworks
-    if(!dawnSet && t>=14.5){ flash(255,196,128,0.22); dawnSet=true; }
+    // a warm dawn breaks over the world — the sky glows and the sun rises — before the fireworks
+    if(!dawnSet && t>=13){ dawnSky(true); flash(255,205,140,0.16); dawnSet=true; }
     // continuous: gentle rain keeps the ponds full (reciprocity); snow on the cold left; fireflies low over the foliage; fireworks finale
     if(t>3.5 && t<11.5){ for(let k=0;k<2;k++){ const x=(W*(0.14+rnd()*0.72))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,WATER); } expandActive(0,0,W-1,4); }
     if(t>8 && t<13 && rnd()<0.22){ const x=(W*(0.02+rnd()*0.1))|0; if(grid[2*W+x]===EMPTY) spawn(2*W+x,SNOW); }
@@ -1973,7 +1983,7 @@
     if(!fwFlash && t>=17.5){ flash(255,202,110,0.35); shakeScreen(6); fwFlash=true; }
     if(t>=CINE_LEN){ attractT=0; attractStage=0; }   // and so it begins again
   }
-  function stopAttract(){ if(!attract) return; attract=false; const h=document.getElementById("hint"); if(h) h.classList.add("hide"); }
+  function stopAttract(){ if(!attract) return; attract=false; dawnSky(false); const h=document.getElementById("hint"); if(h) h.classList.add("hide"); }
 
   /* ============================ Snapshot / save =================== */
   function toast(msg){
