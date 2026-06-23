@@ -67,7 +67,7 @@
     [GLASS]:    { name:"Glass",  type:STATIC, d:1e4, c1:[180,220,235], c2:[150,196,214], a:120, k:0.05,
                   trans:[{c:1,t:1450,to:LAVA,p:0.04}] },
     [STONE]:    { name:"Stone",  type:STATIC, d:1e4, c1:[128,132,142], c2:[92,96,108], k:0.06,
-                  trans:[{c:1,t:1050,to:LAVA,p:0.15}] },
+                  trans:[{c:1,t:1300,to:LAVA,p:0.12}] },   // only thermite-level heat remelts rock; lava just flows over it
     [METAL]:    { name:"Metal",  type:STATIC, d:1e4, c1:[150,158,176], c2:[104,112,130], k:0.45, cond:1,
                   trans:[{c:1,t:1400,to:LAVA,p:0.05}] },
     [GUNPOWDER]:{ name:"Powder", type:POWDER, d:180, c1:[70,72,80], c2:[42,44,52], k:0.05, flam:1 },
@@ -503,6 +503,7 @@
   /* ============================ Gravity / wind ===================== */
   let GX=0,GY=1,zeroG=false,WIND=0;
   const GACCEL=0.45, MAXV=9;
+  const LAVA_SOLIDUS=520, LAVA_COOL=2.5;   // lava crystallises to stone below the solidus, shedding ~this much heat/step
   let FALL,RISE,PERP;
   function dirOffsets(dx,dy){
     const str=[dy*W+dx,dx,dy];
@@ -811,8 +812,9 @@
     applyWind(x,i,CO2);
   }
   function upLava(x,y,i){
-    applySrc(i,1100,0.55); heatN(i,22);
-    // quench — lava meeting water flashes to obsidian and boils off steam
+    // heat spreads to neighbours by DIFFUSION (which caps at the lava's own temperature) rather than an
+    // additive injection — so lava can't drive the rock it sits on past its melt point and eat its container
+    // quench — lava meeting water flashes to obsidian (volcanic glass) and boils off steam
     let quenched=false;
     forN8(x,i,(ni,nm)=>{
       if(nm===WATER && rnd()<0.16){ convert(ni,STEAM); convert(i,OBSIDIAN); temp[i]=340; quenched=true; discoverRecipe("obsidian"); return true; }
@@ -820,7 +822,10 @@
       return false;
     });
     if(quenched) return;
-    if(rnd()<0.6) moveLiquid(x,y,i,LAVA,1);
+    // it gives up its heat (here + via diffusion to cold neighbours) and CRYSTALLISES to stone once it cools
+    // past the solidus — slow cooling → stone, a fast water-quench → obsidian (real igneous petrology)
+    if(temp[i]>LAVA_SOLIDUS){ temp[i]-=LAVA_COOL; if(rnd()<0.6) moveLiquid(x,y,i,LAVA,1); }
+    else { convert(i,STONE); discoverRecipe("lava_stone"); }
   }
   function upWater(x,y,i){
     let gone=false;
@@ -1095,7 +1100,9 @@
     let src=life[i];
     if(src<=0){
       forN8(x,i,(ni,nm)=>{
-        if(nm!==EMPTY&&nm!==CLONER&&nm!==VOID&&nm!==WALL&&TYPE[nm]!==TOOL){ src=nm; return true; }
+        // duplicates whatever touches it — but refuses self-amplifying matter (clouds/fire) so it can't be
+        // turned into a runaway weather/wildfire engine while the player is elsewhere
+        if(nm!==EMPTY&&nm!==CLONER&&nm!==VOID&&nm!==WALL&&nm!==CLOUD&&nm!==ACIDCLOUD&&nm!==FIRE&&TYPE[nm]!==TOOL){ src=nm; return true; }
         return false;
       });
       if(src>0) life[i]=src;
