@@ -646,6 +646,16 @@
       shakeAmt*=0.86;
     } else if(shakeAmt!==0){ stageEl.style.transform=""; shakeAmt=0; }
   }
+  // the vignette becomes a mood ring — warm with fire, cold with ice, sickly with acid
+  let vigEl=null;
+  function updateMood(warm, cold, tox){
+    if(!vigEl){ vigEl=document.getElementById("vignette"); if(!vigEl) return; }
+    let col=null, str=0;
+    if(warm>=cold && warm>=tox && warm>40){ col="255,118,44"; str=Math.min(0.5, warm/520); }
+    else if(cold>warm && cold>40){ col="118,178,255"; str=Math.min(0.46, cold/640); }
+    else if(tox>26){ col="150,205,80"; str=Math.min(0.42, tox/280); }
+    vigEl.style.boxShadow = col ? ("inset 0 0 "+Math.round(60+200*str)+"px rgba("+col+","+str.toFixed(2)+")") : "none";
+  }
   // a soft full-screen colour bloom that fades out — for big "wow" moments
   let opusCooldown=0, flashEl=null;
   function flash(r,g,b,a){
@@ -1783,6 +1793,15 @@
     for(let k=0;k<pn;k++){
       const a=clamp(PL[k]/PM[k],0,1), r=PR[k],g=PG[k],b=PB[k];
       const sz=PK[k]===KROCKET?1.7:1.2;
+      const vx=PVX[k], vy=PVY[k], sp=vx*vx+vy*vy;
+      // motion trail — a fading streak behind fast particles (long-exposure light)
+      if(sp>1){
+        const tl=Math.min(3.4, Math.sqrt(sp)*0.95);
+        sctx.strokeStyle="rgba("+r+","+g+","+b+","+(a*0.42)+")"; sctx.lineWidth=sz*0.85;
+        sctx.beginPath(); sctx.moveTo(PX[k],PY[k]); sctx.lineTo(PX[k]-vx*tl,PY[k]-vy*tl); sctx.stroke();
+        if(lf>0){ gctx.strokeStyle="rgba("+r+","+g+","+b+","+(a*0.3*lf)+")"; gctx.lineWidth=sz*1.5;
+          gctx.beginPath(); gctx.moveTo(PX[k],PY[k]); gctx.lineTo(PX[k]-vx*tl,PY[k]-vy*tl); gctx.stroke(); }
+      }
       sctx.fillStyle="rgba("+r+","+g+","+b+","+a+")";
       sctx.fillRect(PX[k]-sz*0.5,PY[k]-sz*0.5,sz,sz);
       if(lf>0){
@@ -2030,11 +2049,13 @@
     frames++;
     if(now-fpsT>=500){
       fpsEl.textContent=Math.round((frames*1000)/(now-fpsT)); frames=0; fpsT=now;
-      let c=0,fN=0,wN=0,lN=0;
+      let c=0,fN=0,wN=0,lN=0,coldN=0,toxN=0;
       for(let i=0;i<N;i++){ const m=grid[i]; if(m!==EMPTY){ c++;
-        if(m===FIRE)fN++; else if(m===WATER||m===BRINE)wN++; else if(m===LAVA)lN++; } }
+        if(m===FIRE)fN++; else if(m===WATER||m===BRINE)wN++; else if(m===LAVA)lN++;
+        else if(m===ICE||m===SNOW)coldN++; else if(m===ACIDCLOUD||m===ACID)toxN++; } }
       countEl.textContent=(c+pn).toLocaleString();
       Snd.ambient(fN,wN,lN);
+      updateMood(fN+lN*2, coldN, toxN);
       checkChallenges();
     }
     requestAnimationFrame(loop);
@@ -2451,8 +2472,17 @@
                 seed:SEED, seeds:SEED, sprout:SEED, sapling:SAPLING, tree:SAPLING,
                 nigredo:NIGREDO, albedo:ALBEDO, citrinitas:CITRINITAS };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
+  function ringColor(m){
+    if(m===EMPTY) return "232,232,240";
+    const c=M[m]&&M[m].c1; if(!c) return "232,232,240";
+    return Math.min(255,c[0]+45)+","+Math.min(255,c[1]+45)+","+Math.min(255,c[2]+45);
+  }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach(n=>n.classList.toggle("active", +n.dataset.mat===currentMat));
+    const ring=document.getElementById("cursor-ring");
+    if(ring){ const col=ringColor(currentMat);
+      ring.style.borderColor="rgba("+col+",0.95)";
+      ring.style.boxShadow="0 0 0 1px rgba(0,0,0,0.5), 0 0 15px rgba("+col+",0.6)"; }
   }
   window.AetherSand={
     EMPTY,WALL,SAND,RAINBOW,WATER,ICE,SNOW,SALT,OIL,ACID,LAVA,FIRE,SMOKE,STEAM,
