@@ -1901,15 +1901,35 @@
     clearTimeout(el._t); el._t=setTimeout(()=>{el.style.opacity="0";},1400);
   }
   function snapshot(){
-    const ex=document.createElement("canvas"); ex.width=W*SCALE; ex.height=H*SCALE;
-    const c=ex.getContext("2d"); c.imageSmoothingEnabled=false;
-    c.fillStyle="#07070d"; c.fillRect(0,0,ex.width,ex.height);
-    c.drawImage(sim,0,0,ex.width,ex.height);
-    c.globalCompositeOperation="lighter"; c.filter="blur("+SCALE+"px) brightness(1.15)";
-    c.drawImage(glow,0,0,ex.width,ex.height);
+    // a branded "share card": the artwork above a footer with wordmark, URL and live stats
+    const aw=W*SCALE, ah=H*SCALE, fh=Math.max(48,Math.round(ah*0.09));
+    const ex=document.createElement("canvas"); ex.width=aw; ex.height=ah+fh;
+    const c=ex.getContext("2d");
+    // --- artwork ---
+    c.imageSmoothingEnabled=false;
+    c.fillStyle="#07070d"; c.fillRect(0,0,aw,ah);
+    c.drawImage(sim,0,0,aw,ah);
+    c.save(); c.globalCompositeOperation="lighter"; c.filter="blur("+SCALE+"px) brightness(1.15)";
+    c.drawImage(glow,0,0,aw,ah); c.restore();
+    // --- footer bar ---
+    c.fillStyle="#0b0b14"; c.fillRect(0,ah,aw,fh);
+    c.fillStyle="rgba(255,180,84,0.5)"; c.fillRect(0,ah,aw,2);
+    const pad=Math.round(fh*0.4), midY=ah+fh/2;
+    c.textBaseline="middle";
+    c.textAlign="left";
+    c.font="700 "+Math.round(fh*0.4)+"px Inter, system-ui, sans-serif"; c.fillStyle="#ffb454";
+    c.fillText("Aether Sand", pad, midY-fh*0.14);
+    c.font="500 "+Math.round(fh*0.25)+"px Inter, system-ui, sans-serif"; c.fillStyle="#9aa0b5";
+    c.fillText("a living particle playground", pad, midY+fh*0.24);
+    let cells=0; for(let i=0;i<N;i++) if(grid[i]!==EMPTY) cells++;
+    c.textAlign="right";
+    c.font="600 "+Math.round(fh*0.3)+"px Inter, system-ui, sans-serif"; c.fillStyle="#cfd3e0";
+    c.fillText("isco-tec.github.io/aether-sand", aw-pad, midY-fh*0.14);
+    c.font="500 "+Math.round(fh*0.24)+"px Inter, system-ui, sans-serif"; c.fillStyle="#7e84a3";
+    c.fillText(cells.toLocaleString()+" cells · "+(pn|0).toLocaleString()+" particles", aw-pad, midY+fh*0.24);
     const a=document.createElement("a");
     a.href=ex.toDataURL("image/png"); a.download="aether-sand.png"; a.click();
-    toast("Snapshot saved");
+    toast("Share card saved 🖼️");
   }
   function b64(arr){ let s="",ch=0x8000; for(let i=0;i<arr.length;i+=ch) s+=String.fromCharCode.apply(null,arr.subarray(i,i+ch)); return btoa(s); }
   function unb64(str){ const bin=atob(str),a=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i); return a; }
