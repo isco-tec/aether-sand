@@ -751,11 +751,11 @@
         noise(0.42,"lowpass",380,1,0.26,0.01);
         tone(150,0.16,"sine",0.10,66,0.005); },
       // a band-limited crack and a rolling thunder tail — sharp, but never a piercing hiss
-      zap(){ if(!on()||!gate("zap",170)) return;
-        noise(0.055,"bandpass",1500,0.7,0.18,0.001);
-        tone(430,0.05,"sawtooth",0.045,150,0.001);
-        tone(165,0.46,"sine",0.17,52,0.008);
-        noise(0.3,"lowpass",240,1,0.11,0.012); },
+      zap(){ if(!on()||!gate("zap",240)) return;
+        noise(0.05,"bandpass",1400,0.7,0.13,0.001);
+        tone(420,0.045,"sawtooth",0.03,150,0.001);
+        tone(160,0.48,"sine",0.16,50,0.01);
+        noise(0.32,"lowpass",230,1,0.1,0.014); },
       // new alchemy — a warm bell (grand = the Stone, a fuller rising chord)
       chime(grand){ if(!on()||!gate("chime",70)) return;
         tone(880,0.55,"triangle",0.17,0,0.01); setTimeout(()=>tone(1318,0.6,"sine",0.12,0,0.01),80);
@@ -1245,8 +1245,9 @@
       for(let dy=1;dy<=3;dy++){ const ny=y+dy; if(ny>=H) break; const bi=ny*W+x;
         if(grid[bi]===EMPTY){ spawn(bi,rainMat); discoverRecipe(rainMat===ACID?"acid_rain":"rain"); break; } }
     }
-    // a brooding storm occasionally hurls a bolt
-    if(rnd()<0.0010) strikeLightning(x,y);
+    // a brooding storm hurls the occasional bolt — gated by a global cooldown so a big cloud
+    // (e.g. one grown from evaporation) strikes now and then, never as a barrage
+    if(stormCooldown<=0 && rnd()<0.03){ strikeLightning(x,y); stormCooldown=170+(rnd()*260|0); }
     // heavy smoke pollution can slowly sour a storm cloud into an acid cloud.
     // Only real smoke counts (no acid-cloud chain reaction), and it needs a proper
     // plume around it, so it stays a deliberate, rare event rather than a sweep.
@@ -1867,7 +1868,7 @@
   let currentMat=SAND, brush=10, painting=false, eraseBtn=false;
   let lastPx=null,lastPy=null;
   let pointerInside=false,pointerX=0,pointerY=0;
-  let fireworkCooldown=0, lightningCooldown=0;
+  let fireworkCooldown=0, lightningCooldown=0, stormCooldown=0;
 
   function paintTemp(cx,cy,sign){
     const rad=Math.max(2,brush), r2=rad*rad;
@@ -2166,6 +2167,7 @@
   function loop(now){
     if(fireworkCooldown>0) fireworkCooldown--;
     if(lightningCooldown>0) lightningCooldown--;
+    if(stormCooldown>0) stormCooldown--;
     if(opusCooldown>0) opusCooldown--;
     let dt=now-lastT; lastT=now; if(dt>250) dt=250; acc+=dt;
     let runs=0;
