@@ -24,7 +24,8 @@
         OBSIDIAN=37, DIAMOND=38, HYDROGEN=39, OXYGEN=40, ASH=41,
         RUST=42, CLOUD=43, LIGHTNING=44, ANTIMATTER=45,
         SLIME=46, HONEY=47, ACIDCLOUD=48, BULB=49,
-        VINE=58, MOLD=59, BRINE=60, CINNABAR=61;
+        VINE=58, MOLD=59, BRINE=60, CINNABAR=61,
+        LIMESTONE=62, QUICKLIME=63, SLAKEDLIME=64;
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -108,10 +109,13 @@
     [BRINE]:    { name:"Brine",   type:LIQUID, d:103, disp:6, c1:[72,150,168], c2:[48,116,150], a:205, k:0.12,
                   trans:[{c:-1,t:-12,to:ICE,p:0.18}] },
     [CINNABAR]: { name:"Cinnabar",type:POWDER, d:216, c1:[202,42,46], c2:[150,24,30], k:0.06 },
+    [LIMESTONE]:{ name:"Limestone",type:STATIC,d:1e4, c1:[216,212,198], c2:[178,174,160], k:0.05 },
+    [QUICKLIME]:{ name:"Quicklime",type:POWDER, d:200, c1:[240,238,230], c2:[208,206,196], k:0.06 },
+    [SLAKEDLIME]:{name:"Slaked Lime",type:POWDER,d:190, c1:[228,230,226], c2:[196,198,194], k:0.06 },
   };
 
   // fast lookup arrays
-  const MAXID = 62;
+  const MAXID = 65;
   const TYPE=new Int8Array(MAXID), DENS=new Float32Array(MAXID), COND=new Float32Array(MAXID),
         EMIT=new Float32Array(MAXID), FLAM=new Uint8Array(MAXID), BASET=new Float32Array(MAXID),
         WINDF=new Float32Array(MAXID), CHCOND=new Uint8Array(MAXID);
@@ -130,14 +134,15 @@
   WINDF[AQUA]=0.22;
   WINDF[HYDROGEN]=1.3; WINDF[OXYGEN]=1; WINDF[ASH]=0.5; WINDF[RUST]=0.08;
   WINDF[SLIME]=0.04; WINDF[HONEY]=0.02; WINDF[BRINE]=0.25; WINDF[CINNABAR]=0.04;
+  WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; // gold is an excellent conductor
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
-    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,GLASS,OBSIDIAN,METAL,WOOD,PLANT,VINE,MOLD,WALL] },
+    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,WOOD,PLANT,VINE,MOLD,WALL] },
     { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,HYDROGEN,OXYGEN,NITRO] },
-    { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
+    { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,QUICKLIME,SLAKEDLIME,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
   ];
   const PALETTE = MAT_GROUPS.flatMap(g=>g.mats);
@@ -151,6 +156,9 @@
     [SALT]:"Dissolves in water into brine; crystallises back when the brine boils away.",
     [BRINE]:"Salt water — denser than fresh water, freezes harder, and leaves salt behind when it evaporates.",
     [CINNABAR]:"Vermilion ore — mercury married to sulfur. Roast it and the quicksilver returns.",
+    [LIMESTONE]:"Soft pale rock. Roast it fiercely and it calcines into quicklime.",
+    [QUICKLIME]:"Caustic white powder — splash it with water and it slakes, hissing out heat and steam.",
+    [SLAKEDLIME]:"A mild base — pour acid on it and the two neutralise into salt and water.",
     [STONE]:"Solid rock. Melts to lava when white-hot.",
     [GLASS]:"Brittle solid from molten sand.",
     [OBSIDIAN]:"Volcanic glass — born when lava is quenched in water.",
@@ -211,6 +219,9 @@
     { id:"diamond", cat:"Transmutation", name:"Diamond synthesis", in:[COAL], out:[DIAMOND], note:"Carbon crystallises into diamond under furious heat (thermite or lava).", hint:"Coal, fiercely heated…" },
     { id:"cinnabar", cat:"Transmutation", name:"Vermilion", in:[MERCURY,SULFUR], out:[CINNABAR], note:"Mercury weds sulfur into cinnabar, the alchemist's blood-red ore.", hint:"Quicksilver meets brimstone…" },
     { id:"cinnabar_roast", cat:"Transmutation", name:"Roasting", in:[CINNABAR], out:[MERCURY], note:"Roast cinnabar fiercely and the quicksilver comes back out.", hint:"Heat the red ore…" },
+    { id:"calcine", cat:"Phase", name:"Calcination", in:[LIMESTONE], out:[QUICKLIME], note:"Fierce heat drives the breath (CO₂) from limestone, leaving caustic quicklime.", hint:"Roast the soft pale rock…" },
+    { id:"slake", cat:"Phase", name:"Slaking", in:[QUICKLIME,WATER], out:[SLAKEDLIME], note:"Quicklime meets water and reacts hard — heat, hiss, and slaked lime.", hint:"Splash the white powder…" },
+    { id:"neutralise", cat:"Phase", name:"Neutralisation", in:[ACID,SLAKEDLIME], out:[SALT], note:"Acid meets a base and the two cancel into salt and water.", hint:"Acid against a mild base…" },
     { id:"smoke_acid", cat:"Crafting", name:"Sulfurous acid", in:[SMOKE,SULFUR], out:[ACID], note:"Gas and yellow powder brew a corrosive liquid.", hint:"Smoke meets yellow powder…" },
     { id:"electrolysis", cat:"Crafting", name:"Electrolysis", in:[WATER,SPARK], out:[HYDROGEN,OXYGEN], note:"A current splits water into hydrogen and oxygen gas.", hint:"Charge run through water…" },
     { id:"bulb_light", cat:"Electric", name:"Filament glow", in:[SPARK,BULB], out:[BULB], note:"Charge reaching a bulb — through metal, water, or a lightning strike — lights its filament.", hint:"Spark a conductor beside glass…" },
@@ -294,6 +305,7 @@
     [RUST]:0.9,[CLOUD]:0.55,[ANTIMATTER]:1,
     [SLIME]:0.92,[HONEY]:0.95,[ACIDCLOUD]:0.55,[BULB]:1,
     [VINE]:1,[MOLD]:1,[BRINE]:0.9,[CINNABAR]:0.88,
+    [LIMESTONE]:1,[QUICKLIME]:0.9,[SLAKEDLIME]:0.9,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -701,6 +713,41 @@
       discoverRecipe("cinnabar_roast"); return;
     }
     moveFalling(x,y,i,CINNABAR);
+  }
+  function upLimestone(x,y,i){
+    // calcination — fierce heat drives off CO2 (as smoke), leaving quicklime
+    if(temp[i]>760 && rnd()<0.05){
+      convert(i,QUICKLIME);
+      const e=emptyNeighbor(x,i); if(e>=0 && rnd()<0.6) spawn(e,SMOKE);
+      discoverRecipe("calcine");
+    }
+  }
+  function upQuicklime(x,y,i){
+    // slaking — quicklime + water reacts hard: hot, hissing, leaves slaked lime
+    let slaked=false;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===WATER||nm===BRINE){
+        convert(i,SLAKEDLIME); temp[i]+=320; heatN(i,30);
+        convert(ni,STEAM);
+        slaked=true; discoverRecipe("slake"); return true;
+      }
+      return false;
+    });
+    if(slaked) return;
+    moveFalling(x,y,i,QUICKLIME);
+  }
+  function upSlakedlime(x,y,i){
+    // neutralisation — a base meeting acid makes salt + water, with a little heat
+    let reacted=false;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===ACID||nm===AQUA){
+        convert(ni,SALT); convert(i,WATER); temp[i]+=36;
+        reacted=true; discoverRecipe("neutralise"); return true;
+      }
+      return false;
+    });
+    if(reacted) return;
+    moveFalling(x,y,i,SLAKEDLIME);
   }
   function upSnow(x,y,i){
     applySrc(i,-3,0.2);
@@ -1244,6 +1291,9 @@
           case MOLD: upMold(x,y,i); break;
           case BRINE: upBrine(x,y,i); break;
           case CINNABAR: upCinnabar(x,y,i); break;
+          case LIMESTONE: upLimestone(x,y,i); break;
+          case QUICKLIME: upQuicklime(x,y,i); break;
+          case SLAKEDLIME: upSlakedlime(x,y,i); break;
           // WOOD, GLASS, STONE, METAL, OBSIDIAN, DIAMOND: thermal/conduction only
         }
       }
@@ -2103,7 +2153,9 @@
                 smog:ACIDCLOUD, "acid rain":ACIDCLOUD, lamp:BULB, light:BULB,
                 ivy:VINE, creeper:VINE, moss:MOLD, rot:MOLD, fungus:MOLD,
                 saltwater:BRINE, "salt water":BRINE, seawater:BRINE, brine:BRINE,
-                vermilion:CINNABAR, vermillion:CINNABAR, hgs:CINNABAR };
+                vermilion:CINNABAR, vermillion:CINNABAR, hgs:CINNABAR,
+                limestone:LIMESTONE, chalk:LIMESTONE, quicklime:QUICKLIME, "quick lime":QUICKLIME,
+                lime:QUICKLIME, "slaked lime":SLAKEDLIME, slakedlime:SLAKEDLIME };
   function resolveMat(m){ if(typeof m!=="string") return m; const k=m.toLowerCase(); return NAME2ID[k]??ALIAS[k]??SAND; }
   function syncPaletteActive(){
     document.querySelectorAll(".mat").forEach(n=>n.classList.toggle("active", +n.dataset.mat===currentMat));
@@ -2113,7 +2165,7 @@
     WOOD,PLANT,GLASS,STONE,METAL,GUNPOWDER,FIREWORK,SPARK,COAL,HEAT,COOL,CLONER,VOID,
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
-    SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,
+    SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
