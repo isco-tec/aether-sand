@@ -37,11 +37,11 @@ Aether Sand is a physics-rich **falling-sand simulator** written from scratch in
 - **Scales to bigger worlds.** A **World** control (Cozy / Balanced / Grand) trades cell size for canvas detail. Under the hood, an **active-region tracker** bounds both the heavy simulation passes *and* the rendering — recompute and re-upload only the part of the world that's actually doing something — so a sprawling, mostly-quiet world stays smooth.
 - **Challenges.** A set of bite-sized objectives — *light 5 bulbs at once, forge a diamond, quench obsidian, build serious pressure, fuse fulgurite with lightning* — that tick off as you play, with progress saved locally and a little confetti when you nail one. Open them from the trophy in the top bar.
 - **Shareable links, snapshots & saves.** Hit **Share link** to pack your entire scene into a URL (run-length compressed, so it stays short) — send it to anyone and the world rebuilds itself the moment they open it. Plus export a PNG, or save and restore scenes locally.
-- **A genuinely good UI.** A **tabbed, searchable material palette** (Natural / Reactive / Alchemy / Tools / All) with full-width readable buttons and a live description of whatever you've selected; live FPS + particle counters; heat-map and pressure-map overlays; and an **Alchemy Book** that reveals recipes as you discover them through play — ingredient swatch-chips, a discovery progress bar, **NEW** badges, and a sandbox "reveal all" toggle. Plus an elegant About panel, full keyboard shortcuts, mouse + touch, and responsive resize that preserves your artwork.
+- **An interface that stays out of the way.** A **tabbed, searchable material palette** (Natural / Reactive / Alchemy / Tools / All) with full-width readable buttons and a live description of whatever you've selected; live FPS + particle counters; heat-map and pressure-map overlays; and an **Alchemy Book** that reveals recipes as you discover them through play — ingredient swatch-chips, a discovery progress bar, **NEW** badges, and a sandbox "reveal all" toggle. Plus an About panel, full keyboard shortcuts, mouse + touch, and responsive resize that preserves your artwork.
 
 ## 🖼️ Gallery
 
-| World-class interface | Live heat-map overlay |
+| The interface | Live heat-map overlay |
 | --- | --- |
 | ![Glassmorphism UI with material palette, force controls and live counters](./assets/interface.png) | ![Temperature field showing white-hot lava, burning fire and frozen ice](./assets/heatmap.png) |
 
@@ -127,10 +127,10 @@ Built by **Ori Iscovici**. More experiments live at **[labs.iscovici.com](https:
 
 ## 📄 License & credit
 
-The code is **[MIT](./LICENSE)** — free to use, fork, learn from, and build on.
+**The code is [MIT](./LICENSE)** — free to use, fork, learn from, and build on.
 
-If you do, please keep the credit. This one line is perfect:
+**The work as a whole** — the *Aether Sand* name, its visual design, and the project as a creative piece — is © 2026 Ori Iscovici and shared under [**CC BY 4.0**](https://creativecommons.org/licenses/by/4.0/). In plain terms: use it and remix it freely, just credit the author. This one line does the job:
 
 > Aether Sand by **Ori Iscovici** — [labs.iscovici.com](https://labs.iscovici.com)
 
-Want to use it commercially or embed it in a product? I'd love to hear about it — reach me through [labs.iscovici.com](https://labs.iscovici.com).
+Want to use it commercially, or embed it in a product? I'd love to hear about it — reach me through [labs.iscovici.com](https://labs.iscovici.com).

@@ -4,7 +4,8 @@
 
    © 2026 Ori Iscovici (isco-tec) · https://labs.iscovici.com
    Live:    https://isco-tec.github.io/aether-sand/
-   License: MIT (code). Please keep the credit if you fork or embed it.
+   License: code is MIT; the work as a whole is CC BY 4.0.
+            Free to use & remix — just credit Ori Iscovici / labs.iscovici.com.
    ===================================================================== */
 
 (() => {
@@ -178,13 +179,13 @@
     [CRYSTAL]:"Prismatic solid that grows by consuming water.",
     [PHILOSOPHER]:"Catalyst — accelerates nearby transmutations.",
     [SULFUR]:"Yellow powder. Key gunpowder ingredient.",
-    [SALTPETER]:"White oxidizer. Mix with sulfur + coal for gunpowder.",
+    [SALTPETER]:"White oxidiser. Mix with sulfur + coal for gunpowder.",
     [COAL]:"Slow-burning fuel and gunpowder ingredient.",
     [GUNPOWDER]:"Explosive powder — heat, fire, or fuse detonates it.",
     [THERMITE]:"White-hot incendiary — melts metal and stone.",
     [FUSE]:"Slow cord — carries flame to explosives.",
     [FIREWORK]:"Rocket powder — launches sky bursts.",
-    [SPARK]:"Electric brush — energizes conductors.",
+    [SPARK]:"Electric brush — energises conductors.",
     [LIGHTNING]:"Calls down a lightning bolt that scorches and electrifies.",
     [BULB]:"Light bulb — glows warm when charge reaches it through metal, water or a lightning strike.",
     [CLOUD]:"Storm cloud — drifts on the wind, rains water, and strikes lightning.",
@@ -202,7 +203,7 @@
     { id:"gunpowder", cat:"Crafting", name:"Black powder", in:[SULFUR,SALTPETER,COAL], out:[GUNPOWDER], note:"Pile all three together and they fuse into explosive powder.", starter:true },
     { id:"acid_gold", cat:"Transmutation", name:"Golden precipitation", in:[ACID,MERCURY], out:[GOLD], note:"The classic philosopher's dream — acid drips gold from quicksilver.", starter:true },
     { id:"mercury_amalgam", cat:"Transmutation", name:"Amalgamation", in:[MERCURY,METAL], out:[MERCURY], note:"Quicksilver slowly consumes steel into more of itself.", starter:true },
-    { id:"aqua_brew", cat:"Crafting", name:"Aqua regia", in:[ACID,SALTPETER], out:[AQUA], note:"Acid and an oxidizer brew a stronger royal acid.", hint:"An acid and a white oxidizer…" },
+    { id:"aqua_brew", cat:"Crafting", name:"Aqua regia", in:[ACID,SALTPETER], out:[AQUA], note:"Acid and an oxidiser brew a stronger royal acid.", hint:"An acid and a white oxidiser…" },
     { id:"aqua_dissolve", cat:"Transmutation", name:"Royal dissolution", in:[AQUA,GOLD], out:[MERCURY], note:"Royal water dissolves gold straight back into mercury.", hint:"Royal water meets treasure…" },
     { id:"philosopher_gold", cat:"Transmutation", name:"Catalysed gold", in:[PHILOSOPHER,MERCURY], out:[GOLD], note:"The stone accelerates mercury into gold.", hint:"A pink catalyst and quicksilver…" },
     { id:"philosopher_mercury", cat:"Transmutation", name:"Catalysed amalgam", in:[PHILOSOPHER,METAL], out:[MERCURY], note:"Steel becomes quicksilver far faster.", hint:"Catalyst beside metal…" },
@@ -1669,7 +1670,7 @@
       if(navigator.clipboard && navigator.clipboard.writeText){
         navigator.clipboard.writeText(url).then(()=>toast("🔗 Share link copied!"),()=>toast("Share link is in the address bar"));
       } else toast("Share link is in the address bar");
-      if(code.length>24000) toast("Heads up: busy scene — long link");
+      if(code.length>24000) toast("Busy scene — the link will be long");
       return url;
     }catch(e){ toast("Couldn't build a link"); return null; }
   }
