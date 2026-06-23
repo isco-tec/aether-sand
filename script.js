@@ -644,6 +644,27 @@
       shakeAmt*=0.86;
     } else if(shakeAmt!==0){ stageEl.style.transform=""; shakeAmt=0; }
   }
+  // a soft full-screen colour bloom that fades out — for big "wow" moments
+  let opusCooldown=0, flashEl=null;
+  function flash(r,g,b,a){
+    if(!flashEl){ flashEl=document.createElement("div"); flashEl.id="screen-flash";
+      Object.assign(flashEl.style,{position:"fixed",inset:"0",zIndex:35,pointerEvents:"none",opacity:"0",mixBlendMode:"screen"});
+      document.body.appendChild(flashEl); }
+    flashEl.style.background="radial-gradient(circle at 50% 42%, rgb("+r+","+g+","+b+") 0%, rgba("+r+","+g+","+b+",0) 68%)";
+    flashEl.style.transition="none"; flashEl.style.opacity=String(a);
+    void flashEl.offsetWidth;                                  // reflow so the fade actually animates
+    flashEl.style.transition="opacity .7s ease"; flashEl.style.opacity="0";
+  }
+  // the climax of the alchemy — celebrate the birth of the Philosopher's Stone (grandest on the first ever)
+  function magnumOpusCeremony(x,y){
+    for(let a=0;a<30;a++){ const ang=rnd()*6.2832, sp=0.8+rnd()*3.2;
+      addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,22+rnd()*26,255,212,128,KSPARK); }
+    shakeScreen(7); flash(255,205,120,0.5);
+    let first=false; try{ first=!localStorage.getItem("aether-first-stone"); if(first) localStorage.setItem("aether-first-stone","1"); }catch(_){}
+    if(first){ flash(255,228,150,0.82); for(let k=0;k<5;k++){ burst((W*(0.3+rnd()*0.4))|0,(H*0.3)|0); }
+      toast("✨ The Great Work is complete — the Philosopher's Stone is born"); }
+    else toast("The Stone reddens — rubedo");
+  }
 
   /* ============================ Per-material ====================== */
   function upFire(x,y,i){
@@ -981,9 +1002,10 @@
     forN8(x,i,(ni,nm)=>{ if(nm===GOLD) gold=ni; return false; });
     if(gold>=0 && rnd()<0.05){            // perfected with gold — the matter reddens into the Stone
       convert(i,PHILOSOPHER); discoverRecipe("rubedo");
-      for(let a=0;a<14;a++){ const ang=rnd()*6.2832, sp=0.5+rnd()*2.2;
+      for(let a=0;a<12;a++){ const ang=rnd()*6.2832, sp=0.5+rnd()*2.2;
         addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,16+rnd()*18,255,210,120,KSPARK); }
-      shakeScreen(3); return;
+      if(opusCooldown<=0){ magnumOpusCeremony(x,y); opusCooldown=150; }   // one ceremony per birth, not per cell
+      return;
     }
     moveFalling(x,y,i,CITRINITAS);
   }
@@ -1539,6 +1561,7 @@
   }
   function render(now){
     const t=now*0.012;
+    const shimmer=0.72+0.28*Math.sin(now*0.0047);   // slow magical pulse for the alchemy stages
     const lf=lightFX();
     const lit = lf>0.01 && !heatMap && !pressureMap;
     // any global mode flip repaints the whole canvas once
@@ -1645,14 +1668,14 @@
 
       let ge=0;
       if(!heatMap && !pressureMap){
-        if(EMIT[m]){ const gw=EMIT[m]; ge=(255<<24)|(((b*gw)|0)<<16)|(((g*gw)|0)<<8)|((r*gw)|0); }
+        if(EMIT[m]){ let gw=EMIT[m]; if(m===CITRINITAS) gw*=shimmer; ge=(255<<24)|(((b*gw)|0)<<16)|(((g*gw)|0)<<8)|((r*gw)|0); }
         else if(temp[i]>560){ const gi=clamp((temp[i]-560)/640,0,1); ge=((gi*235|0)<<24)|(b<<16)|(g<<8)|r; }
         else if(charge[i]>0){ const u=(clamp(charge[i]/8,0,1)*255)|0; ge=(u<<24)|(255<<16)|(235<<8)|120; }
         else if(m===ACID){ ge=(120<<24)|(40<<16)|(220<<8)|110; }
         else if(m===AQUA){ ge=(130<<24)|(180<<16)|(120<<8)|255; }
         else if(m===GOLD){ ge=(70<<24)|(50<<16)|(170<<8)|255; }
         else if(m===CRYSTAL){ ge=(100<<24)|(b<<16)|(g<<8)|r; }
-        else if(m===PHILOSOPHER){ ge=(150<<24)|(120<<16)|(200<<8)|255; }
+        else if(m===PHILOSOPHER){ ge=(((150*shimmer)|0)<<24)|(120<<16)|(200<<8)|255; }
         else if(m===BULB && life[i]>0){ const u=clamp(life[i]/24,0,1); ge=((u*230|0)<<24)|((b|0)<<16)|((g|0)<<8)|(r|0); }
         else if(m===NITRO && vel[i]>4){ const u=clamp((vel[i]-4)/5,0,1); ge=((u*170|0)<<24)|(50<<16)|(220<<8)|160; }
         ge=scaleGlow(ge,lf);
@@ -1888,6 +1911,7 @@
   function loop(now){
     if(fireworkCooldown>0) fireworkCooldown--;
     if(lightningCooldown>0) lightningCooldown--;
+    if(opusCooldown>0) opusCooldown--;
     let dt=now-lastT; lastT=now; if(dt>250) dt=250; acc+=dt;
     let runs=0;
     while(acc>=SIMDT && runs<4){
