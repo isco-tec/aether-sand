@@ -43,7 +43,8 @@
         STEEL=81, SILVER=82, TARNISH=83,         // carburised iron, silver + its black sulfide
         ALUMINUM=84,                             // light metal — thermite's reducer
         URANIUM=85, PLUTONIUM=86, NEUTRON=87,    // nuclear fuel, its hungrier cousin, and the chain carrier
-        FALLOUT=88, CONTROL_ROD=89;              // spent fission rubble, and the boron rod that drinks neutrons
+        FALLOUT=88, CONTROL_ROD=89,              // spent fission rubble, and the boron rod that drinks neutrons
+        PLASMA=90, HELIUM=91;                    // the ionised 4th state, and the inert ash of fusion
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -159,6 +160,9 @@
     [NEUTRON]:  { name:"Neutron", type:GAS,    d:0.3, c1:[214,226,255], c2:[150,176,230], a:90, k:0.04 },         // the invisible chain carrier (finite ballistic life)
     [FALLOUT]:  { name:"Fallout", type:POWDER, d:170, c1:[120,150,110], c2:[86,112,80], k:0.06, emit:0.06, base:60 },  // fission rubble; decays to ash
     [CONTROL_ROD]:{ name:"Control Rod",type:STATIC, d:1e4, c1:[40,44,54], c2:[24,26,32], k:0.40 },                // boron — drinks neutrons, scrams the pile
+    // — Fusion & plasma: the energy arc's end (fission → fusion → helium) + the ionised 4th state —
+    [PLASMA]:   { name:"Plasma", type:GAS,    d:0.9,  c1:[255,245,255], c2:[150,90,255], a:235, k:0.01, emit:0.95 },  // ionised gas: violet-white glow, conductive; low k so it holds its heat + glows out its full life before recombining
+    [HELIUM]:   { name:"Helium", type:GAS,    d:0.18, c1:[255,247,224], c2:[255,214,150], a:70, k:0.05 },             // the lightest gas — inert fusion ash that rises + vents away
   };
 
   // fast lookup arrays
@@ -193,6 +197,9 @@
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; CHCOND[BRINE]=1;   // gold is an excellent conductor; salt water conducts too (enables chlor-alkali electrolysis)
   CHCOND[BULB]=1;   // a bulb is an in-line circuit element — charge flows THROUGH it, so a whole multi-cell bulb lights, not just the edge touching the wire
+  CHCOND[PLASMA]=1;   // an ionised arc conducts current
+  BASET[PLASMA]=1100;   // a freshly-PAINTED plasma is white-hot but below IGNITE_T so it can't seed ionisation (the gate also excludes plasma outright)
+  WINDF[PLASMA]=1; WINDF[HELIUM]=1.4;   // both drift on wind; helium (lightest gas) most of all
   CHCOND[MOLTEN_METAL]=1; CHCOND[COPPER]=1; CHCOND[TIN]=1; CHCOND[BRONZE]=1; CHCOND[STEEL]=1; CHCOND[SILVER]=1; CHCOND[TINPEST]=1; CHCOND[ALUMINUM]=1;
   WINDF[TINPEST]=0.06; WINDF[ALUMINUM]=0.045;
   // Forge & foundry lookups: each solid metal's melting point, the temperature a fresh melt is seeded at,
@@ -205,11 +212,17 @@
   // Fission tuning. Boundedness rests on the invariants (each fission consumes one fuel cell), NOT these numbers —
   // they only shift the critical mass: a small bare lump leaks neutrons and fizzles, a big dense block chains.
   const CAPTURE_U=0.62, CAPTURE_PU=0.85, ABSORB=0.10, SPON_U=0.00005, SPON_PU=0.0005;
+  // Fusion & plasma thresholds, tuned to the temps actually reachable in-engine (a fission zone peaks ~1620,
+  // molten iron 1600, burning magnesium ~1700 — well above lava 1100 / fire 650, so only genuinely extreme heat
+  // triggers these). IGNITE_T: a non-plasma neighbour this hot ionises an adjacent gas → plasma. FUSE_T (higher):
+  // hydrogen next to a source this hot fuses with a neighbour into helium. RECOMB_T/SET: plasma cools back to gas
+  // below RECOMB_T, force-set to RECOMB_SET (well under the gates) so it can't instantly re-ionise.
+  const IGNITE_T=1250, RECOMB_T=700, RECOMB_SET=400, FUSE_T=1400;
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
     { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,COPPER,TIN,BRONZE,STEEL,SILVER,PATINA,CUPRITE,TINPEST,TARNISH,WOOD,SEED,SAPLING,PLANT,VINE,MOLD,WALL] },
-    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,NITRO,SODIUM,CHLORINE,MAGNESIUM,ALUMINUM,URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD] },
+    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,HELIUM,PLASMA,NITRO,SODIUM,CHLORINE,MAGNESIUM,ALUMINUM,URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,QUICKLIME,SLAKEDLIME,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
   ];
@@ -256,6 +269,8 @@
     [NEUTRON]:"An invisible bullet hunting for a nucleus to split. It darts a few cells, splits fuel on touch, and winks out — boron drinks it, empty space loses it.",
     [FALLOUT]:"Glowing rubble where a reactor used to be — fierce, short-lived, and soon just ash.",
     [CONTROL_ROD]:"Boron-cadmium safety rod — the hush in the heart of a reactor. It drinks neutrons without splitting, dropping a roaring pile below critical.",
+    [PLASMA]:"The fourth state of matter — gas torn into glowing ions by ferocious heat or a lightning bolt. It blazes violet-white, conducts like a live wire, and rises like flame. Starve it of heat and it recombines into the gas it came from. It can't spread on its own.",
+    [HELIUM]:"The ash of a star — crush hydrogen in a fission blast and it fuses to helium. Then it goes quiet: the lightest gas there is, rising fast yet refusing to burn, venting off the top of the world.",
     [WALL]:"Immovable barrier.",
     [VINE]:"Climbing plant — creeps up surfaces and across open space. Flammable.",
     [MOLD]:"Creeping rot — spreads over wood, plant and damp stone, then crumbles to ash.",
@@ -385,6 +400,10 @@
     { id:"reactor_steam", cat:"Nuclear", name:"Reactor steam", in:[URANIUM,WATER], out:[STEAM], note:"Fission heat flashes coolant water to steam — a reactor is just a very dangerous kettle.", hint:"Cool a running pile with water…" },
     { id:"fallout_decay", cat:"Nuclear", name:"Fallout decay", in:[FALLOUT], out:[ASH], note:"Radioactive rubble is fierce but fleeting — it soon cools into harmless grey ash. The chain ends here.", hint:"What a spent reactor leaves behind…" },
     { id:"control_rod", cat:"Nuclear", name:"Control rod", in:[NEUTRON,CONTROL_ROD], out:[EMPTY], note:"A boron rod drinks the neutron flux, starving the chain. Slide it in to scram a pile; pull it out to wake it hungry.", hint:"Quench the storm of neutrons…" },
+    { id:"fusion", cat:"Nuclear", name:"Fusion", in:[HYDROGEN], out:[HELIUM], note:"In the heart of a fission blast (or thermite, or molten metal), hydrogen nuclei fuse into helium — the fury that lights the Sun and the H-bomb. The staged bomb: fission lights fusion.", hint:"Hydrogen in the heart of a star…" },
+    { id:"ionise", cat:"Pyrotechnics", name:"Ionisation", in:[OXYGEN], out:[PLASMA], note:"Heat a gas past all reason — with a fission blast, thermite, or molten metal — and it tears into plasma, the glowing ionised fourth state.", hint:"Gas, hotter than fire itself…" },
+    { id:"recombine", cat:"Phase", name:"Recombination", in:[PLASMA], out:[OXYGEN], note:"Starve plasma of heat and its ions recombine back into the gas they came from, the violet glow guttering out.", hint:"Let the arc cool…" },
+    { id:"lightning_plasma", cat:"Pyrotechnics", name:"Lightning channel", in:[LIGHTNING], out:[PLASMA], note:"A lightning bolt rips the air it passes through into a fading violet plasma channel.", hint:"Where the bolt tears the sky…" },
     { id:"hydrogen_boom", cat:"Pyrotechnics", name:"Knallgas", in:[HYDROGEN,FIRE], out:[FIRE], note:"Hydrogen ignites violently — far fiercer beside oxygen.", hint:"The lightest gas meets flame…" },
     { id:"oxy_fire", cat:"Pyrotechnics", name:"Oxygen feed", in:[OXYGEN,FIRE], out:[FIRE], note:"Oxygen makes flames burn hotter and longer.", hint:"Fire that can breathe…" },
     { id:"combust_o2", cat:"Pyrotechnics", name:"Combustion", in:[FIRE,OXYGEN], out:[CO2], note:"Oxygen-fed fire burns to carbon dioxide.", hint:"What fire breathes out…" },
@@ -476,6 +495,7 @@
 
   let SCALE,W,H,N;
   let grid,shade,life,vel,charge,moved,temp,tempB,pres,presB;
+  let PLASMA_SRC;   // per-cell: the gas a plasma cell will recombine back into (0 until ionised)
   let simImg,sim32,glowImg,glow32;
   let LS,LW,LH,LN,lightR,lightG,lightB,lightT;
   let lighting=true, lightLevel=0.54;
@@ -500,6 +520,7 @@
     CARD_OFF=[-W,W,-1,1];                   // 4-cardinal linear offsets for this width (see emptyNeighbor)
     grid=new Uint8Array(N); shade=new Uint8Array(N); life=new Int16Array(N);
     vel=new Float32Array(N); charge=new Int8Array(N); moved=new Uint8Array(N);
+    PLASMA_SRC=new Uint8Array(N);
     temp=new Float32Array(N).fill(AMBIENT); tempB=new Float32Array(N);
     pres=new Float32Array(N); presB=new Float32Array(N);
     sim.width=W; sim.height=H; glow.width=W; glow.height=H;
@@ -571,6 +592,8 @@
       case MAGNESIUM: return 90+(rnd()*70|0);     // burn budget once it ignites
       case NEUTRON: return 6+(rnd()*7|0);         // ballistic budget — a neutron travels ~6-12 cells then expires (the keystone life bound)
       case FALLOUT: return 600+(rnd()*400|0);     // fission rubble decays to plain ash after a while
+      case PLASMA: return 40+(rnd()*40|0);        // a plasma cell recombines within ~40-80 ticks — the hard upper bound on its life
+      case HELIUM: return 240+(rnd()*200|0);      // inert helium drifts a while then vents to nothing
       default: return 0;
     }
   }
@@ -923,6 +946,7 @@
   }
   function upCO2(x,y,i){
     if(--life[i]<=0){ grid[i]=EMPTY; return; }
+    if(tryIonise(x,y,i)) return;
     forN8(x,i,(ni,nm)=>{ if(nm===FIRE && life[ni]>2){ life[ni]=2; discoverRecipe("smother"); } return false; });  // snuff flames
     // a heavy gas: sinks and pools low, spreading sideways, only rarely drifting up
     if(rnd()<0.7 && y<H-1 && canDisplace(CO2,i+W)){ swap(i,i+W); return; }
@@ -1058,6 +1082,7 @@
   }
   function upChlorine(x,y,i){
     if(--life[i]<=0){ grid[i]=EMPTY; return; }   // the gas disperses over time
+    if(tryIonise(x,y,i)) return;
     let gone=false;
     forN8(x,i,(ni,nm)=>{
       if(nm===SODIUM){ convert(i,SALT); convert(ni,SALT); gone=true; discoverRecipe("salt_synthesis"); return true; }
@@ -1255,6 +1280,36 @@
   // into a pile lowers k below critical (the SCRAM); it cannot make a bounded chain unbounded.
   function upControlRod(x,y,i){
     forN8(x,i,(ni,nm)=>{ if(nm===NEUTRON && rnd()<0.92){ grid[ni]=EMPTY; life[ni]=0; vel[ni]=0; if(temp[i]<900) temp[i]+=3; discoverRecipe("control_rod"); } return false; });
+  }
+
+  /* ===================== Fusion & plasma ===================== */
+  // Plasma is the ionised 4th state — created ONLY by an external hot source (the ionise gate in the gas updaters,
+  // or a lightning bolt), NEVER by another plasma cell. Its own update can only COOL it and recombine it back to gas,
+  // so an ionisation front can never self-sustain. (See the boundedness notes: no plasma is born inside upPlasma.)
+  function upPlasma(x,y,i){
+    applySrc(i,AMBIENT,0.02);   // radiates slowly toward ambient — net heat LOSS, never self-heating (slow enough to glow out its full ~40-80-tick life)
+    heatN(i,5);                 // a trivial conductive leak — far too small to bootstrap an ionisation front before it expires
+    if(--life[i]<=0 || temp[i]<RECOMB_T){
+      const parent = PLASMA_SRC[i]||SMOKE; PLASMA_SRC[i]=0;     // recombine into the SPECIFIC gas it came from (air → smoke)
+      convert(i,parent); temp[i]=RECOMB_SET; charge[i]=0; discoverRecipe("recombine"); return;   // force-cool below the gates so it can't instantly re-ionise
+    }
+    if(applyPressure(x,y,i,PLASMA)) return;
+    moveGas(x,y,i,PLASMA); applyWind(x,i,PLASMA);
+  }
+  // Helium is a pure inert SINK — it reacts with nothing, spawns nothing, just drifts up and vents away.
+  function upHelium(x,y,i){
+    if(--life[i]<=0){ grid[i]=EMPTY; return; }
+    if(y===0 && rnd()<0.25){ grid[i]=EMPTY; return; }   // the lightest gas escapes off the top of the world
+    if(applyPressure(x,y,i,HELIUM)) return;
+    moveGas(x,y,i,HELIUM); applyWind(x,i,HELIUM);
+  }
+  // shared ionisation gate, called from the ionisable-gas updaters (NEVER from upPlasma): a gas cell next to a
+  // non-plasma source at/above IGNITE_T, and itself nearly that hot, tears into plasma — remembering its parent gas.
+  function tryIonise(x,y,i){
+    let src=-1;
+    forN8(x,i,(ni,nm)=>{ if(nm!==PLASMA && temp[ni]>=IGNITE_T){ src=ni; return true; } return false; });   // a NON-plasma source this hot ionises this gas (the exclusion is what stops a self-propagating front)
+    if(src>=0){ const st=temp[src]; PLASMA_SRC[i]=grid[i]; convert(i,PLASMA); temp[i]=Math.max(temp[i],st); discoverRecipe("ionise"); return true; }   // the fresh plasma inherits the ionising heat, so it glows rather than instantly recombining
+    return false;
   }
   function upCinnabar(x,y,i){
     if(temp[i]>580 && rnd()<0.05){      // roasting decomposes it back to quicksilver + sulfur
@@ -1601,6 +1656,25 @@
   }
   function upHydrogen(x,y,i){
     if(--life[i]<=0){ grid[i]=EMPTY; return; }
+    // FUSION — hydrogen pressed against fusion-grade heat (its own OR a neighbour's — only a real 2200°-class source:
+    // a fission blast, thermite, molten metal) fuses with a neighbouring hydrogen into helium, a furious energy
+    // release (the staged H-bomb). Neighbour-gated so the blast fuses it BEFORE its own temp ramps through the 180°
+    // burn point; checked before the chemical-ignite block so it fuses rather than merely igniting.
+    {
+      let partner=-1, fusionHot=temp[i]>=FUSE_T;
+      forN8(x,i,(ni,nm)=>{
+        if(nm===HYDROGEN){ if(partner<0) partner=ni; }
+        else if(temp[ni]>=FUSE_T) fusionHot=true;
+        return false;
+      });
+      if(fusionHot && partner>=0){
+        grid[partner]=EMPTY;                                    // consume the second nucleus (2 → 1 contraction)
+        convert(i,HELIUM); applySrc(i,2200,0.5); heatN(i,40); explode(x,y,3);
+        for(let a=0;a<10;a++){ const ang=rnd()*6.2832, sp=1.5+rnd()*3; addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,18+rnd()*20,255,250,210,KSPARK); }
+        discoverRecipe("fusion"); return;
+      }
+    }
+    if(tryIonise(x,y,i)) return;   // very hot hydrogen next to a hotter source ionises into plasma
     let ignite = temp[i]>180 || charge[i]>0, oxy=-1;
     forN8(x,i,(ni,nm)=>{
       if(nm===FIRE||nm===LAVA||(charge[ni]>0&&CHCOND[nm])) ignite=true;
@@ -1618,6 +1692,7 @@
   }
   function upOxygen(x,y,i){
     if(--life[i]<=0){ grid[i]=EMPTY; return; }
+    if(tryIonise(x,y,i)) return;
     forN8(x,i,(ni,nm)=>{
       if(nm===FIRE){ if(life[ni]<90) life[ni]+=4; temp[ni]+=6; discoverRecipe("oxy_fire"); }
       else if(FLAM[nm] && temp[ni]>120 && rnd()<0.04){ temp[ni]+=60; }
@@ -1694,6 +1769,9 @@
     while(y<H-1 && steps<H){
       const i=y*W+x;
       temp[i]=Math.max(temp[i],420);
+      if((grid[i]===EMPTY || TYPE[grid[i]]===GAS) && rnd()<0.5){   // the bolt tears the air/gas it passes through into a glowing plasma channel
+        PLASMA_SRC[i]=(grid[i]===EMPTY?SMOKE:grid[i]); spawn(i,PLASMA); temp[i]=2000; discoverRecipe("lightning_plasma");
+      }
       if(CHCOND[grid[i]] && grid[i]!==WATER && grid[i]!==BRINE){ charge[i]=6; markChargeDirty(); }   // energise wires/metal, but don't electrolyse whole lakes
       if(FLAM[grid[i]]) temp[i]+=180;
       if(grid[i]===SAND) fuseSand(x,y,2);   // passing through sand fuses it
@@ -1971,6 +2049,7 @@
   reg(upCopper, COPPER); reg(upTin, TIN); reg(upTinPest, TINPEST); reg(upBronze, BRONZE);
   reg(upSteel, STEEL); reg(upSilver, SILVER); reg(upAluminum, ALUMINUM);
   reg(upFuel, URANIUM, PLUTONIUM); reg(upNeutron, NEUTRON); reg(upFallout, FALLOUT); reg(upControlRod, CONTROL_ROD);
+  reg(upPlasma, PLASMA); reg(upHelium, HELIUM);
   // integrity check — turn the material system's SILENT failures (a material with no dispatch, no blurb, or
   // missing from the palette; a recipe/group pointing at a non-existent id) into a LOUD boot-time warning
   (function validateMaterials(){
@@ -2153,6 +2232,9 @@
       } else if(m===FIRE){
         const lt=clamp(life[i]/100,0,1), fl=0.85+0.15*Math.sin(t*3+i);
         r=(255*fl)|0; g=(lerp(50,235,lt)*fl)|0; b=lerp(8,130,lt*lt);
+      } else if(m===PLASMA){
+        const fl=0.5+0.5*Math.sin(t*6+i*0.8);   // a fast violet ⇄ white-pink flicker — an electric, ionised look (not white-hot rock)
+        r=lerp(150,255,fl)|0; g=lerp(70,225,fl)|0; b=255;
       } else if(m===LAVA){
         const fl=0.78+0.22*Math.sin(t+i*0.7)*0.5+sh*0.18;
         r=Math.min(255,lerp(mat.c2[0],mat.c1[0],sh)*(0.9+fl*0.2))|0;
@@ -3110,7 +3192,7 @@
     SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,CO2,SEED,
     NIGREDO,ALBEDO,CITRINITAS,SAPLING,SODIUM,CHLORINE,MAGNESIUM,
     MOLTEN_METAL,COPPER,PATINA,CUPRITE,TIN,TINPEST,BRONZE,STEEL,SILVER,TARNISH,ALUMINUM,
-    URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD,
+    URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD,PLASMA,HELIUM,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
