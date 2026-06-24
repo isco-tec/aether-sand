@@ -1371,7 +1371,7 @@
         grid[coal]=EMPTY; charge[coal]=0; vel[coal]=0;
         const e=emptyNeighbor(x,i);
         if(rnd()<0.25){ if(e>=0){ convert(e,MOLTEN_METAL); life[e]=METAL; temp[e]=MELT_SEED[METAL]; } convert(i,STONE); }   // ~¼: leave stone slag, pour the iron out
-        else { convert(i,MOLTEN_METAL); life[i]=METAL; temp[i]=MELT_SEED[METAL]; if(e>=0 && rnd()<0.5) spawn(e,CO2); }       // ~¾: the ore itself becomes molten iron + breathes CO2
+        else { convert(i,MOLTEN_METAL); life[i]=METAL; temp[i]=Math.max(temp[i],MELT_SEED[METAL]); if(e>=0 && rnd()<0.5) spawn(e,CO2); }   // ~¾: the ore itself becomes molten iron + breathes CO2 (keep any hotter furnace heat)
         discoverRecipe("iron_smelt"); return;
       }
     }
