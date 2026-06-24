@@ -979,6 +979,8 @@
       if(nm===WATER){ if(rnd()<0.02){ grid[i]=EMPTY; gone=true; return true; } return false; }
       // carbonate rock fizzes — acid + limestone → meltwater + a puff of CO2 (vinegar on chalk)
       if(nm===LIMESTONE && rnd()<0.04){ grid[ni]=EMPTY; const e=emptyNeighbor(x,i); if(e>=0) spawn(e,CO2); convert(i,WATER); gone=true; discoverRecipe("carbonate_acid"); return true; }
+      // acid eats iron and fizzes off hydrogen (the classic acid+metal reaction)
+      if(nm===METAL && rnd()<0.05){ grid[ni]=EMPTY; const e=emptyNeighbor(x,i); if(e>=0) spawn(e,HYDROGEN); discoverRecipe("acid_metal"); if(rnd()<0.4){ grid[i]=EMPTY; gone=true; return true; } return false; }
       if(nm!==EMPTY&&nm!==ACID&&nm!==WALL&&nm!==GLASS&&nm!==GOLD&&nm!==AQUA&&nm!==WATER&&nm!==BRONZE&&nm!==PATINA&&nm!==CUPRITE&&TYPE[nm]!==GAS && rnd()<0.05){
         grid[ni]=EMPTY;
         if(rnd()<0.4){ grid[i]=EMPTY; gone=true; return true; }
@@ -1670,7 +1672,7 @@
     while(y<H-1 && steps<H){
       const i=y*W+x;
       temp[i]=Math.max(temp[i],420);
-      if(CHCOND[grid[i]] && grid[i]!==WATER && grid[i]!==BRINE){ charge[i]=6; chargeDirty=true; }   // energise wires/metal, but don't electrolyse whole lakes
+      if(CHCOND[grid[i]] && grid[i]!==WATER && grid[i]!==BRINE){ charge[i]=6; markChargeDirty(); }   // energise wires/metal, but don't electrolyse whole lakes
       if(FLAM[grid[i]]) temp[i]+=180;
       if(grid[i]===SAND) fuseSand(x,y,2);   // passing through sand fuses it
       addP(x+0.5,y+0.5,(rnd()-0.5)*0.8,0.6+rnd()*1.4,8+rnd()*8,200,228,255,KSPARK);
@@ -1682,7 +1684,7 @@
       if(gm!==EMPTY && TYPE[gm]!==GAS){
         temp[gi]=Math.max(temp[gi],700);
         if(FLAM[gm]) temp[gi]+=320;
-        if(CHCOND[gm] && gm!==WATER && gm!==BRINE){ charge[gi]=6; chargeDirty=true; }
+        if(CHCOND[gm] && gm!==WATER && gm!==BRINE){ charge[gi]=6; markChargeDirty(); }
         fuseSand(x,y,3);                     // a glass blob where the bolt lands (incl. nearby sand)
         for(let a=0;a<14;a++){ const ang=rnd()*6.2832, sp=0.6+rnd()*2.4;
           addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,12+rnd()*16,210,232,255,KSPARK); }
@@ -1705,40 +1707,44 @@
   /* ============================ Charge (electricity) ============== */
   // Electricity travels as a constant-strength pulse leaving a brief
   // refractory trail (charge<0) so a current can run the full length of a wire.
-  let chargeDirty=false;   // true while any charge/refractory cell exists — lets us skip the full-grid scan when idle
+  let chargeDirty=false;   // true while any charge/refractory cell exists — lets us skip the scan when idle
+  let cbx0=0,cby0=0,cbx1=-1,cby1=-1;   // charge bounding box: reset to full grid on each new charge, then self-shrinks as it dissipates
+  function markChargeDirty(){ chargeDirty=true; cbx0=0; cby0=0; cbx1=W-1; cby1=H-1; }   // a fresh charge: scan everything once, then the box tightens
   function propagateCharge(){
-    if(!chargeDirty) return;          // the common case: nothing is energised, so don't scan N cells
-    let any=false;
-    for(let i=0;i<N;i++){
-      const c=charge[i];
-      if(c===0) continue;
-      any=true;
-      if(c<0){ charge[i]=c+1; continue; }
-      const m=grid[i];
-      applySrc(i,140,0.5);
-      if(m===GUNPOWDER){ const x=i%W; explode(x,(i/W)|0,6); grid[i]=EMPTY; charge[i]=0; continue; }
-      if(m===NITRO){ const x=i%W; explode(x,(i/W)|0,8); grid[i]=EMPTY; charge[i]=0; continue; }
-      if(m===FIREWORK){ life[i]=0; }
-      if(FLAM[m]){ heatN(i,26); temp[i]+=16; }
-      if(m===WATER && rnd()<0.06){
-        // electrolysis — current splits water into hydrogen (here) and oxygen (a neighbour)
-        convert(i,HYDROGEN); charge[i]=0;
-        const e=emptyNeighbor(i%W,i); if(e>=0) spawn(e,OXYGEN);
-        discoverRecipe("electrolysis");
-        continue;
+    if(!chargeDirty) return;          // the common case: nothing is energised
+    let any=false, nx0=W,ny0=H,nx1=-1,ny1=-1;   // tight footprint of live charge this pass → next frame's scan box
+    const x0=Math.max(0,cbx0), x1=Math.min(W-1,cbx1), y0=Math.max(0,cby0), y1=Math.min(H-1,cby1);
+    for(let y=y0;y<=y1;y++){ const row=y*W;
+      for(let x=x0;x<=x1;x++){
+        const i=row+x;
+        const c=charge[i];
+        if(c===0) continue;
+        any=true;
+        if(x<nx0)nx0=x; if(x>nx1)nx1=x; if(y<ny0)ny0=y; if(y>ny1)ny1=y;
+        if(c<0){ charge[i]=c+1; continue; }
+        const m=grid[i];
+        applySrc(i,140,0.5);
+        if(m===GUNPOWDER){ explode(x,y,6); grid[i]=EMPTY; charge[i]=0; continue; }
+        if(m===NITRO){ explode(x,y,8); grid[i]=EMPTY; charge[i]=0; continue; }
+        if(m===FIREWORK){ life[i]=0; }
+        if(FLAM[m]){ heatN(i,26); temp[i]+=16; }
+        if(m===WATER && rnd()<0.06){            // electrolysis — current splits water into hydrogen (here) + oxygen (a neighbour)
+          convert(i,HYDROGEN); charge[i]=0;
+          const e=emptyNeighbor(x,i); if(e>=0) spawn(e,OXYGEN);
+          discoverRecipe("electrolysis"); continue;
+        }
+        if(m===BRINE && rnd()<0.06){            // chlor-alkali — electrolysing SALT water gives hydrogen + chlorine
+          convert(i,HYDROGEN); charge[i]=0;
+          const e=emptyNeighbor(x,i); if(e>=0) spawn(e,CHLORINE);
+          discoverRecipe("chlor_alkali"); continue;
+        }
+        forCard(i,(ni)=>{ if(charge[ni]===0 && CHCOND[grid[ni]]) charge[ni]=4; });
+        const nc=c-1;
+        charge[i]= nc>0 ? nc : -3;
       }
-      if(m===BRINE && rnd()<0.06){
-        // the chlor-alkali process — electrolysing SALT water gives hydrogen + chlorine (not oxygen)
-        convert(i,HYDROGEN); charge[i]=0;
-        const e=emptyNeighbor(i%W,i); if(e>=0) spawn(e,CHLORINE);
-        discoverRecipe("chlor_alkali");
-        continue;
-      }
-      forCard(i,(ni)=>{ if(charge[ni]===0 && CHCOND[grid[ni]]) charge[ni]=4; });
-      const nc=c-1;
-      charge[i]= nc>0 ? nc : -3;
     }
     chargeDirty=any;   // once all charge has dissipated, the scan switches itself off until re-energised
+    if(any){ cbx0=nx0-1; cby0=ny0-1; cbx1=nx1+1; cby1=ny1+1; }   // pad by 1 to catch this pass's spread to cardinal neighbours
   }
 
   /* ============================ Particle system =================== */
@@ -1957,6 +1963,9 @@
     }
     ALCHEMY_RECIPES.forEach(r=>[...(r.in||[]),...(r.out||[])].forEach(id=>{ if(id!==EMPTY && !M[id]) warn.push("recipe '"+r.id+"' references unknown id "+id); }));
     MAT_GROUPS.forEach(g=>g.mats.forEach(id=>{ if(id!==EMPTY && !M[id]) warn.push("palette '"+g.label+"' has unknown id "+id); }));
+    // the molten/casting lookups must stay aligned — flag any metal added to one table but not the others
+    Object.keys(MELT_PT).forEach(id=>{ if(MELT_SEED[id]==null) warn.push("MELT_SEED missing id "+id); if(!RECIPE_BY_ID[MELT_RECIPE[id]]) warn.push("MELT_RECIPE id "+id+" → unknown recipe"); });
+    Object.keys(CAST_RECIPE).forEach(id=>{ if(MELT_PT[id]==null) warn.push("CAST_RECIPE id "+id+" not in MELT_PT"); if(!RECIPE_BY_ID[CAST_RECIPE[id]]) warn.push("CAST_RECIPE id "+id+" → unknown recipe"); });
     if(warn.length) try{ console.warn("[Aether Sand] material integrity:\n  "+warn.join("\n  ")); }catch(_){}
   })();
   function step(){
@@ -2090,6 +2099,7 @@
     let rx0,ry0,rx1,ry1;
     if(renderFull||boxFull||bx1<bx0){ rx0=0;ry0=0;rx1=W-1;ry1=H-1; }
     else { rx0=bx0;ry0=by0;rx1=bx1;ry1=by1; }
+    let glowSeen=false;   // skip the whole light-blur pass on frames with no emitters (a quiet scene shouldn't pay LW*LH blur ops)
     if(lit){ lightR.fill(0); lightG.fill(0); lightB.fill(0); }
     for(let yy=ry0;yy<=ry1;yy++){
      const rrow=yy*W;
@@ -2204,6 +2214,7 @@
       if(lit && ge){
         const a=(ge>>>24)*0.00392*lightLevel, li=((((i/W)|0)/LS|0)*LW)+(((i%W)/LS)|0);
         lightR[li]+=(ge&255)*a; lightG[li]+=((ge>>8)&255)*a; lightB[li]+=((ge>>16)&255)*a;
+        glowSeen=true;
       }
      }
     }
@@ -2213,8 +2224,9 @@
         if(lx<0||lx>=LW||ly<0||ly>=LH) continue;
         const li=ly*LW+lx, a=clamp(PL[k]/PM[k],0,1)*0.6*lightLevel;
         lightR[li]+=PR[k]*a; lightG[li]+=PG[k]*a; lightB[li]+=PB[k]*a;
+        glowSeen=true;
       }
-      blurLight(); applyLight(rx0,ry0,rx1,ry1);
+      if(glowSeen){ blurLight(); applyLight(rx0,ry0,rx1,ry1); }   // nothing emitting → no blur, visuals identical
     }
     // upload only the dirty rect: render region ∪ this & last frame's particle clouds
     let ux0=rx0,uy0=ry0,ux1=rx1,uy1=ry1;
@@ -2302,7 +2314,7 @@
   function paintSpark(cx,cy){
     let hit=false;
     forDisc(cx,cy,Math.max(2,brush*0.6),(i)=>{ const m=grid[i];
-      if(CHCOND[m]){ charge[i]=6; hit=true; chargeDirty=true; }
+      if(CHCOND[m]){ charge[i]=6; hit=true; markChargeDirty(); }
       else if(FLAM[m]){ temp[i]+=120; hit=true; }
     });
     if(!hit){ for(let a=0;a<5;a++){ const ang=rnd()*6.28; addP(cx,cy,Math.cos(ang)*1.2,Math.sin(ang)*1.2,14,180,240,255,KSPARK);} }
