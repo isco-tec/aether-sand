@@ -46,7 +46,9 @@
         FALLOUT=88, CONTROL_ROD=89,              // spent fission rubble, and the boron rod that drinks neutrons
         PLASMA=90, HELIUM=91,                    // the ionised 4th state, and the inert ash of fusion
         IRON_ORE=92, MALACHITE=93, CASSITERITE=94,   // ores: hematite (iron), malachite (copper), cassiterite (tin)
-        SANDSTONE=95, SLATE=96, MARBLE=97;        // the rock cycle: sedimentary, metamorphic
+        SANDSTONE=95, SLATE=96, MARBLE=97,        // the rock cycle: sedimentary, metamorphic
+        NUTRIENT=98, ALGAE=99, KRILL=100, CILIATE=101,   // the food web: substrate, producer, grazer, predator
+        CORPSE=102, BACILLUS=103, GLOW_KRILL=104, GLOW_CILIATE=105;   // carrion, decomposer, and the two radiation mutants
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -173,6 +175,15 @@
     [SANDSTONE]:{ name:"Sandstone",type:STATIC, d:1e4, c1:[198,168,122], c2:[164,132,88], k:0.05, trans:[{c:1,t:1250,to:LAVA,p:0.06}] },
     [SLATE]:    { name:"Slate",  type:STATIC, d:1e4, c1:[78,84,98], c2:[54,58,70], k:0.06, trans:[{c:1,t:1300,to:LAVA,p:0.10}] },
     [MARBLE]:   { name:"Marble", type:STATIC, d:1e4, c1:[226,224,220], c2:[196,194,190], k:0.05 },
+    // — Living ecosystem: a bounded radiation-biology food web (substrate → producer → grazer → predator → carrion → decomposer) —
+    [NUTRIENT]: { name:"Nutrient", type:POWDER, d:185, c1:[120,150,80], c2:[88,116,56], k:0.05 },
+    [ALGAE]:    { name:"Algae",  type:STATIC, d:1e4, c1:[96,200,110], c2:[52,150,72], k:0.04, flam:1, emit:0.04, trans:[{c:1,t:160,to:FIRE,p:0.35}] },
+    [KRILL]:    { name:"Krill",  type:POWDER, d:96,  c1:[226,150,120], c2:[182,104,80], k:0.05 },
+    [CILIATE]:  { name:"Ciliate",type:POWDER, d:104, c1:[224,96,84], c2:[170,54,48], k:0.05 },
+    [CORPSE]:   { name:"Carrion",type:POWDER, d:140, c1:[96,84,72], c2:[64,54,46], k:0.05, flam:1 },
+    [BACILLUS]: { name:"Bacillus",type:STATIC,d:1e4, c1:[210,200,120], c2:[170,160,86], k:0.04, flam:1, trans:[{c:1,t:150,to:FIRE,p:0.35}] },
+    [GLOW_KRILL]:  { name:"Glow Krill",  type:POWDER, d:96,  a:230, c1:[150,255,170], c2:[80,210,120], k:0.05, emit:0.3 },
+    [GLOW_CILIATE]:{ name:"Glow Ciliate",type:POWDER, d:104, a:230, c1:[255,120,200], c2:[190,70,150], k:0.05, emit:0.3 },
   };
 
   // fast lookup arrays
@@ -204,6 +215,7 @@
   WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07; WINDF[CO2]=0.8; WINDF[SEED]=0.1;
   WINDF[NIGREDO]=0.04; WINDF[ALBEDO]=0.04; WINDF[CITRINITAS]=0.04; WINDF[SAPLING]=0;
   WINDF[CHLORINE]=0.8; WINDF[SODIUM]=0.06; WINDF[MAGNESIUM]=0.05; WINDF[IRON_ORE]=0.05;
+  WINDF[NUTRIENT]=0.08; WINDF[CORPSE]=0.06;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; CHCOND[BRINE]=1;   // gold is an excellent conductor; salt water conducts too (enables chlor-alkali electrolysis)
   CHCOND[BULB]=1;   // a bulb is an in-line circuit element — charge flows THROUGH it, so a whole multi-cell bulb lights, not just the edge touching the wire
@@ -234,6 +246,17 @@
   // Geology: ores smelt above SMELT_T (with adjacent coal); sand buried under COMPACT_DEPTH cells lithifies; rock
   // buried under METAMORPH_DEPTH AND above METAMORPH_HEAT metamorphoses. overburden() scans at most BURIAL_MAX up.
   const SMELT_T=1150, COMPACT_DEPTH=12, METAMORPH_HEAT=550, METAMORPH_DEPTH=16, BURIAL_MAX=24;
+  // — Living-ecosystem energy economy. life[] is a per-cell battery for consumers (gained ONLY by eating a finite food
+  // cell, spent on metabolism + reproduction) and a strictly-decreasing SPREAD BUDGET for producers/decomposers. The
+  // LOAD-BEARING boundedness inequalities (never tune away): CHILD_LIFE < REPRO_COST (every birth is net-energy-negative),
+  // METAB ≥ 1 (unconditional decay), finite LIFE_MAX (clamp every gain), ALGAE budget only ever decreases, RECYCLE < 0.5.
+  const ALGAE_BUDGET_MIN=12, ALGAE_BUDGET_RND=10, ALGAE_SPREAD_COST=2, ALGAE_GROW_P=0.06, ALGAE_CROWD=5, ALGAE_LIGHT_MIN=0.2;
+  const KRILL_LIFE_MAX=240, KRILL_START=90, KRILL_METAB=1, KRILL_EAT_GAIN=70, KRILL_REPRO_FLOOR=120, KRILL_REPRO_COST=100, KRILL_CHILD_LIFE=60;
+  const GLOW_KRILL_METAB=2, GLOW_KRILL_GAIN=78;
+  const CIL_LIFE_MAX=300, CIL_START=120, CIL_METAB=2, CIL_EAT_GAIN=150, CIL_REPRO_FLOOR=220, CIL_REPRO_COST=180, CIL_CHILD_LIFE=100;
+  const GLOW_CIL_METAB=3, GLOW_CIL_GAIN=165;
+  const CORPSE_MIN=20, BACILLUS_BUDGET_MIN=40, BACILLUS_BUDGET_RND=50, BACILLUS_RECYCLE=0.45;
+  const RAD_SICK=3, DOSE_LETHAL=40, MUT_P=0.06, REVERT_P=0.004, STERILE_DOSE=25;
 
   // palette — six tabs, each split into ordered sub-sections; `mats` is DERIVED so every downstream consumer
   // (PALETTE, matsForView, validateMaterials, the booklet, shortcuts, the scripting API) keeps working unchanged.
@@ -244,6 +267,7 @@
       { name:"Water & Ice", mats:[WATER,ICE,SNOW] },
       { name:"Rock", mats:[STONE,SANDSTONE,SLATE,MARBLE,LIMESTONE,OBSIDIAN,GLASS] },
       { name:"Life", mats:[WOOD,SEED,SAPLING,PLANT,VINE,MOLD] },
+      { name:"Ecosystem", mats:[NUTRIENT,ALGAE,KRILL,CILIATE,CORPSE,BACILLUS,GLOW_KRILL,GLOW_CILIATE] },
       { name:"Structure", mats:[WALL] },
     ]),
     grp("Metals","⛓",[
@@ -321,6 +345,14 @@
     [SANDSTONE]:"Warm tan sedimentary rock — sand buried deep and pressed until the grains cement together. Bake it deeper still and it hardens to quartzite; leave a face open to air and water and it crumbles slowly back to sand.",
     [SLATE]:"Dark blue-grey foliated rock — stone baked and pressed deep underground, well short of melting. Roof a house with it, or let air and water gnaw an exposed face slowly back to sand.",
     [MARBLE]:"Clean white veined rock — limestone recrystallised under deep burial and gentle heat. Roast it hard and it still calcines to quicklime like its parent; splash it with acid and it fizzes and dissolves fastest of any rock.",
+    [NUTRIENT]:"Mineral detritus — the soil of the food web. Algae fixes it in light; decomposers make it. Inert on its own.",
+    [ALGAE]:"Photosynthetic film. Grows across empty cells touching water in light, drinking the water; food for krill. Burns, and wilts in the dark.",
+    [KRILL]:"Grazing plankton. Eats algae for energy, breeds only when well-fed, starves without food. Dies to carrion.",
+    [CILIATE]:"Predatory microbe. Hunts krill; burns energy fast so it stays rare — the top of the web.",
+    [CORPSE]:"Carrion. Dead biomass — settles, rots to ash, or is recycled by bacillus into nutrient.",
+    [BACILLUS]:"Decomposer film. Turns carrion back into nutrient (at a loss) and fades when the corpses run out.",
+    [GLOW_KRILL]:"Irradiated krill. Bioluminescent; burns energy faster but feeds harder. Mutates from krill near radiation; reverts when clean.",
+    [GLOW_CILIATE]:"Irradiated predator. Glowing, high-burn, high-yield. Mutates from ciliate near radiation.",
     [WALL]:"Immovable barrier.",
     [VINE]:"Climbing plant — creeps up surfaces and across open space. Flammable.",
     [MOLD]:"Creeping rot — spreads over wood, plant and damp stone, then crumbles to ash.",
@@ -397,6 +429,17 @@
     { id:"wilt", cat:"Growth", name:"Withering", in:[PLANT], out:[ASH], note:"Sealed away from air and light, a plant withers to ash.", hint:"Bury a plant in the dark…" },
     { id:"vine_grow", cat:"Growth", name:"Climbing vines", in:[VINE], out:[VINE], note:"Vines creep up surfaces and reach across open space.", hint:"Tendrils seeking a wall…" },
     { id:"mold_spread", cat:"Growth", name:"Creeping rot", in:[MOLD,WOOD], out:[MOLD], note:"Mold spreads over wood, plant and damp stone, then crumbles to ash.", hint:"Decay finds the damp…" },
+    { id:"algae_grow", cat:"Growth", name:"Algal bloom", in:[ALGAE,WATER], out:[ALGAE], note:"Algae drinks water and light to creep across empty surfaces — the base of the food web.", hint:"Green film on a wet, lit edge…" },
+    { id:"algae_die", cat:"Growth", name:"Bleaching", in:[ALGAE,ACID], out:[CORPSE], note:"Toxins, or darkness, kill algae.", hint:"Poison the pond…" },
+    { id:"krill_graze", cat:"Growth", name:"Grazing", in:[KRILL,ALGAE], out:[KRILL], note:"Krill eat algae for energy.", hint:"Something nibbles the bloom…" },
+    { id:"krill_breed", cat:"Growth", name:"Krill swarm", in:[KRILL], out:[KRILL], note:"A well-fed krill splits into a new krill — but every birth spends more energy than the child carries, so the swarm needs a steady bloom.", hint:"Feed the swarm…" },
+    { id:"krill_die", cat:"Growth", name:"Starvation", in:[KRILL], out:[CORPSE], note:"Krill with no algae starve to carrion — the swarm crashes when it overgrazes.", hint:"Let the bloom run out…" },
+    { id:"krill_mutate", cat:"Growth", name:"Irradiated strain", in:[KRILL,FALLOUT], out:[GLOW_KRILL], note:"Radiation mutates krill into a glowing, high-burn, high-yield strain. It reverts in a clean world.", hint:"Plankton beside a reactor…" },
+    { id:"ciliate_hunt", cat:"Growth", name:"The hunt", in:[CILIATE,KRILL], out:[CILIATE], note:"Ciliates hunt krill — the predator above the grazer.", hint:"A predator in the swarm…" },
+    { id:"ciliate_breed", cat:"Growth", name:"Predator bloom", in:[CILIATE], out:[CILIATE], note:"A well-fed ciliate divides — but predators burn energy fast, so they stay rare.", hint:"Feed the hunter…" },
+    { id:"ciliate_die", cat:"Growth", name:"Predator collapse", in:[CILIATE], out:[CORPSE], note:"Without prey the predators starve first — the top of the web is the most fragile.", hint:"Starve the top of the web…" },
+    { id:"ciliate_mutate", cat:"Growth", name:"Irradiated predator", in:[CILIATE,FALLOUT], out:[GLOW_CILIATE], note:"Radiation mutates the predator into a glowing high-burn strain.", hint:"A hunter beside the fallout…" },
+    { id:"decompose", cat:"Growth", name:"Decomposition", in:[BACILLUS,CORPSE], out:[NUTRIENT], note:"Bacillus recycles carrion into nutrient — at a loss, so the loop slowly winds down without fresh life.", hint:"Rot feeds the soil…" },
     { id:"wildfire", cat:"Growth", name:"Wildfire", in:[FIRE,WOOD], out:[FIRE], note:"Flame races through connected forests of wood, plant and vine.", hint:"One spark in a dry forest…" },
     { id:"obsidian", cat:"Phase", name:"Obsidian quench", in:[LAVA,WATER], out:[OBSIDIAN], note:"Molten rock quenched in water freezes into volcanic glass.", hint:"Fire-rock meets water…" },
     { id:"rust", cat:"Phase", name:"Oxidation", in:[METAL,WATER], out:[RUST], note:"Iron left in water slowly oxidises to flaky rust.", hint:"Metal left wet too long…" },
@@ -547,6 +590,7 @@
     [COPPER]:1,[PATINA]:1,[CUPRITE]:1,[TIN]:1,[TINPEST]:0.9,[BRONZE]:1,[STEEL]:1,[SILVER]:1,[TARNISH]:1,[ALUMINUM]:0.9,
     [URANIUM]:1,[PLUTONIUM]:1,[NEUTRON]:0.7,[FALLOUT]:0.9,[CONTROL_ROD]:1,
     [IRON_ORE]:0.9,[MALACHITE]:1,[CASSITERITE]:1,[SANDSTONE]:1,[SLATE]:1,[MARBLE]:1,
+    [NUTRIENT]:0.85,[ALGAE]:1,[KRILL]:0.85,[CILIATE]:0.85,[CORPSE]:0.85,[BACILLUS]:1,[GLOW_KRILL]:0.85,[GLOW_CILIATE]:0.85,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -557,6 +601,7 @@
   let SCALE,W,H,N;
   let grid,shade,life,vel,charge,moved,temp,tempB,pres,presB;
   let PLASMA_SRC;   // per-cell: the gas a plasma cell will recombine back into (0 until ionised)
+  let dose;         // per-cell radiation dose (Int16; stays 0 for non-organisms) — drives mutation / sickness / sterility. NOT charge[] (propagateCharge would corrupt it)
   let simImg,sim32,glowImg,glow32;
   let LS,LW,LH,LN,lightR,lightG,lightB,lightT;
   let lighting=true, lightLevel=0.54;
@@ -575,13 +620,14 @@
   }
 
   function allocate(w,h){
-    const old = grid ? {grid,temp,PLASMA_SRC,W,H} : null;
+    const old = grid ? {grid,temp,PLASMA_SRC,dose,W,H} : null;
     W=w; H=h; N=W*H;
     N8OFF=[-W-1,-W,-W+1,-1,1,W-1,W,W+1];   // 8-neighbour linear offsets for this width (see forN8)
     CARD_OFF=[-W,W,-1,1];                   // 4-cardinal linear offsets for this width (see emptyNeighbor)
     grid=new Uint8Array(N); shade=new Uint8Array(N); life=new Int16Array(N);
     vel=new Float32Array(N); charge=new Int8Array(N); moved=new Uint8Array(N);
     PLASMA_SRC=new Uint8Array(N);
+    dose=new Int16Array(N);
     temp=new Float32Array(N).fill(AMBIENT); tempB=new Float32Array(N);
     pres=new Float32Array(N); presB=new Float32Array(N);
     sim.width=W; sim.height=H; glow.width=W; glow.height=H;
@@ -596,6 +642,7 @@
         const a=y*W+x,b=y*old.W+x, m=old.grid[b];
         grid[a]=m; temp[a]=old.temp[b]; shade[a]=r255(); life[a]=defaultLife(m);  // re-init shade/life so cells render & behave
         if(old.PLASMA_SRC) PLASMA_SRC[a]=old.PLASMA_SRC[b];   // keep plasma's parent-gas tag so it recombines correctly after a resize
+        if(old.dose) dose[a]=old.dose[b];   // keep accumulated radiation dose across a resize
       }
     }
     // reset active-region tracking for the new grid dimensions (full rebuild next step)
@@ -656,12 +703,17 @@
       case FALLOUT: return 600+(rnd()*400|0);     // fission rubble decays to plain ash after a while
       case PLASMA: return 40+(rnd()*40|0);        // a plasma cell recombines within ~40-80 ticks — the hard upper bound on its life
       case HELIUM: return 240+(rnd()*200|0);      // inert helium drifts a while then vents to nothing
+      case ALGAE: return ALGAE_BUDGET_MIN+(rnd()*ALGAE_BUDGET_RND|0);   // spread budget (~11 spreads), strictly decreasing
+      case KRILL: case GLOW_KRILL: return KRILL_START;       // starting energy reserve
+      case CILIATE: case GLOW_CILIATE: return CIL_START;
+      case CORPSE: return CORPSE_MIN+(rnd()*40|0);           // residual biomass if painted
+      case BACILLUS: return BACILLUS_BUDGET_MIN+(rnd()*BACILLUS_BUDGET_RND|0);   // self-rot budget (NUTRIENT default 0, inert)
       default: return 0;
     }
   }
   function convert(i,m){ grid[i]=m; shade[i]=r255(); life[i]=defaultLife(m); vel[i]=0; moved[i]=1; }
   function spawn(i,m){ convert(i,m); temp[i]=BASET[m]; charge[i]=0; }
-  function clearCell(i){ grid[i]=EMPTY; charge[i]=0; vel[i]=0; }   // wipe a cell to empty (consumed reactant), zeroing its charge + velocity
+  function clearCell(i){ grid[i]=EMPTY; charge[i]=0; vel[i]=0; dose[i]=0; }   // wipe a cell to empty (consumed reactant), zeroing its charge, velocity + radiation dose
 
   function swap(a,b){
     let t;
@@ -671,6 +723,7 @@
     t=vel[a];vel[a]=vel[b];vel[b]=t;
     t=temp[a];temp[a]=temp[b];temp[b]=t;
     t=charge[a];charge[a]=charge[b];charge[b]=t;
+    t=dose[a];dose[a]=dose[b];dose[b]=t;   // a foraging organism carries its accumulated dose with it
     moved[a]=1; moved[b]=1;
   }
   function canDisplace(srcM,dst){
@@ -1588,6 +1641,119 @@
     if(temp[i]>120 && rnd()<0.25){ grid[i]=EMPTY; return; }   // dries / burns off when warm
     if(rnd()<0.0016){ convert(i, rnd()<0.5?ASH:EMPTY); }      // eventually crumbles to ash
   }
+
+  /* ===================== Living ecosystem: a bounded radiation-biology food web ===================== */
+  // life[] is the per-cell battery (consumers) / spread budget (producers); dose[] is radiation exposure. BOUNDED:
+  // energy rises ONLY by eating a finite food cell; every birth is net-energy-negative; producers delete a finite
+  // water + empty cell to grow; the recycle loop is lossy. (Load-bearing inequalities live with the energy consts.)
+  function dieToCorpse(i){ const bio=Math.max(life[i],CORPSE_MIN); convert(i,CORPSE); life[i]=bio; dose[i]=0; }   // an organism dies → carrion carrying its leftover biomass
+  // Radiation near an organism: accumulate dose, sicken (extra metabolism), maybe mutate (re-skin IN PLACE, pop-neutral)
+  // or kill (pop-negative). Called first in every consumer up-fn. Returns true if it converted/killed this cell.
+  function applyRadiation(x,i,baseId,glowId,isGlow){
+    if(rnd()>0.5 && dose[i]===0) return false;   // coarse gate — cheap when there's no radiation about
+    let d=0;
+    forN8(x,i,(ni,nm)=>{ if(nm===NEUTRON) d+=3; else if(nm===PLUTONIUM) d+=2; else if(nm===URANIUM||nm===FALLOUT) d+=1; return false; });
+    if(d>0){
+      dose[i]=Math.min(127, dose[i]+d);
+      life[i]-=RAD_SICK;                                         // cancer: extra metabolism, loss only
+      if(life[i]<=0){ dieToCorpse(i); return true; }
+      if(dose[i]>=DOSE_LETHAL){ dieToCorpse(i); return true; }   // radiation death (1 cell → 1 corpse)
+      if(!isGlow && rnd()<MUT_P){ const e=life[i], dz=dose[i]; convert(i,glowId); life[i]=e; dose[i]=dz; discoverRecipe(baseId===KRILL?"krill_mutate":"ciliate_mutate"); return true; }   // re-skin to mutant, preserving energy + dose
+    } else if(isGlow && rnd()<REVERT_P){ const e=life[i]; convert(i,baseId); life[i]=e; dose[i]=0; return true; }   // away from radiation → slow reversion (pop-neutral)
+    else if(dose[i]>0 && rnd()<0.02) dose[i]--;                  // dose slowly heals in a clean world
+    return false;
+  }
+  // Reproduction: a strict, gated, net-energy-NEGATIVE transaction needing a verified-empty target (CHILD < COST, so
+  // every birth DESTROYS energy; the emptyNeighbor gate makes density self-limit). Shared by both consumers + mutants.
+  function tryBreed(x,y,i,selfId,COST,FLOOR,CHILD){
+    if(dose[i]>=STERILE_DOSE) return false;            // radiation-sterilised
+    if(life[i]<FLOOR) return false;                    // must be well-fed (energy earned from finite food)
+    if(temp[i]<=2 || temp[i]>=70) return false;        // no breeding in torpor / heat-death range
+    const e=emptyNeighbor(x,i); if(e<0) return false;  // no empty cell → no birth (space-limited)
+    if(rnd()>0.5) return false;                        // rate-limit
+    spawn(e,selfId); life[e]=CHILD; dose[e]=0; temp[e]=temp[i];   // child created, reserve overwritten to CHILD (< COST)
+    life[i]-=COST; if(life[i]<0) life[i]=0;             // parent pays the full cost
+    expandActive(x-1,y-1,x+1,y+1);
+    return true;
+  }
+  // Forage: descend toward the food layers, then bias one step toward sniffed food — swap only (never duplicates).
+  function forage(x,y,i,me,foodId){
+    if(moveFalling(x,y,i,me)) return;
+    let bx=0,by=0;
+    forN8(x,i,(ni,nm)=>{ if(nm===foodId){ bx+=Math.sign((ni%W)-x); by+=Math.sign(((ni/W)|0)-y); } return false; });
+    if((bx||by) && rnd()<0.6){
+      const nx=x+Math.sign(bx), ny=y+Math.sign(by);
+      if(nx>=0&&nx<W&&ny>=0&&ny<H){ const nj=ny*W+nx; if(canDisplace(me,nj)){ swap(i,nj); expandActive(nx-1,ny-1,nx+1,ny+1); return; } }
+    }
+    if(brownian(x,y,i,me)) expandActive(x-1,y-1,x+1,y+1);
+  }
+  function upNutrient(x,y,i){ moveFalling(x,y,i,NUTRIENT); }
+  // ALGAE (producer): grows into ONE empty+lit+watered cell, DELETING a finite WATER cell + debiting a strictly-
+  // decreasing spread budget. Never gains energy. The clearCell(water) line is the single thing keeping it bounded.
+  function upAlgae(x,y,i){
+    let water=-1, emptyJ=-1, kin=0, nutrient=-1, buried=true, toxin=false;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===WATER||nm===BRINE){ water=ni; buried=false; }
+      else if(nm===EMPTY){ if(emptyJ<0) emptyJ=ni; buried=false; }
+      else if(nm===NUTRIENT){ if(nutrient<0) nutrient=ni; }
+      else if(nm===ALGAE){ kin++; }
+      else if(nm===ACID||nm===CHLORINE){ toxin=true; }
+      else if(TYPE[nm]===GAS||TYPE[nm]===LIQUID||nm===ICE||nm===GLASS){ buried=false; }
+      return false;
+    });
+    if(toxin){ dieToCorpse(i); discoverRecipe("algae_die"); return; }
+    if(buried || lightFX()<ALGAE_LIGHT_MIN){ if(rnd()<0.004){ convert(i,CORPSE); life[i]=CORPSE_MIN; } return; }   // dark / buried → slow wilt to carrion
+    if(temp[i]<-2) return;                                  // dormant in deep cold
+    if(life[i]>0 && water>=0 && emptyJ>=0 && kin<=ALGAE_CROWD){
+      const p=(nutrient>=0)?ALGAE_GROW_P*2:ALGAE_GROW_P;    // nutrient nearby speeds growth
+      if(rnd()<p){
+        const budget=life[i]-1, tt=temp[i];                // capture before convert (which resets life)
+        convert(emptyJ,ALGAE); life[emptyJ]=budget; temp[emptyJ]=tt;   // child budget strictly < parent
+        clearCell(water);                                  // CONSUME the finite water substrate (load-bearing line)
+        if(nutrient>=0) clearCell(nutrient);               // draw down nutrient too (recloses the loop)
+        life[i]-=ALGAE_SPREAD_COST;                        // parent budget strictly decreasing
+        discoverRecipe("algae_grow");
+      }
+    }
+  }
+  // KRILL / GLOW_KRILL (grazer): metabolism every tick, eat ALGAE for energy (removing a finite cell), breed net-negative, forage.
+  function upKrill(x,y,i,me){
+    const isGlow=(me===GLOW_KRILL);
+    if(applyRadiation(x,i,KRILL,GLOW_KRILL,isGlow)) return;
+    life[i]-=isGlow?GLOW_KRILL_METAB:KRILL_METAB;           // metabolism (unconditional, first)
+    if(life[i]<=0){ dieToCorpse(i); discoverRecipe("krill_die"); return; }
+    if(temp[i]>70){ dieToCorpse(i); return; }
+    let algaeTgt=-1, toxin=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===ACID||nm===CHLORINE){ toxin=true; return true; } if(nm===ALGAE && algaeTgt<0) algaeTgt=ni; return false; });
+    if(toxin){ dieToCorpse(i); return; }
+    if(algaeTgt>=0){ clearCell(algaeTgt); life[i]=Math.min(KRILL_LIFE_MAX, life[i]+(isGlow?GLOW_KRILL_GAIN:KRILL_EAT_GAIN)); discoverRecipe("krill_graze"); return; }
+    if(tryBreed(x,y,i,me,KRILL_REPRO_COST,KRILL_REPRO_FLOOR,KRILL_CHILD_LIFE)){ discoverRecipe("krill_breed"); return; }
+    forage(x,y,i,me,ALGAE);
+  }
+  // CILIATE / GLOW_CILIATE (predator): hunts KRILL; higher metabolism → naturally rarer (the Eltonian pyramid).
+  function upCiliate(x,y,i,me){
+    const isGlow=(me===GLOW_CILIATE);
+    if(applyRadiation(x,i,CILIATE,GLOW_CILIATE,isGlow)) return;
+    life[i]-=isGlow?GLOW_CIL_METAB:CIL_METAB;
+    if(life[i]<=0){ dieToCorpse(i); discoverRecipe("ciliate_die"); return; }
+    if(temp[i]>70){ dieToCorpse(i); return; }
+    let preyTgt=-1, toxin=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===ACID||nm===CHLORINE){ toxin=true; return true; } if((nm===KRILL||nm===GLOW_KRILL) && preyTgt<0) preyTgt=ni; return false; });
+    if(toxin){ dieToCorpse(i); return; }
+    if(preyTgt>=0){ clearCell(preyTgt); life[i]=Math.min(CIL_LIFE_MAX, life[i]+(isGlow?GLOW_CIL_GAIN:CIL_EAT_GAIN)); discoverRecipe("ciliate_hunt"); return; }
+    if(tryBreed(x,y,i,me,CIL_REPRO_COST,CIL_REPRO_FLOOR,CIL_CHILD_LIFE)){ discoverRecipe("ciliate_breed"); return; }
+    forage(x,y,i,me,KRILL);
+  }
+  function upCorpse(x,y,i){
+    if(--life[i]<=0){ convert(i,ASH); return; }   // uneaten biomass → inert ash (a guaranteed exit, independent of decomposers)
+    moveFalling(x,y,i,CORPSE);
+  }
+  // BACILLUS (decomposer): converts an adjacent CORPSE → NUTRIENT at a LOSS, in place; NEVER self-spreads; mortal self-rot budget.
+  function upBacillus(x,y,i){
+    forN8(x,i,(ni,nm)=>{ if(nm===CORPSE && rnd()<0.03){ convert(ni, rnd()<BACILLUS_RECYCLE?NUTRIENT:EMPTY); temp[ni]=temp[i]; discoverRecipe("decompose"); return true; } return false; });
+    if(temp[i]>120 && rnd()<0.25){ grid[i]=EMPTY; return; }   // dries / burns off
+    if(--life[i]<=0){ convert(i, rnd()<0.5?NUTRIENT:EMPTY); }   // self-rot: mortal, can't blanket the board
+  }
   function upGunpowder(x,y,i){
     if(temp[i]>=200){ explode(x,y,6); grid[i]=EMPTY; discoverRecipe("gunpowder_boom"); return; }
     let lit=false;
@@ -2288,6 +2454,9 @@
   reg(upPlasma, PLASMA); reg(upHelium, HELIUM);
   reg(upIronOre, IRON_ORE); reg(upMalachite, MALACHITE); reg(upCassiterite, CASSITERITE);
   reg(upSandstone, SANDSTONE); reg(upSlate, SLATE); reg(upMarble, MARBLE); reg(upStone, STONE);
+  reg(upNutrient, NUTRIENT); reg(upAlgae, ALGAE); reg(upCorpse, CORPSE); reg(upBacillus, BACILLUS);
+  reg((x,y,i)=>upKrill(x,y,i,KRILL), KRILL); reg((x,y,i)=>upKrill(x,y,i,GLOW_KRILL), GLOW_KRILL);
+  reg((x,y,i)=>upCiliate(x,y,i,CILIATE), CILIATE); reg((x,y,i)=>upCiliate(x,y,i,GLOW_CILIATE), GLOW_CILIATE);
   // integrity check — turn the material system's SILENT failures (a material with no dispatch, no blurb, or
   // missing from the palette; a recipe/group pointing at a non-existent id) into a LOUD boot-time warning
   (function validateMaterials(){
@@ -3477,6 +3646,8 @@
     MOLTEN_METAL,COPPER,PATINA,CUPRITE,TIN,TINPEST,BRONZE,STEEL,SILVER,TARNISH,ALUMINUM,
     URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD,PLASMA,HELIUM,
     IRON_ORE,MALACHITE,CASSITERITE,SANDSTONE,SLATE,MARBLE,
+    NUTRIENT,ALGAE,KRILL,CILIATE,CORPSE,BACILLUS,GLOW_KRILL,GLOW_CILIATE,
+    census(){ const c=new Int32Array(MAXID); for(let i=0;i<N;i++)c[grid[i]]++; return { nutrient:c[NUTRIENT], algae:c[ALGAE], krill:c[KRILL]+c[GLOW_KRILL], ciliate:c[CILIATE]+c[GLOW_CILIATE], corpse:c[CORPSE], bacillus:c[BACILLUS] }; },
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
