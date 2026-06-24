@@ -1219,7 +1219,8 @@
       convert(struck,FALLOUT); applySrc(struck,2200,0.6); heatN(struck,80);   // PAY one fuel cell; dump heat (clamped to 2200)
       let placed=0, nu=isPu?3:2;
       forN8(sx,struck,(ni,nm)=>{ if(placed>=nu) return true; if(nm===EMPTY){ spawn(ni,NEUTRON); placed++; } return false; });   // ≤nu prompt neutrons into EMPTY only
-      explode(sx,sy,2);                                          // load-bearing: the blast clears pockets in the fallout so neutrons can propagate through packed fuel (also the visible yield). LAST, so it can't clobber the fresh fallout/neutrons
+      explode(sx,sy,2);                                          // load-bearing: the blast clears pockets so neutrons can propagate through packed fuel (also the visible yield). LAST, so it can't clobber the fresh neutrons
+      if(rnd()<0.12) convert(struck,FALLOUT);                    // re-settle a LITTLE rubble after the blast — leaves visible fallout without choking the reaction cavity (the chain is very sensitive to obstruction)
       grid[i]=EMPTY;                                             // the incident neutron is consumed
       discoverRecipe(isPu?"pu_fission":"u_fission");
       return;
