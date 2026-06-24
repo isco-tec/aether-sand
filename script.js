@@ -6,6 +6,14 @@
    Live:    https://isco-tec.github.io/aether-sand/
    License: code is MIT; the work as a whole is CC BY 4.0.
             Free to use & remix — just credit Ori Iscovici / labs.iscovici.com.
+
+   NOTE ON FILE SIZE: this is deliberately ONE file. The whole point is that
+   index.html / style.css / script.js paste straight into CodePen's three panels
+   and deploy as a plain static site — no build step, no bundler. That single-file
+   constraint is intentional, so this file knowingly exceeds the usual ~800-line
+   per-file guideline. It stays navigable via clearly-sectioned regions (search for
+   the banner comments made of equals-signs) and a boot-time material-integrity check
+   rather than by splitting into modules that would need a bundler to ship.
    ===================================================================== */
 
 (() => {
