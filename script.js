@@ -220,7 +220,10 @@
   WINDF[FALLOUT]=0.06;   // contaminated dust settles slowly (neutrons/fuel/rods ignore wind)
   // Fission tuning. Boundedness rests on the invariants (each fission consumes one fuel cell), NOT these numbers —
   // they only shift the critical mass: a small bare lump leaks neutrons and fizzles, a big dense block chains.
-  const CAPTURE_U=0.62, CAPTURE_PU=0.85, ABSORB=0.10, SPON_U=0.00005, SPON_PU=0.0005;
+  // SPON_*: spontaneous-fission neutron rate PER CELL. Kept very low so an idle small/medium lump reads as STABLE
+  // (you detonate it deliberately with a neutron) — only a LARGE pile coughs out enough spontaneous neutrons to
+  // self-start, and plutonium stays markedly twitchier than uranium (its real hazard).
+  const CAPTURE_U=0.62, CAPTURE_PU=0.85, ABSORB=0.10, SPON_U=0.000003, SPON_PU=0.00003;
   // Fusion & plasma thresholds, tuned to the temps actually reachable in-engine (a fission zone peaks ~1620,
   // molten iron 1600, burning magnesium ~1700 — well above lava 1100 / fire 650, so only genuinely extreme heat
   // triggers these). IGNITE_T: a non-plasma neighbour this hot ionises an adjacent gas → plasma. FUSE_T (higher):
@@ -970,7 +973,7 @@
     if(oxy>=0){ applySrc(i,950,0.25); if(rnd()<0.3){ convert(oxy,CO2); discoverRecipe("combust_o2"); } air=true; }
     // CO2 smothers; sealed (no air) suffocates; oxygen sustains; otherwise normal burn
     life[i] -= co2 ? 6 : (!air ? 4 : (oxy>=0 ? 0 : 1));
-    if(life[i]<=0){ const r=rnd(); if(r<0.42) convert(i,SMOKE); else if(r<0.6) convert(i,ASH); else grid[i]=EMPTY; return; }  // embers leave a little ash — it drifts down and enriches the soil
+    if(life[i]<=0){ const r=rnd(); if(r<0.42) convert(i,SMOKE); else if(r<0.53) convert(i,ASH); else grid[i]=EMPTY; return; }  // embers leave a LITTLE ash (it later crumbles away in upAsh) — most just burn out clean
     if(applyPressure(x,y,i,FIRE)) return;
     moveGas(x,y,i,FIRE); applyWind(x,i,FIRE);
   }
@@ -2038,18 +2041,26 @@
     for(let mi=mushrooms.length-1;mi>=0;mi--){
       const m=mushrooms[mi], a=m.age++, s=m.scale, cx=m.cx, cy=m.cy;
       if(a>m.life){ mushrooms.splice(mi,1); continue; }
-      const prog=a/m.life, stemH=58*s, capY=cy-stemH*Math.min(1,prog*1.25);
-      if(a<12){                                   // FIREBALL — a hot flash boiling up off the ground
-        for(let n=0;n<6;n++){ const ang=rnd()*6.2832, spd=(0.8+rnd()*2.6)*s;
-          addP(cx,cy,Math.cos(ang)*spd,Math.sin(ang)*spd-0.6, 12+rnd()*14, 255,170+(rnd()*70|0),50+(rnd()*40|0), KEMBER); }
+      const prog=a/m.life, stemH=58*s, rise=Math.min(1,prog*1.3), capY=cy-stemH*rise;
+      // FIREBALL — a hot head boils up off the ground and climbs with the cap, cooling white→orange→red as it rises
+      if(a<16){
+        const fy=cy-stemH*rise*0.85;
+        for(let n=0;n<5;n++){ const ang=rnd()*6.2832, spd=(0.5+rnd()*1.8)*s;
+          addP(cx+Math.cos(ang)*4*s, fy, Math.cos(ang)*spd, Math.sin(ang)*spd-0.9, 12+rnd()*14, 255, 205-(a*8|0), 70+(rnd()*40|0), KEMBER); }
       }
-      if(a<m.life*0.72){                          // STEM — the column of smoke dragged up behind the fireball
-        for(let n=0;n<5;n++){ const jx=(rnd()-0.5)*7*s;
-          addP(cx+jx, cy-rnd()*5, (rnd()-0.5)*0.25, -0.35-rnd()*0.3, 60+rnd()*44, 158+(rnd()*28|0),144+(rnd()*24|0),126+(rnd()*22|0), KSMOKE); }
+      // STEM — a narrow, DARK dust column sucked up the draught behind the rising head
+      if(a<m.life*0.72){
+        for(let n=0;n<4;n++){ const jx=(rnd()-0.5)*6*s;
+          addP(cx+jx, cy-rnd()*6, (rnd()-0.5)*0.2, -0.4-rnd()*0.35, 56+rnd()*42, 118+(rnd()*22|0),106+(rnd()*20|0),94+(rnd()*18|0), KSMOKE); }
       }
-      if(a>=6){                                   // CAP — the umbrella: smoke billowing outward at the rising stem-top, curling up
-        for(let n=0;n<8;n++){ const side=rnd()<0.5?-1:1, outV=(0.35+rnd()*0.85)*s;
-          addP(cx+(rnd()-0.5)*7*s, capY+(rnd()-0.5)*4, side*outV, -0.1-rnd()*0.2, 70+rnd()*48, 172+(rnd()*26|0),156+(rnd()*22|0),136+(rnd()*20|0), KSMOKE); }
+      // CAP — a flattened, billowing toroidal dome: puffs sit on a wide-but-shallow arc and roll outward, the rim
+      // curling back under (the vortex roll). Lit warm by the fireball at first, fading to grey dust as it cools.
+      if(a>=5){
+        const capR=(7+prog*24)*s, lit=Math.max(0,1-prog*1.6);
+        for(let n=0;n<8;n++){ const ang=(rnd()-0.5)*3.3, rr=capR*(0.55+rnd()*0.5), out=Math.sin(ang);
+          const px=cx+out*rr, py=capY-Math.cos(ang)*rr*0.5;             // flattened dome — wider than it is tall
+          const vx=out*(0.45+rnd()*0.5)*s, vy=-0.2-rnd()*0.2+Math.abs(out)*0.4;   // top lifts, the rim curls under
+          addP(px, py, vx, vy, 72+rnd()*54, 168+(lit*64|0)+(rnd()*16|0), 150+(lit*22|0)+(rnd()*16|0), 130+(rnd()*16|0), KSMOKE); }
       }
     }
   }
@@ -2171,6 +2182,14 @@
   // no entry (WOOD/GLASS/STONE/METAL/OBSIDIAN/DIAMOND) are inert except for thermal/conduction.
   const upFall =(x,y,i,m)=>moveFalling(x,y,i,m);
   const upDrift=(x,y,i,m)=>{ moveFalling(x,y,i,m); applyWind(x,i,m); };
+  // Ash drifts like a powder but, unlike rust, slowly CRUMBLES back to nothing so it never piles up forever — and a
+  // splash of water washes it away faster (a soaked heap clears). ASH_DECAY≈0.0035 ⇒ a ~3s half-life at 60fps.
+  const ASH_DECAY=0.0035;
+  const upAsh=(x,y,i)=>{
+    if(rnd()<ASH_DECAY){ grid[i]=EMPTY; return; }
+    if(rnd()<0.04){ let wet=false; forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===BRINE){ wet=true; return true; } return false; }); if(wet){ grid[i]=EMPTY; return; } }
+    moveFalling(x,y,i,ASH); applyWind(x,i,ASH);
+  };
   const upOil  =(x,y,i)=>{ const onWater=(y<H-1 && grid[i+W]===WATER);   // oil floats and spreads into a thin slick on a water surface
     moveLiquid(x,y,i,OIL, onWater?3:DISP[OIL]); applyWind(x,i,OIL); };
   const upCloudRain    =(x,y,i)=>cloudBehavior(x,y,i,CLOUD,WATER);
@@ -2179,7 +2198,7 @@
   const UPDATE=new Array(MAXID);
   const reg=(fn,...ids)=>ids.forEach(id=>{ UPDATE[id]=fn; });
   reg(upFall, RAINBOW); reg(upSand, SAND);   // SAND split off so it can lithify under burial (RAINBOW must NOT)
-  reg(upDrift, ASH, RUST);
+  reg(upDrift, RUST); reg(upAsh, ASH);   // ash decays (upAsh); rust is permanent (upDrift)
   reg(upOil, OIL); reg(upSalt, SALT); reg(upSnow, SNOW); reg(upWater, WATER); reg(upAcid, ACID);
   reg(upLava, LAVA); reg(upFire, FIRE); reg(upSmoke, SMOKE); reg(upSteam, STEAM); reg(upPlant, PLANT);
   reg(upIceCell, ICE); reg(upGunpowder, GUNPOWDER); reg(upCoal, COAL); reg(upFirework, FIREWORK);
