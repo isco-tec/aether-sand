@@ -1296,7 +1296,8 @@
     }
     // add this cell to a uniform reservoir of the whole cloud — the storm trigger in step() will
     // strike from a random one of these, so bolts come from anywhere across the cloud, one at a time
-    stormCount++; if(rnd()*stormCount<1){ stormPX=x; stormPY=y; }
+    stormCount++; if(rnd()*stormCount<1){ stormPX=x; stormPY=y; }   // uniform reservoir → a strike point anywhere in the cloud
+    stormQ+=STORM_CHARGE_RATE;                                       // every cloud cell separates a little more charge each step
     // heavy smoke pollution can slowly sour a storm cloud into an acid cloud.
     // Only real smoke counts (no acid-cloud chain reaction), and it needs a proper
     // plume around it, so it stays a deliberate, rare event rather than a sweep.
@@ -1622,18 +1623,22 @@
     if(warn.length) try{ console.warn("[Aether Sand] material integrity:\n  "+warn.join("\n  ")); }catch(_){}
   })();
   function step(){
-    // storm timers tick on the SIM step (fixed 60/s), so the lightning cadence is identical at any
-    // frame rate. A bolt strikes from a uniformly-random cell of the WHOLE cloud (sampled across it
-    // last step), so the storm flickers all over rather than only where the cell-scan begins.
+    // CHARGE-DRIVEN STORM (physics-faithful): each step the cloud accrued charge proportional to its size
+    // (in cloudBehavior); the storm DISCHARGES only once that charge crosses the breakdown field, then drops
+    // and recharges. So strike frequency emerges from the storm's vigour — a vast storm crackles, a wisp
+    // barely sparks — with a real build-and-release rhythm. Timers tick on the SIM step, so it's fps-independent.
     if(stormCooldown>0) stormCooldown--;
     if(stormThunderCD>0) stormThunderCD--;
     finalizeBox();
     moved.fill(0);
-    if(stormCooldown<=0 && stormCount>0){
+    if(stormCount===0 && stormQ>0) stormQ*=0.96;                  // no cloud → the charge slowly leaks away
+    else if(stormCount>0) stormQ+=STORM_BASE;                     // a size-independent floor so even a wisp eventually sparks
+    if(stormQ>=STORM_BREAKDOWN && stormCooldown<=0 && stormCount>0){
       const loud = stormThunderCD<=0;
-      strikeLightning(stormPX, stormPY, !loud);
-      if(loud) stormThunderCD=90+(rnd()*100|0);                  // thunder only every ~1.5-3.2s
-      stormCooldown=14+(rnd()*22|0);                             // a fresh bolt every ~0.25-0.6s
+      strikeLightning(stormPX, stormPY, !loud);                  // strike from a random cell of the charged cloud
+      if(loud) stormThunderCD=90+(rnd()*100|0);                  // thunder kept on its own slow cadence (sound never piles up)
+      stormQ-=STORM_DISCHARGE; if(stormQ<0) stormQ=0;            // the discharge releases the built-up charge → recharge
+      stormCooldown=6;                                           // a short hard floor so an enormous storm can't strike every frame
     }
     stormCount=0;                                                // begin a fresh reservoir for this step
     const ltr = rnd()<0.5;
@@ -1920,7 +1925,8 @@
   let lastPx=null,lastPy=null;
   let pointerInside=false,pointerX=0,pointerY=0;
   let fireworkCooldown=0, lightningCooldown=0, stormCooldown=0, stormThunderCD=0;
-  let stormCount=0, stormPX=0, stormPY=0;   // reservoir sample of the whole cloud → a strike point anywhere in it
+  let stormCount=0, stormPX=0, stormPY=0, stormQ=0;   // stormQ = accumulated storm charge (the field that drives lightning)
+  const STORM_CHARGE_RATE=0.008, STORM_BASE=1.5, STORM_BREAKDOWN=1000, STORM_DISCHARGE=750;   // per-cell + per-storm charge/step, breakdown field, charge per bolt
 
   // iterate the grid cells inside a filled disc of radius rad around (cx,cy), then mark the region active.
   // The callback receives (i, x, y, dd) where dd is the squared distance from the centre. (One brush skeleton.)
