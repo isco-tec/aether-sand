@@ -3219,8 +3219,12 @@
     }
     renderBooklet();
   }
-  function openAbout(){ const el=document.getElementById("about"); if(!el)return; el.classList.remove("hidden"); el.setAttribute("aria-hidden","false"); document.body.classList.add("modal-open"); }
-  function closeAbout(){ const el=document.getElementById("about"); if(!el)return; el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); document.body.classList.remove("modal-open"); }
+  // show/hide a modal overlay; withModalOpen toggles body.modal-open (hides the mobile summon FAB) — passed for the
+  // About + Challenges dialogs but NOT the booklet, which intentionally keeps the FAB reachable above it.
+  function showModal(id, withModalOpen){ const el=document.getElementById(id); if(!el) return; el.classList.remove("hidden"); el.setAttribute("aria-hidden","false"); if(withModalOpen) document.body.classList.add("modal-open"); }
+  function hideModal(id, withModalOpen){ const el=document.getElementById(id); if(!el) return; el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); if(withModalOpen) document.body.classList.remove("modal-open"); }
+  function openAbout(){ showModal("about", true); }
+  function closeAbout(){ hideModal("about", true); }
   function setupAbout(){
     document.getElementById("brand-btn")?.addEventListener("click",openAbout);
     document.getElementById("about-close")?.addEventListener("click",closeAbout);
@@ -3315,14 +3319,11 @@
     if(rest.length){ const head=document.createElement("div"); head.className="challenge-tier"; head.innerHTML='<span>More</span>'; body.appendChild(head); rest.forEach(c=>body.appendChild(challengeRow(c))); }
   }
   function openChallenges(){
-    const el=document.getElementById("challenges"); if(!el) return;
+    if(!document.getElementById("challenges")) return;   // guard the side-effects below
     checkChallenges(); challengesUnseen=false; renderChallenges(); updateChallengeBadge();
-    el.classList.remove("hidden"); el.setAttribute("aria-hidden","false"); document.body.classList.add("modal-open");
+    showModal("challenges", true);
   }
-  function closeChallenges(){
-    const el=document.getElementById("challenges"); if(!el) return;
-    el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); document.body.classList.remove("modal-open");
-  }
+  function closeChallenges(){ hideModal("challenges", true); }
   function setupChallenges(){
     document.getElementById("btn-challenges")?.addEventListener("click",openChallenges);
     document.getElementById("next-challenge")?.addEventListener("click",openChallenges);
