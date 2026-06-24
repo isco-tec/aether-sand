@@ -27,7 +27,8 @@
         VINE=58, MOLD=59, BRINE=60, CINNABAR=61,
         LIMESTONE=62, QUICKLIME=63, SLAKEDLIME=64, CO2=65, SEED=66,
         NIGREDO=67, ALBEDO=68, CITRINITAS=69,   // the Magnum Opus stages (rubedo = PHILOSOPHER)
-        SAPLING=70;
+        SAPLING=70,
+        SODIUM=71, CHLORINE=72, MAGNESIUM=73;   // reactive chemistry: alkali metal, halogen gas, the unquenchable flame
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -122,6 +123,9 @@
     [CITRINITAS]:{name:"Citrinitas",type:POWDER,d:214, c1:[242,206,74], c2:[206,168,40], k:0.05, emit:0.25 },
     [SAPLING]:  { name:"Sapling", type:STATIC, d:1e4, c1:[120,184,86], c2:[92,150,64], k:0.04, flam:1,
                   trans:[{c:1,t:200,to:FIRE,p:0.35}] },
+    [SODIUM]:   { name:"Sodium",  type:POWDER, d:95,  c1:[208,210,218], c2:[150,152,166], k:0.09 },   // soft alkali metal, just lighter than water
+    [CHLORINE]: { name:"Chlorine",type:GAS,    d:1.4, c1:[196,224,96],  c2:[150,182,64],  a:165, k:0.04 },   // toxic halogen gas, heavier than air
+    [MAGNESIUM]:{ name:"Magnesium",type:POWDER, d:122, c1:[212,214,220], c2:[156,158,168], k:0.1, flam:1 },
   };
 
   // fast lookup arrays
@@ -152,13 +156,14 @@
   WINDF[SLIME]=0.04; WINDF[HONEY]=0.02; WINDF[BRINE]=0.25; WINDF[CINNABAR]=0.04;
   WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07; WINDF[CO2]=0.8; WINDF[SEED]=0.1;
   WINDF[NIGREDO]=0.04; WINDF[ALBEDO]=0.04; WINDF[CITRINITAS]=0.04; WINDF[SAPLING]=0;
+  WINDF[CHLORINE]=0.8; WINDF[SODIUM]=0.06; WINDF[MAGNESIUM]=0.05;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
-  CHCOND[GOLD]=1; // gold is an excellent conductor
+  CHCOND[GOLD]=1; CHCOND[BRINE]=1;   // gold is an excellent conductor; salt water conducts too (enables chlor-alkali electrolysis)
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
     { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,WOOD,SEED,SAPLING,PLANT,VINE,MOLD,WALL] },
-    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,NITRO] },
+    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,NITRO,SODIUM,CHLORINE,MAGNESIUM] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,QUICKLIME,SLAKEDLIME,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
   ];
@@ -187,6 +192,9 @@
     [NIGREDO]:"The blackened prima materia — the first stage of the Great Work. Wash it with water.",
     [ALBEDO]:"The whitened matter — purified. Now give it to the fire.",
     [CITRINITAS]:"The yellowing — the dawning solar light. Perfect it with gold to birth the Stone.",
+    [SODIUM]:"A soft alkali metal. Drop it in water and it erupts — hydrogen and fire. Burn it with chlorine to make salt.",
+    [CHLORINE]:"A heavy, toxic yellow-green gas. It sinks, withers life, and dissolves into acid. Electrolyse brine to make it.",
+    [MAGNESIUM]:"Light metal that burns blinding white — and can't be put out: it burns straight through water and CO₂.",
     [WALL]:"Immovable barrier.",
     [VINE]:"Climbing plant — creeps up surfaces and across open space. Flammable.",
     [MOLD]:"Creeping rot — spreads over wood, plant and damp stone, then crumbles to ash.",
@@ -270,6 +278,12 @@
     { id:"brine_dissolve", cat:"Phase", name:"Dissolution", in:[SALT,WATER], out:[BRINE], note:"Salt dissolves into the water it touches, making brine.", hint:"Crystal melts into liquid…" },
     { id:"brine_evap", cat:"Phase", name:"Crystallisation", in:[BRINE], out:[SALT], note:"Boil brine dry and the salt crystallises back out as steam escapes.", hint:"Boil the salt water away…" },
     { id:"salt_melt", cat:"Phase", name:"De-icing", in:[SALT,ICE], out:[BRINE], note:"Salt depresses water's freezing point — sprinkled on ice or snow it melts them into brine.", hint:"Why the roads are gritted…" },
+    { id:"sodium_water", cat:"Pyrotechnics", name:"Alkali eruption", in:[SODIUM,WATER], out:[HYDROGEN], note:"Sodium tears hydrogen out of water and the heat ignites it — a violent eruption.", hint:"Soft metal, meet water…" },
+    { id:"salt_synthesis", cat:"Phase", name:"Salt synthesis", in:[SODIUM,CHLORINE], out:[SALT], note:"Sodium burns in chlorine to make ordinary table salt — straight from its elements.", hint:"A metal and a poison gas make a seasoning…" },
+    { id:"chlor_alkali", cat:"Crafting", name:"Chlor-alkali", in:[BRINE,SPARK], out:[CHLORINE], note:"Run a current through salt water and it splits into hydrogen and chlorine gas.", hint:"Electrolyse the brine…" },
+    { id:"chlorine_acid", cat:"Phase", name:"Chlorine water", in:[CHLORINE,WATER], out:[ACID], note:"Chlorine dissolves into water to make a corrosive acid.", hint:"The green gas meets the sea…" },
+    { id:"chlorine_kill", cat:"Growth", name:"Chemical blight", in:[CHLORINE,PLANT], out:[ASH], note:"Toxic chlorine gas withers anything living it touches.", hint:"Poison gas over a garden…" },
+    { id:"magnesium_burn", cat:"Pyrotechnics", name:"White fire", in:[MAGNESIUM,FIRE], out:[ASH], note:"Magnesium burns a blinding white — and you can't put it out: it burns through water and CO₂ alike.", hint:"A flare you cannot drown…" },
     { id:"freeze", cat:"Phase", name:"Frost spread", in:[ICE,WATER], out:[ICE], note:"Ice chills the water around it until a frost rim creeps outward.", hint:"Cold begets cold…" },
     { id:"condense", cat:"Phase", name:"Condensation", in:[STEAM], out:[WATER], note:"Vapour cools on cold surfaces into dew, and gathers high in the sky into rain clouds — the water cycle.", hint:"Where vapour gathers and cools…" },
     { id:"douse", cat:"Phase", name:"Doused", in:[FIRE,WATER], out:[STEAM], note:"Water smothers a flame outright, flashing to steam as it goes.", hint:"The oldest way to fight fire…" },
@@ -457,6 +471,8 @@
       case VINE: return 24+(rnd()*18|0);  // growth energy
       case SAPLING: return 11+(rnd()*16|0);  // trunk height the tree will climb before crowning
       case CLOUD: case ACIDCLOUD: return 6+(rnd()*9|0);  // how many times the cloud can rain before it sheds out and clears
+      case CHLORINE: return 200+(rnd()*180|0);   // the toxic gas disperses over time
+      case MAGNESIUM: return 90+(rnd()*70|0);     // burn budget once it ignites
       default: return 0;
     }
   }
@@ -921,6 +937,54 @@
     // salt water is brutal on iron — it corrodes adjacent metal far faster than fresh water does
     forN8(x,i,(ni,nm)=>{ if(nm===METAL && temp[ni]<120 && rnd()<0.004){ convert(ni,RUST); discoverRecipe("rust"); } return false; });
     moveLiquid(x,y,i,BRINE,DISP[BRINE]); applyWind(x,i,BRINE);
+  }
+  function upSodium(x,y,i){
+    let reacted=false;
+    forN8(x,i,(ni,nm)=>{
+      // alkali metal + water: violently exothermic — strips hydrogen and ignites it (an explosion)
+      if(nm===WATER||nm===BRINE||nm===ICE){
+        convert(ni,HYDROGEN); temp[ni]+=420; temp[i]+=600; heatN(i,44);
+        convert(i, rnd()<0.55?FIRE:EMPTY);                 // the sodium is consumed in the reaction
+        reacted=true; discoverRecipe("sodium_water"); return true;
+      }
+      if(nm===CHLORINE){ convert(i,SALT); convert(ni,SALT); reacted=true; discoverRecipe("salt_synthesis"); return true; }   // Na + Cl₂ → table salt
+      return false;
+    });
+    if(reacted) return;
+    moveFalling(x,y,i,SODIUM);
+  }
+  function upChlorine(x,y,i){
+    if(--life[i]<=0){ grid[i]=EMPTY; return; }   // the gas disperses over time
+    let gone=false;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===SODIUM){ convert(i,SALT); convert(ni,SALT); gone=true; discoverRecipe("salt_synthesis"); return true; }
+      if(nm===WATER && rnd()<0.02){ convert(ni,ACID); grid[i]=EMPTY; gone=true; discoverRecipe("chlorine_acid"); return true; }   // dissolves into chlorine water / acid
+      if((nm===PLANT||nm===VINE||nm===SAPLING||nm===SEED) && rnd()<0.05){ convert(ni,ASH); discoverRecipe("chlorine_kill"); }       // toxic to living things
+      return false;
+    });
+    if(gone) return;
+    // a heavy toxic gas — sinks and pools low, spreading sideways (denser than air)
+    if(rnd()<0.7 && y<H-1 && canDisplace(CHLORINE,i+W)){ swap(i,i+W); return; }
+    const dir=rnd()<0.5?1:-1, nx=x+dir;
+    if(nx>=0&&nx<W && canDisplace(CHLORINE,i+dir)){ swap(i,i+dir); return; }
+    applyWind(x,i,CHLORINE);
+  }
+  function upMagnesium(x,y,i){
+    // ignites from moderate heat or flame, then burns BLINDING white — and it cannot be smothered: it
+    // burns straight through water and CO₂ (real magnesium-fire behaviour), leaving white-hot oxide ash
+    let lit = temp[i]>430;
+    if(!lit) forN8(x,i,(ni,nm)=>{ if(nm===FIRE||nm===LAVA||nm===THERMITE){ lit=true; return true; } return false; });
+    if(lit){
+      applySrc(i,1700,0.4); heatN(i,34);                 // ferocious, blinding heat
+      forN8(x,i,(ni,nm)=>{                                // the very things that would quench a fire only FEED it
+        if(nm===OXYGEN) convert(ni,EMPTY);
+        else if(nm===CO2) convert(ni,SMOKE);             // Mg + CO₂ → MgO + C (still burns)
+        else if(nm===WATER||nm===BRINE) convert(ni,HYDROGEN);   // Mg + H₂O → MgO + H₂ (still burns underwater)
+        return false;
+      });
+      if(--life[i]<=0){ convert(i, rnd()<0.6?ASH:SMOKE); discoverRecipe("magnesium_burn"); return; }   // → white magnesia ash
+    }
+    moveFalling(x,y,i,MAGNESIUM);
   }
   function upCinnabar(x,y,i){
     if(temp[i]>580 && rnd()<0.05){      // roasting decomposes it back to quicksilver + sulfur
@@ -1402,6 +1466,13 @@
         discoverRecipe("electrolysis");
         continue;
       }
+      if(m===BRINE && rnd()<0.06){
+        // the chlor-alkali process — electrolysing SALT water gives hydrogen + chlorine (not oxygen)
+        convert(i,HYDROGEN); charge[i]=0;
+        const e=emptyNeighbor(i%W,i); if(e>=0) spawn(e,CHLORINE);
+        discoverRecipe("chlor_alkali");
+        continue;
+      }
       forCard(i,(ni)=>{ if(charge[ni]===0 && CHCOND[grid[ni]]) charge[ni]=4; });
       const nc=c-1;
       charge[i]= nc>0 ? nc : -3;
@@ -1606,6 +1677,7 @@
   reg(upBrine, BRINE); reg(upCinnabar, CINNABAR); reg(upLimestone, LIMESTONE); reg(upQuicklime, QUICKLIME);
   reg(upSlakedlime, SLAKEDLIME); reg(upCO2, CO2); reg(upSeed, SEED); reg(upSapling, SAPLING);
   reg(upNigredo, NIGREDO); reg(upAlbedo, ALBEDO); reg(upCitrinitas, CITRINITAS);
+  reg(upSodium, SODIUM); reg(upChlorine, CHLORINE); reg(upMagnesium, MAGNESIUM);
   // integrity check — turn the material system's SILENT failures (a material with no dispatch, no blurb, or
   // missing from the palette; a recipe/group pointing at a non-existent id) into a LOUD boot-time warning
   (function validateMaterials(){
@@ -2737,7 +2809,7 @@
     MERCURY,THERMITE,FUSE,GOLD,NITRO,SULFUR,SALTPETER,CRYSTAL,PHILOSOPHER,AQUA,
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
     SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,CO2,SEED,
-    NIGREDO,ALBEDO,CITRINITAS,SAPLING,
+    NIGREDO,ALBEDO,CITRINITAS,SAPLING,SODIUM,CHLORINE,MAGNESIUM,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
