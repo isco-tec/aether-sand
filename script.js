@@ -1702,7 +1702,7 @@
       return false;
     });
     if(toxin){ dieToCorpse(i); discoverRecipe("algae_die"); return; }
-    if(buried || lightFX()<ALGAE_LIGHT_MIN){ if(rnd()<0.004){ convert(i,CORPSE); life[i]=CORPSE_MIN; } return; }   // dark / buried → slow wilt to carrion
+    if(buried || lightFX()<ALGAE_LIGHT_MIN){ if(rnd()<0.004) dieToCorpse(i); return; }   // dark / buried → slow wilt to carrion (shared death helper, for consistency)
     if(temp[i]<-2) return;                                  // dormant in deep cold
     if(life[i]>0 && water>=0 && emptyJ>=0 && kin<=ALGAE_CROWD){
       const p=(nutrient>=0)?ALGAE_GROW_P*2:ALGAE_GROW_P;    // nutrient nearby speeds growth
