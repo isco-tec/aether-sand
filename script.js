@@ -2032,6 +2032,7 @@
     if(mushrooms.length>=MUSH_MAX) return;
     mushrooms.push({cx,cy,age:0,life:62,scale:clamp(scale,0.6,2.4)});
     shakeScreen(7*scale);
+    flash(255,236,205, Math.min(0.5, 0.16+scale*0.16));   // the blinding detonation flash
   }
   function updateMushrooms(){
     for(let mi=mushrooms.length-1;mi>=0;mi--){
