@@ -514,7 +514,7 @@
   }
 
   function allocate(w,h){
-    const old = grid ? {grid,temp,W,H} : null;
+    const old = grid ? {grid,temp,PLASMA_SRC,W,H} : null;
     W=w; H=h; N=W*H;
     N8OFF=[-W-1,-W,-W+1,-1,1,W-1,W,W+1];   // 8-neighbour linear offsets for this width (see forN8)
     CARD_OFF=[-W,W,-1,1];                   // 4-cardinal linear offsets for this width (see emptyNeighbor)
@@ -534,6 +534,7 @@
       for(let y=0;y<ch;y++)for(let x=0;x<cw;x++){
         const a=y*W+x,b=y*old.W+x, m=old.grid[b];
         grid[a]=m; temp[a]=old.temp[b]; shade[a]=r255(); life[a]=defaultLife(m);  // re-init shade/life so cells render & behave
+        if(old.PLASMA_SRC) PLASMA_SRC[a]=old.PLASMA_SRC[b];   // keep plasma's parent-gas tag so it recombines correctly after a resize
       }
     }
     // reset active-region tracking for the new grid dimensions (full rebuild next step)
