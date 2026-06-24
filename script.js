@@ -28,7 +28,12 @@
         LIMESTONE=62, QUICKLIME=63, SLAKEDLIME=64, CO2=65, SEED=66,
         NIGREDO=67, ALBEDO=68, CITRINITAS=69,   // the Magnum Opus stages (rubedo = PHILOSOPHER)
         SAPLING=70,
-        SODIUM=71, CHLORINE=72, MAGNESIUM=73;   // reactive chemistry: alkali metal, halogen gas, the unquenchable flame
+        SODIUM=71, CHLORINE=72, MAGNESIUM=73,   // reactive chemistry: alkali metal, halogen gas, the unquenchable flame
+        MOLTEN_METAL=74,                         // shared molten liquid; life[] remembers which solid it freezes back to
+        COPPER=75, PATINA=76, CUPRITE=77,        // copper + its two oxides (green verdigris / brown cuprite)
+        TIN=78, TINPEST=79, BRONZE=80,           // tin, its cold-rot allotrope, and the Cu+Sn alloy
+        STEEL=81, SILVER=82, TARNISH=83,         // carburised iron, silver + its black sulfide
+        ALUMINUM=84;                             // light metal — thermite's reducer
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -69,8 +74,7 @@
                   trans:[{c:1,t:1450,to:LAVA,p:0.04}] },
     [STONE]:    { name:"Stone",  type:STATIC, d:1e4, c1:[128,132,142], c2:[92,96,108], k:0.06,
                   trans:[{c:1,t:1300,to:LAVA,p:0.12}] },   // only thermite-level heat remelts rock; lava just flows over it
-    [METAL]:    { name:"Metal",  type:STATIC, d:1e4, c1:[150,158,176], c2:[104,112,130], k:0.45, cond:1,
-                  trans:[{c:1,t:1400,to:LAVA,p:0.05}] },
+    [METAL]:    { name:"Metal",  type:STATIC, d:1e4, c1:[150,158,176], c2:[104,112,130], k:0.45, cond:1 },   // melts via upMetalMelt → molten iron (NOT lava), preserving identity for casting
     [GUNPOWDER]:{ name:"Powder", type:POWDER, d:180, c1:[70,72,80], c2:[42,44,52], k:0.05, flam:1 },
     [FIREWORK]: { name:"Firework",type:POWDER,d:150, c1:[230,90,120], c2:[120,120,200], k:0.05 },
     [SPARK]:    { name:"Spark",  type:TOOL,   d:0,   c1:[180,240,255], c2:[120,210,255] },
@@ -126,6 +130,20 @@
     [SODIUM]:   { name:"Sodium",  type:POWDER, d:95,  c1:[208,210,218], c2:[150,152,166], k:0.09 },   // soft alkali metal, just lighter than water
     [CHLORINE]: { name:"Chlorine",type:GAS,    d:1.4, c1:[196,224,96],  c2:[150,182,64],  a:165, k:0.04 },   // toxic halogen gas, heavier than air
     [MAGNESIUM]:{ name:"Magnesium",type:POWDER, d:122, c1:[212,214,220], c2:[156,158,168], k:0.1, flam:1 },
+    // — Forge & foundry: a shared molten liquid (remembers its metal via life[]) and the metals that melt into it —
+    [MOLTEN_METAL]:{ name:"Molten Metal",type:LIQUID, d:235, disp:1, c1:[255,170,80], c2:[150,120,140], k:0.30, base:1600, emit:0.9, a:255 },
+    [COPPER]:   { name:"Copper", type:STATIC, d:1e4, c1:[201,110,66], c2:[150,74,44], k:0.50, cond:1 },
+    [PATINA]:   { name:"Patina", type:STATIC, d:1e4, c1:[86,176,150], c2:[58,140,120], k:0.30 },
+    [CUPRITE]:  { name:"Cuprite",type:STATIC, d:1e4, c1:[150,60,42], c2:[104,40,28], k:0.30 },
+    [TIN]:      { name:"Tin",    type:STATIC, d:1e4, c1:[222,226,232], c2:[168,174,188], k:0.46, cond:1 },
+    [TINPEST]:  { name:"Tin Pest",type:POWDER, d:150, c1:[150,156,168], c2:[110,116,130], k:0.40,
+                  trans:[{c:1,t:13,to:TIN,p:0.01}] },   // warming back above 13°C re-anneals it to solid tin
+    [BRONZE]:   { name:"Bronze", type:STATIC, d:1e4, c1:[205,127,50], c2:[156,90,34], k:0.32, cond:1 },
+    [STEEL]:    { name:"Steel",  type:STATIC, d:1e4, c1:[188,196,210], c2:[120,130,150], k:0.44, cond:1 },
+    [SILVER]:   { name:"Silver", type:STATIC, d:1e4, c1:[232,236,242], c2:[176,184,198], k:0.50, cond:1 },
+    [TARNISH]:  { name:"Tarnish",type:STATIC, d:1e4, c1:[44,42,50], c2:[26,24,30], k:0.30,
+                  trans:[{c:1,t:700,to:SILVER,p:0.05}] },   // roasting above 700°C drives off the sulfur, restoring silver
+    [ALUMINUM]: { name:"Aluminum",type:POWDER, d:135, c1:[206,212,224], c2:[146,154,168], k:0.50, cond:1 },
   };
 
   // fast lookup arrays
@@ -159,11 +177,19 @@
   WINDF[CHLORINE]=0.8; WINDF[SODIUM]=0.06; WINDF[MAGNESIUM]=0.05;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; CHCOND[BRINE]=1;   // gold is an excellent conductor; salt water conducts too (enables chlor-alkali electrolysis)
+  CHCOND[MOLTEN_METAL]=1; CHCOND[COPPER]=1; CHCOND[TIN]=1; CHCOND[BRONZE]=1; CHCOND[STEEL]=1; CHCOND[SILVER]=1; CHCOND[TINPEST]=1; CHCOND[ALUMINUM]=1;
+  WINDF[TINPEST]=0.06; WINDF[ALUMINUM]=0.045;
+  // Forge & foundry lookups: each solid metal's melting point, the temperature a fresh melt is seeded at,
+  // and the recipe ids fired when it melts / casts. Casting back is keyed by life[] (the remembered metal).
+  const MELT_PT   = {[METAL]:1538,[GOLD]:1064,[COPPER]:1085,[TIN]:232,[BRONZE]:950,[STEEL]:1390,[SILVER]:962,[ALUMINUM]:660};
+  const MELT_SEED = {[METAL]:1600,[GOLD]:1200,[COPPER]:1200,[TIN]:300,[BRONZE]:1100,[STEEL]:1450,[SILVER]:1100,[ALUMINUM]:760};
+  const MELT_RECIPE = {[METAL]:"iron_melt",[GOLD]:"gold_melt",[COPPER]:"copper_melt",[TIN]:"tin_melt",[BRONZE]:"bronze_melt",[STEEL]:"steel_melt",[SILVER]:"silver_melt",[ALUMINUM]:"aluminum_melt"};
+  const CAST_RECIPE = {[METAL]:"cast_iron",[GOLD]:"cast_gold"};   // only iron/gold showcase a cast-back recipe; the rest just resolidify
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
-    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,WOOD,SEED,SAPLING,PLANT,VINE,MOLD,WALL] },
-    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,NITRO,SODIUM,CHLORINE,MAGNESIUM] },
+    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,COPPER,TIN,BRONZE,STEEL,SILVER,PATINA,CUPRITE,TINPEST,TARNISH,WOOD,SEED,SAPLING,PLANT,VINE,MOLD,WALL] },
+    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,NITRO,SODIUM,CHLORINE,MAGNESIUM,ALUMINUM] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,QUICKLIME,SLAKEDLIME,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
   ];
@@ -195,6 +221,16 @@
     [SODIUM]:"A soft alkali metal. Drop it in water and it erupts — hydrogen and fire. Burn it with chlorine to make salt.",
     [CHLORINE]:"A heavy, toxic yellow-green gas. It sinks, withers life, and dissolves into acid. Electrolyse brine to make it.",
     [MAGNESIUM]:"Light metal that burns blinding white — and can't be put out: it burns straight through water and CO₂.",
+    [COPPER]:"A soft red conductor. Salt water or acid greens it with verdigris; clean water just browns it to cuprite. Melt and pour it, or alloy it with tin.",
+    [PATINA]:"Green verdigris — the protective skin copper grows in salt or acid. Inert and stable.",
+    [CUPRITE]:"Brown cuprite — the first oxide copper grows in clean air and water. Inert.",
+    [TIN]:"A soft silvery metal that melts at a candle's breath. Alloy it with copper for bronze — but leave it in the cold and tin pest crumbles it to dust.",
+    [TINPEST]:"Grey alpha-tin — the crumbly rot tin falls to when frozen. Warm it and it re-anneals to solid tin.",
+    [BRONZE]:"Copper married to tin — harder than either, lower-melting, and it shrugs off the water and acid that gnaw iron. The metal that named an age.",
+    [STEEL]:"Iron drunk on carbon and forge-fire — tougher than plain metal, and it laughs at fresh water (though salt and acid still bite). Quench it red-hot to harden it.",
+    [SILVER]:"The brightest electrical conductor of all. Air and water leave it gleaming; a breath of sulfur turns it black. Roast the tarnish and the shine returns.",
+    [TARNISH]:"Black silver sulfide — the tarnish sulfur grows on silver. Roast it fiercely and the bright metal comes back.",
+    [ALUMINUM]:"A light silver metal sealed in its own oxide skin — it shrugs off water, but pack it against rust and you have thermite. Strong acid still eats it.",
     [WALL]:"Immovable barrier.",
     [VINE]:"Climbing plant — creeps up surfaces and across open space. Flammable.",
     [MOLD]:"Creeping rot — spreads over wood, plant and damp stone, then crumbles to ash.",
@@ -291,6 +327,30 @@
     { id:"sand_glass", cat:"Phase", name:"Vitric fusion", in:[SAND], out:[GLASS], note:"Fierce heat fuses sand grains into glass.", hint:"Sand under fierce heat…" },
     { id:"glass_shatter", cat:"Phase", name:"Shatter", in:[GLASS], out:[SAND], note:"A blast's pressure wave shatters glass back into sand.", hint:"Glass under sudden pressure…" },
     { id:"thermite_slag", cat:"Pyrotechnics", name:"Thermite slag", in:[THERMITE,METAL], out:[LAVA], note:"White-hot thermite melts straight through metal and stone.", hint:"Incendiary beside steel…" },
+    // — Forge & foundry: melting, casting, and the metals —
+    { id:"iron_melt", cat:"Phase", name:"Iron melt", in:[METAL], out:[MOLTEN_METAL], note:"Heat iron past 1538° (thermite, lava, sustained fire) and it melts into a glowing pool that remembers it is iron — and casts back to iron, never to rock.", hint:"Iron, white-hot…" },
+    { id:"gold_melt", cat:"Phase", name:"Gold melt", in:[GOLD], out:[MOLTEN_METAL], note:"Gold melts at a far lower 1064° into a liquid that casts back to pure gold.", hint:"The royal metal, molten…" },
+    { id:"copper_melt", cat:"Phase", name:"Copper founding", in:[COPPER], out:[MOLTEN_METAL], note:"Heat copper past 1085° and it melts to a bright liquid you can cast.", hint:"The red metal, white-hot…" },
+    { id:"tin_melt", cat:"Phase", name:"Tin melt", in:[TIN], out:[MOLTEN_METAL], note:"Tin melts at a mere 232° — a candle nearly does it — pouring like silver water, the lowest melt of any common metal.", hint:"A candle nearly melts it…" },
+    { id:"bronze_melt", cat:"Phase", name:"Bronze melt", in:[BRONZE], out:[MOLTEN_METAL], note:"Bronze remelts at just 950° — below copper itself — and pours into a sound, castable solid.", hint:"The age-old alloy, white-hot…" },
+    { id:"steel_melt", cat:"Phase", name:"Steel melt", in:[STEEL], out:[MOLTEN_METAL], note:"Carbon makes steel melt just below pure iron, at ~1390° — barely within a forge torch.", hint:"Steel at the edge of melting…" },
+    { id:"silver_melt", cat:"Phase", name:"Silver melt", in:[SILVER], out:[MOLTEN_METAL], note:"Silver melts at 962°, far below iron, into a bright liquid that casts back to pure silver.", hint:"The bright metal, molten…" },
+    { id:"aluminum_melt", cat:"Phase", name:"Aluminium melt", in:[ALUMINUM], out:[MOLTEN_METAL], note:"Aluminium melts at just 660° into a bright liquid that casts back to solid metal.", hint:"The light metal, molten…" },
+    { id:"cast_iron", cat:"Phase", name:"Casting", in:[MOLTEN_METAL], out:[METAL], note:"Let a melt cool below its freezing point and it solidifies back into the very same metal it was.", hint:"Molten metal, cooling…" },
+    { id:"cast_gold", cat:"Phase", name:"Gold casting", in:[MOLTEN_METAL], out:[GOLD], note:"Molten gold cools back into solid gold.", hint:"The royal melt, cooling…" },
+    { id:"quench_cast", cat:"Phase", name:"Quench casting", in:[MOLTEN_METAL,WATER], out:[STEAM], note:"Plunge molten metal into water and it freezes instantly, flashing the water to steam.", hint:"Molten metal meets water…" },
+    { id:"patina", cat:"Phase", name:"Verdigris", in:[COPPER,BRINE], out:[PATINA], note:"Copper attacked by salt water or acid greens over with verdigris — a protective skin.", hint:"Copper, salt and damp…" },
+    { id:"cuprite", cat:"Phase", name:"Cuprite", in:[COPPER,WATER], out:[CUPRITE], note:"Copper left in clean water slowly browns to cuprite, its first oxide.", hint:"Copper left damp…" },
+    { id:"bronze", cat:"Crafting", name:"Bronze", in:[TIN,COPPER], out:[BRONZE], note:"Wed soft tin to warm copper and you forge bronze — harder than either parent. The alloy that named an age.", hint:"Tin against copper, warmed…" },
+    { id:"tin_pest", cat:"Phase", name:"Tin pest", in:[TIN], out:[TINPEST], note:"Leave tin in deep cold and a grey rot creeps through it, crumbling the metal to dull powder. Warm it back and it re-anneals.", hint:"Metal left in the deep cold…" },
+    { id:"steel", cat:"Crafting", name:"Carburization", in:[METAL,COAL], out:[STEEL], note:"Hold red-hot iron against charcoal at forge heat (800°+, from lava/thermite/fire) and it drinks in carbon, hardening into steel.", hint:"Hot iron against charcoal…" },
+    { id:"quench", cat:"Phase", name:"Quench-hardening", in:[STEEL,WATER], out:[STEAM], note:"Plunge white-hot steel (above 727°) into water — it flashes to steam and the steel hardens instantly.", hint:"White-hot steel, then water…" },
+    { id:"steel_corrode", cat:"Phase", name:"Salt corrosion", in:[STEEL,BRINE], out:[RUST], note:"Steel shrugs off fresh water, but salt water still eats it — slowly. Acid dissolves it outright.", hint:"The sea is patient…" },
+    { id:"silver_tarnish", cat:"Phase", name:"Tarnishing", in:[SILVER,SULFUR], out:[TARNISH], note:"Lay sulfur against silver and it blackens to silver sulfide — silver tarnishes with sulfur, not water or clean air.", hint:"Bright silver meets brimstone…" },
+    { id:"silver_roast", cat:"Transmutation", name:"Argentite roast", in:[TARNISH], out:[SILVER], note:"Roast silver sulfide fiercely (700°+) and the bright metal returns — closing the tarnish loop.", hint:"Heat the black ore…" },
+    { id:"silver_acid", cat:"Transmutation", name:"Silver dissolution", in:[SILVER,AQUA], out:[EMPTY], note:"Royal water eats silver clean away — it simply dissolves.", hint:"Royal water meets the bright metal…" },
+    { id:"thermite_mix", cat:"Pyrotechnics", name:"Thermite mix", in:[ALUMINUM,RUST], out:[MOLTEN_METAL], note:"Aluminium packed against rust IS thermite — ignite it (flame, lava, or a spark) and it reduces the iron oxide to a pool of molten iron in a white-hot flash.", hint:"Silver powder against rust…" },
+    { id:"aluminum_acid", cat:"Crafting", name:"Aluminium in acid", in:[ALUMINUM,ACID], out:[HYDROGEN], note:"Strong acid breaks aluminium's oxide skin and dissolves it, fizzing off hydrogen — it resists water, but not acid.", hint:"The light metal meets strong acid…" },
     { id:"hydrogen_boom", cat:"Pyrotechnics", name:"Knallgas", in:[HYDROGEN,FIRE], out:[FIRE], note:"Hydrogen ignites violently — far fiercer beside oxygen.", hint:"The lightest gas meets flame…" },
     { id:"oxy_fire", cat:"Pyrotechnics", name:"Oxygen feed", in:[OXYGEN,FIRE], out:[FIRE], note:"Oxygen makes flames burn hotter and longer.", hint:"Fire that can breathe…" },
     { id:"combust_o2", cat:"Pyrotechnics", name:"Combustion", in:[FIRE,OXYGEN], out:[CO2], note:"Oxygen-fed fire burns to carbon dioxide.", hint:"What fire breathes out…" },
@@ -371,6 +431,7 @@
     [VINE]:1,[MOLD]:1,[BRINE]:0.9,[CINNABAR]:0.88,
     [LIMESTONE]:1,[QUICKLIME]:0.9,[SLAKEDLIME]:0.9,[CO2]:0.6,[SEED]:0.9,
     [NIGREDO]:0.92,[ALBEDO]:0.92,[CITRINITAS]:0.92,[SAPLING]:1,
+    [COPPER]:1,[PATINA]:1,[CUPRITE]:1,[TIN]:1,[TINPEST]:0.9,[BRONZE]:1,[STEEL]:1,[SILVER]:1,[TARNISH]:1,[ALUMINUM]:0.9,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -626,6 +687,7 @@
         if(m===LAVA&&r.to===STONE) discoverRecipe("lava_stone");
         if(m===SAND&&r.to===GLASS) discoverRecipe("sand_glass");
         if(m===WOOD&&r.to===COAL) discoverRecipe("charcoal");
+        if(m===TARNISH&&r.to===SILVER) discoverRecipe("silver_roast");
         return true;
       }
     }
@@ -889,7 +951,7 @@
       if(nm===WATER){ if(rnd()<0.02){ grid[i]=EMPTY; gone=true; return true; } return false; }
       // carbonate rock fizzes — acid + limestone → meltwater + a puff of CO2 (vinegar on chalk)
       if(nm===LIMESTONE && rnd()<0.04){ grid[ni]=EMPTY; const e=emptyNeighbor(x,i); if(e>=0) spawn(e,CO2); convert(i,WATER); gone=true; discoverRecipe("carbonate_acid"); return true; }
-      if(nm!==EMPTY&&nm!==ACID&&nm!==WALL&&nm!==GLASS&&nm!==GOLD&&nm!==AQUA&&nm!==WATER&&TYPE[nm]!==GAS && rnd()<0.05){
+      if(nm!==EMPTY&&nm!==ACID&&nm!==WALL&&nm!==GLASS&&nm!==GOLD&&nm!==AQUA&&nm!==WATER&&nm!==BRONZE&&TYPE[nm]!==GAS && rnd()<0.05){
         grid[ni]=EMPTY;
         if(rnd()<0.4){ grid[i]=EMPTY; gone=true; return true; }
       }
@@ -935,7 +997,9 @@
       discoverRecipe("brine_evap"); return;
     }
     // salt water is brutal on iron — it corrodes adjacent metal far faster than fresh water does
-    forN8(x,i,(ni,nm)=>{ if(nm===METAL && temp[ni]<120 && rnd()<0.004){ convert(ni,RUST); discoverRecipe("rust"); } return false; });
+    forN8(x,i,(ni,nm)=>{ if(nm===METAL && temp[ni]<120 && rnd()<0.004){ convert(ni,RUST); discoverRecipe("rust"); }
+      else if(nm===STEEL && temp[ni]<120 && rnd()<0.0006){ convert(ni,RUST); discoverRecipe("steel_corrode"); }   // steel resists fresh water but salt still bites — slowly
+      return false; });
     moveLiquid(x,y,i,BRINE,DISP[BRINE]); applyWind(x,i,BRINE);
   }
   function upSodium(x,y,i){
@@ -985,6 +1049,110 @@
       if(--life[i]<=0){ convert(i, rnd()<0.6?ASH:SMOKE); discoverRecipe("magnesium_burn"); return; }   // → white magnesia ash
     }
     moveFalling(x,y,i,MAGNESIUM);
+  }
+
+  /* ===================== Forge & foundry: melting & casting ===================== */
+  // Every solid metal melts the same way: above its melting point it becomes the shared MOLTEN_METAL and tags
+  // life[] with its own id, so it freezes back into exactly what it was (cast iron stays iron, never rock).
+  function meltCheck(i,m){
+    if(temp[i]>=MELT_PT[m] && rnd()<0.06){
+      convert(i,MOLTEN_METAL); life[i]=m;            // life MUST be set AFTER convert() (convert resets it)
+      temp[i]=Math.max(temp[i],MELT_SEED[m]);
+      discoverRecipe(MELT_RECIPE[m]);
+      return true;
+    }
+    return false;
+  }
+  // Molten metal flows like lava, flash-casts in water, and freezes back to its remembered solid once it cools.
+  function upMolten(x,y,i){
+    const dst=life[i]||METAL, fp=MELT_PT[dst];
+    let quenched=false;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===WATER && rnd()<0.16){                  // plunged into water → flash to steam + cast instantly
+        convert(ni,STEAM); temp[ni]=110;
+        convert(i,dst); temp[i]=Math.max(temp[i]-200,AMBIENT);
+        quenched=true; discoverRecipe("quench_cast"); return true;
+      }
+      if(FLAM[nm] && rnd()<0.22){ if(TYPE[nm]===STATIC) convert(ni,FIRE); else temp[ni]+=140; }   // white-hot metal lights fuels
+      return false;
+    });
+    if(quenched) return;                             // CRITICAL: never run the mover on a cell that just solidified
+    if(temp[i] < fp-40){                             // cooled below freezing → cast back into the remembered metal
+      if(rnd()<0.5) heatN(i,2);                      // a whisper of latent heat of fusion to neighbours
+      convert(i,dst); const cr=CAST_RECIPE[dst]; if(cr) discoverRecipe(cr);
+      return;
+    }
+    temp[i]-=0.6;                                    // slowly sheds heat as it sits
+    moveLiquid(x,y,i,MOLTEN_METAL,1);
+  }
+  function upMetalMelt(x,y,i,m){ meltCheck(i,m); }   // iron is STATIC — it only needs the melt check
+  function upGold(x,y,i,m){ if(meltCheck(i,m)) return; moveFalling(x,y,i,GOLD); }
+  // Copper: salt water or acid greens it to verdigris (patina); clean water slowly browns it to cuprite.
+  function upCopper(x,y,i,m){
+    if(meltCheck(i,m)) return;
+    if(temp[i]<120){
+      let wet=-1,brine=-1,acidN=-1;
+      forN8(x,i,(ni,nm)=>{ if(nm===WATER)wet=ni; else if(nm===BRINE)brine=ni; else if(nm===ACID)acidN=ni; return false; });
+      if(brine>=0 && rnd()<0.006){ convert(i,PATINA); discoverRecipe("patina"); return; }
+      if(acidN>=0 && rnd()<0.02){ convert(i,PATINA); discoverRecipe("patina"); return; }
+      if(wet>=0 && rnd()<0.0008){ convert(i,CUPRITE); discoverRecipe("cuprite"); return; }
+    }
+  }
+  // Tin: lowest melt of any metal. Wedded to copper it forges bronze; left in deep cold it crumbles to tin pest.
+  function upTin(x,y,i,m){
+    // Alloying takes precedence over melting: warm tin (180°+) touching copper forges bronze BEFORE it can melt,
+    // so heating tin against copper with any flame (which would otherwise just melt the tin) makes bronze.
+    let alloyed=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===COPPER && temp[i]>=180 && rnd()<0.05){ convert(ni,BRONZE); convert(i,BRONZE); alloyed=true; discoverRecipe("bronze"); return true; } return false; });
+    if(alloyed) return;
+    if(meltCheck(i,m)) return;
+    if(temp[i]<13){                                  // tin pest: below 13°C white tin rots to grey powder (autocatalytic)
+      let seeded=false;
+      forN8(x,i,(ni,nm)=>{ if(nm===TINPEST){ seeded=true; return true; } return false; });
+      if(rnd()<(seeded?0.03:0.0016)){ convert(i,TINPEST); discoverRecipe("tin_pest"); }
+    }
+  }
+  const upTinPest=(x,y,i)=>moveFalling(x,y,i,TINPEST);   // the warm re-anneal back to tin is the trans rule
+  function upBronze(x,y,i,m){ meltCheck(i,m); }          // STATIC; corrosion resistance is by omission + the upAcid guard
+  // Steel: carburised iron (forged in upCoal). Here it melts (just below iron) and quench-hardens in water.
+  function upSteel(x,y,i,m){
+    if(meltCheck(i,m)) return;
+    if(temp[i]>=727 && life[i]<=0){                  // red-hot steel quenched in water hardens — once
+      let hit=false;
+      forN8(x,i,(ni,nm)=>{ if(nm===WATER){ convert(ni,STEAM); temp[ni]=110; hit=true; return true; } return false; });
+      if(hit){ life[i]=1; applySrc(i,AMBIENT,0.6); discoverRecipe("quench"); }
+    }
+  }
+  // Silver: the best electrical conductor. Sulfur blackens it to tarnish; aqua regia / acid dissolve it away.
+  function upSilver(x,y,i,m){
+    if(meltCheck(i,m)) return;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===AQUA && rnd()<0.06){ grid[i]=EMPTY; discoverRecipe("silver_acid"); return true; }
+      if(nm===ACID && rnd()<0.02){ grid[i]=EMPTY; return true; }
+      if(nm===SULFUR){ const p=temp[i]>120?0.02:0.006; if(rnd()<p){ grid[ni]=EMPTY; convert(i,TARNISH); discoverRecipe("silver_tarnish"); return true; } }
+      return false;
+    });
+  }
+  // Aluminum: light, oxide-sealed (shrugs off water). Packed against rust it IS thermite. Strong acid dissolves it → H₂.
+  function upAluminum(x,y,i,m){
+    if(meltCheck(i,m)) return;
+    let ignite = charge[i]>0;
+    if(!ignite) forN8(x,i,(ni,nm)=>{ if(nm===FIRE||nm===LAVA||nm===MOLTEN_METAL){ ignite=true; return true; } return false; });
+    if(ignite || temp[i]>=900){
+      let rustCell=-1;
+      forN8(x,i,(ni,nm)=>{ if(nm===RUST){ rustCell=ni; return true; } return false; });
+      if(rustCell>=0){                               // 2Al + Fe₂O₃ → 2Fe + Al₂O₃, white-hot: rust reduced to MOLTEN IRON
+        applySrc(i,2200,0.5); heatN(i,40);
+        convert(rustCell,MOLTEN_METAL); life[rustCell]=METAL; temp[rustCell]=1600;
+        convert(i, rnd()<0.5?MOLTEN_METAL:EMPTY); if(grid[i]===MOLTEN_METAL) life[i]=METAL;
+        if(rnd()<0.6) addP(x+0.5,y+0.5,(rnd()-0.5)*1.3,-(0.4+rnd()*1.7),16+rnd()*18,255,236,150,KSPARK);
+        discoverRecipe("thermite_mix"); return;
+      }
+    }
+    let acidGone=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===ACID && rnd()<0.01){ grid[i]=EMPTY; const e=emptyNeighbor(x,i); if(e>=0) spawn(e,HYDROGEN); acidGone=true; discoverRecipe("aluminum_acid"); return true; } return false; });
+    if(acidGone) return;
+    moveFalling(x,y,i,ALUMINUM); applyWind(x,i,ALUMINUM);
   }
   function upCinnabar(x,y,i){
     if(temp[i]>580 && rnd()<0.05){      // roasting decomposes it back to quicksilver + sulfur
@@ -1145,6 +1313,13 @@
     moveFalling(x,y,i,GUNPOWDER);
   }
   function upCoal(x,y,i){
+    // CARBURIZATION: red-hot iron held against charcoal at forge heat (800+, from lava/thermite/fire) drinks
+    // in carbon and hardens to STEEL. Hoisted ABOVE the burn/gunpowder paths so coal carburizes before it ashes.
+    if(temp[i]>=800){
+      let made=false;
+      forN8(x,i,(ni,nm)=>{ if(nm===METAL && temp[ni]>=800 && rnd()<0.04){ convert(ni,STEEL); temp[ni]=temp[i]; grid[i]=EMPTY; made=true; discoverRecipe("steel"); return true; } return false; });
+      if(made) return;   // this lump of coal was spent carburizing one iron cell
+    }
     if(tryCraftGunpowder(x,i)) return;
     // furious heat crystallises carbon into diamond
     if(temp[i]>1400 && rnd()<0.004){ convert(i,DIAMOND); discoverRecipe("diamond"); return; }
@@ -1664,7 +1839,7 @@
   const upIceCell=(x,y,i)=>upIce(i);
   const UPDATE=new Array(MAXID);
   const reg=(fn,...ids)=>ids.forEach(id=>{ UPDATE[id]=fn; });
-  reg(upFall, SAND, RAINBOW, GOLD);
+  reg(upFall, SAND, RAINBOW);
   reg(upDrift, ASH, RUST);
   reg(upOil, OIL); reg(upSalt, SALT); reg(upSnow, SNOW); reg(upWater, WATER); reg(upAcid, ACID);
   reg(upLava, LAVA); reg(upFire, FIRE); reg(upSmoke, SMOKE); reg(upSteam, STEAM); reg(upPlant, PLANT);
@@ -1678,12 +1853,15 @@
   reg(upSlakedlime, SLAKEDLIME); reg(upCO2, CO2); reg(upSeed, SEED); reg(upSapling, SAPLING);
   reg(upNigredo, NIGREDO); reg(upAlbedo, ALBEDO); reg(upCitrinitas, CITRINITAS);
   reg(upSodium, SODIUM); reg(upChlorine, CHLORINE); reg(upMagnesium, MAGNESIUM);
+  reg(upMolten, MOLTEN_METAL); reg(upMetalMelt, METAL); reg(upGold, GOLD);
+  reg(upCopper, COPPER); reg(upTin, TIN); reg(upTinPest, TINPEST); reg(upBronze, BRONZE);
+  reg(upSteel, STEEL); reg(upSilver, SILVER); reg(upAluminum, ALUMINUM);
   // integrity check — turn the material system's SILENT failures (a material with no dispatch, no blurb, or
   // missing from the palette; a recipe/group pointing at a non-existent id) into a LOUD boot-time warning
   (function validateMaterials(){
     const inGroup=new Set(MAT_GROUPS.flatMap(g=>g.mats));
-    const inert=new Set([WALL,WOOD,GLASS,STONE,METAL,OBSIDIAN,DIAMOND]);   // intentionally simulated by thermal/conduction only
-    const internal=new Set([STEAM,NIGREDO,ALBEDO,CITRINITAS]);             // produced by reactions, intentionally not paintable
+    const inert=new Set([WALL,WOOD,GLASS,STONE,METAL,OBSIDIAN,DIAMOND,PATINA,CUPRITE]);   // intentionally simulated by thermal/conduction only
+    const internal=new Set([STEAM,NIGREDO,ALBEDO,CITRINITAS,MOLTEN_METAL]);               // produced by reactions, intentionally not paintable
     const warn=[];
     for(let id=0; id<MAXID; id++){ const m=M[id]; if(!m||id===EMPTY) continue;
       if(!UPDATE[id] && !HASTRANS[id] && !inert.has(id) && TYPE[id]!==TOOL) warn.push(m.name+" #"+id+": no update or transition (inert by accident?)");
@@ -2810,6 +2988,7 @@
     OBSIDIAN,DIAMOND,HYDROGEN,OXYGEN,ASH,RUST,CLOUD,LIGHTNING,ANTIMATTER,
     SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,CO2,SEED,
     NIGREDO,ALBEDO,CITRINITAS,SAPLING,SODIUM,CHLORINE,MAGNESIUM,
+    MOLTEN_METAL,COPPER,PATINA,CUPRITE,TIN,TINPEST,BRONZE,STEEL,SILVER,TARNISH,ALUMINUM,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
