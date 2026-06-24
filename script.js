@@ -833,13 +833,16 @@
     else { convert(i,STONE); discoverRecipe("lava_stone"); }
   }
   function upWater(x,y,i){
-    let gone=false;
+    let gone=false, metalCell=-1, oxy=false;
     forN8(x,i,(ni,nm)=>{
       if(nm===SALT && rnd()<0.025){ convert(i,BRINE); grid[ni]=EMPTY; discoverRecipe("brine_dissolve"); gone=true; return true; }  // dissolve salt → brine
-      if(nm===METAL && temp[ni]<120 && rnd()<0.0006){ convert(ni,RUST); discoverRecipe("rust"); }
+      else if(nm===METAL && temp[ni]<120) metalCell=ni;
+      else if(nm===OXYGEN) oxy=true;
       return false;
     });
     if(gone) return;
+    // oxidation — iron rusts in water, and a good deal FASTER when dissolved oxygen is present
+    if(metalCell>=0 && rnd()<(oxy?0.005:0.0008)){ convert(metalCell,RUST); discoverRecipe("rust"); }
     moveLiquid(x,y,i,WATER,DISP[WATER]); applyWind(x,i,WATER);
   }
   function upSteam(x,y,i){
@@ -910,11 +913,13 @@
     if(!d) moveFalling(x,y,i,SALT);
   }
   function upBrine(x,y,i){
-    if(temp[i]>=100 && rnd()<0.05){     // boils dry → salt crystallises in place, water leaves as steam
+    if(temp[i]>=104 && rnd()<0.05){     // boils dry (slightly above 100° — boiling-point elevation); salt crystallises, water leaves as steam
       const e=emptyNeighbor(x,i);
       convert(i,SALT); if(e>=0) spawn(e,STEAM);
       discoverRecipe("brine_evap"); return;
     }
+    // salt water is brutal on iron — it corrodes adjacent metal far faster than fresh water does
+    forN8(x,i,(ni,nm)=>{ if(nm===METAL && temp[ni]<120 && rnd()<0.004){ convert(ni,RUST); discoverRecipe("rust"); } return false; });
     moveLiquid(x,y,i,BRINE,DISP[BRINE]); applyWind(x,i,BRINE);
   }
   function upCinnabar(x,y,i){
@@ -934,17 +939,11 @@
     }
   }
   function upQuicklime(x,y,i){
-    // slaking — quicklime + water reacts hard: hot, hissing, leaves slaked lime
+    // slaking — quicklime + water reacts VIOLENTLY (strongly exothermic): it hisses and flash-boils ALL the
+    // water around it to steam at once, not just one cell, then sets to slaked lime
     let slaked=false;
-    forN8(x,i,(ni,nm)=>{
-      if(nm===WATER||nm===BRINE){
-        convert(i,SLAKEDLIME); temp[i]+=320; heatN(i,30);
-        convert(ni,STEAM);
-        slaked=true; discoverRecipe("slake"); return true;
-      }
-      return false;
-    });
-    if(slaked) return;
+    forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===BRINE){ convert(ni,STEAM); slaked=true; } return false; });
+    if(slaked){ convert(i,SLAKEDLIME); temp[i]+=320; heatN(i,40); discoverRecipe("slake"); return; }
     moveFalling(x,y,i,QUICKLIME);
   }
   function upSlakedlime(x,y,i){
@@ -1086,14 +1085,23 @@
     // furious heat crystallises carbon into diamond
     if(temp[i]>1400 && rnd()<0.004){ convert(i,DIAMOND); discoverRecipe("diamond"); return; }
     if(temp[i]>320){
-      applySrc(i,640,0.18); heatN(i,12);
-      if(rnd()<0.05){ const e=emptyNeighbor(x,i); if(e>=0) convert(e,FIRE); }
-      if(--life[i]<=0){
-        const r=rnd();
-        convert(i, r<0.4?ASH:(r<0.7?SMOKE:EMPTY));
-        if(grid[i]===ASH) discoverRecipe("ash");
-        return;
+      // combustion needs oxygen: sealed away from air the embers just smoulder and die (snuff coals by
+      // cutting off air); a pure-oxygen feed makes them blaze hotter and burn to CO2
+      let air=false, oxy=-1;
+      forN8(x,i,(ni,nm)=>{ if(nm===OXYGEN) oxy=ni; else if(nm===EMPTY||TYPE[nm]===GAS) air=true; return false; });
+      if(oxy>=0) air=true;
+      if(air){
+        applySrc(i, oxy>=0?780:640, 0.18); heatN(i, oxy>=0?16:12);
+        if(oxy>=0 && rnd()<0.2){ convert(oxy,CO2); discoverRecipe("combust_o2"); }
+        if(rnd()<0.05){ const e=emptyNeighbor(x,i); if(e>=0) convert(e,FIRE); }
+        if(--life[i]<=0){
+          const r=rnd();
+          convert(i, r<0.4?ASH:(r<0.7?SMOKE:EMPTY));
+          if(grid[i]===ASH) discoverRecipe("ash");
+          return;
+        }
       }
+      // sealed (no air): no applySrc, so it cools and the smoulder goes out
     }
     moveFalling(x,y,i,COAL);
   }
@@ -1577,7 +1585,8 @@
   // no entry (WOOD/GLASS/STONE/METAL/OBSIDIAN/DIAMOND) are inert except for thermal/conduction.
   const upFall =(x,y,i,m)=>moveFalling(x,y,i,m);
   const upDrift=(x,y,i,m)=>{ moveFalling(x,y,i,m); applyWind(x,i,m); };
-  const upOil  =(x,y,i)=>{ moveLiquid(x,y,i,OIL,DISP[OIL]); applyWind(x,i,OIL); };
+  const upOil  =(x,y,i)=>{ const onWater=(y<H-1 && grid[i+W]===WATER);   // oil floats and spreads into a thin slick on a water surface
+    moveLiquid(x,y,i,OIL, onWater?3:DISP[OIL]); applyWind(x,i,OIL); };
   const upCloudRain    =(x,y,i)=>cloudBehavior(x,y,i,CLOUD,WATER);
   const upAcidCloudRain=(x,y,i)=>cloudBehavior(x,y,i,ACIDCLOUD,ACID);
   const upIceCell=(x,y,i)=>upIce(i);
