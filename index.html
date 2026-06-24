@@ -190,6 +190,13 @@
     </div>
   </nav>
 
+  <!-- Mobile/tablet chrome: a backdrop + a 2-segment FAB that summons the Materials/Forces bottom-sheets (hidden on desktop) -->
+  <div id="sheet-backdrop"></div>
+  <div id="summon" class="summon panel">
+    <button type="button" class="seg on" data-view="mat" aria-label="Open materials menu">◈ Materials</button>
+    <button type="button" class="seg" data-view="force" aria-label="Open forces menu">⛯ Forces</button>
+  </div>
+
   <!-- First-run hint -->
   <div id="hint">
     <kbd>Click + drag</kbd> to pour · <kbd>Right-click</kbd> to erase · <kbd>Space</kbd> pause · <kbd>B</kbd> alchemy book

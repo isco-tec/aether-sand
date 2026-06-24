@@ -3457,6 +3457,28 @@
   };
 
   /* ============================ Init ============================= */
+  // Mobile/tablet sheet controller: the summon FAB raises the existing #palette/#sidepanel as bottom-sheets (the
+  // panels are repositioned by CSS, never moved in the DOM, so every desktop listener survives untouched).
+  function setupSheets(){
+    const mql=matchMedia("(max-width: 820px)"), body=document.body;
+    const setOn=v=>document.querySelectorAll("#summon .seg").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
+    const open=v=>{ body.dataset.sheet=v; body.classList.add("sheet-open"); setOn(v); };
+    const close=()=>body.classList.remove("sheet-open");
+    document.querySelectorAll("#summon .seg").forEach(b=>b.addEventListener("click",()=>{
+      (body.classList.contains("sheet-open") && body.dataset.sheet===b.dataset.view) ? close() : open(b.dataset.view);
+    }));
+    const bd=document.getElementById("sheet-backdrop"); if(bd) bd.addEventListener("click",close);
+    window.addEventListener("keydown",e=>{ if(e.key==="Escape") close(); });
+    // swipe-down to dismiss — scoped to the top grab-handle zone so it never hijacks the sheet's inner scroll
+    ["palette","sidepanel"].forEach(id=>{ const p=document.getElementById(id); if(!p) return; let sy=0,dy=0,drag=false;
+      p.addEventListener("pointerdown",e=>{ if(!mql.matches) return; const r=p.getBoundingClientRect(); if(e.clientY-r.top>28) return;
+        drag=true; sy=e.clientY; dy=0; p.classList.add("dragging"); try{ p.setPointerCapture(e.pointerId); }catch(_){} });
+      p.addEventListener("pointermove",e=>{ if(!drag) return; dy=Math.max(0,e.clientY-sy); p.style.transform="translateY("+dy+"px)"; });
+      p.addEventListener("pointerup",()=>{ if(!drag) return; drag=false; p.classList.remove("dragging"); p.style.transform=""; if(dy>80) close(); });
+    });
+    return { mql, close };
+  }
+
   function init(){
     resize(); setGravity(0,1);
     buildPalette();
@@ -3465,8 +3487,9 @@
     setupChallenges();
     const {ring,syncBrush}=setupUI();
     setupPointer(ring);
+    const sheets=setupSheets();
     if(loadFromURL()) setTimeout(()=>toast("Loaded a shared scene"),400);
-    window.addEventListener("resize",()=>{ resize(); setGravity(GX,GY); syncBrush(); });
+    window.addEventListener("resize",()=>{ resize(); setGravity(GX,GY); syncBrush(); if(!sheets.mql.matches) sheets.close(); });
     setTimeout(()=>{ const h=document.getElementById("hint"); if(h&&attract) h.classList.add("hide"); },9000);
     requestAnimationFrame(loop);
   }
