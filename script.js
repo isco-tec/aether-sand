@@ -70,8 +70,8 @@
     [OIL]:      { name:"Oil",    type:LIQUID, d:80,  disp:4, c1:[86,72,58], c2:[58,48,40], a:235, k:0.04, flam:1,
                   trans:[{c:1,t:180,to:FIRE,p:0.5}] },
     [ACID]:     { name:"Acid",   type:LIQUID, d:105, disp:4, c1:[150,240,80], c2:[110,200,40], a:220, k:0.06, emit:0.35 },
-    [LAVA]:     { name:"Lava",   type:LIQUID, d:160, disp:1, c1:[255,140,40], c2:[196,52,16], k:0.08, base:1100,
-                  trans:[{c:-1,t:400,to:STONE,p:0.35}] },
+    [LAVA]:     { name:"Lava",   type:LIQUID, d:160, disp:1, c1:[255,140,40], c2:[196,52,16], k:0.012, base:1100,
+                  trans:[{c:-1,t:400,to:STONE,p:0.35}] },   // low conductivity: molten rock is an insulator, so it holds heat + flows far before crusting over (instead of flash-cooling mid-air)
     [FIRE]:     { name:"Fire",   type:GAS,    d:1,   c1:[255,230,150], c2:[255,80,24], k:0.2, base:650 },
     [SMOKE]:    { name:"Smoke",  type:GAS,    d:2,   c1:[54,54,62], c2:[28,28,34], a:150, k:0.05 },
     [STEAM]:    { name:"Steam",  type:GAS,    d:3,   c1:[210,218,230], c2:[170,180,196], a:120, k:0.08, base:110,
@@ -146,8 +146,7 @@
     [PATINA]:   { name:"Patina", type:STATIC, d:1e4, c1:[86,176,150], c2:[58,140,120], k:0.30 },
     [CUPRITE]:  { name:"Cuprite",type:STATIC, d:1e4, c1:[150,60,42], c2:[104,40,28], k:0.30 },
     [TIN]:      { name:"Tin",    type:STATIC, d:1e4, c1:[222,226,232], c2:[168,174,188], k:0.46, cond:1 },
-    [TINPEST]:  { name:"Tin Pest",type:POWDER, d:150, c1:[150,156,168], c2:[110,116,130], k:0.40,
-                  trans:[{c:1,t:13,to:TIN,p:0.01}] },   // warming back above 13°C re-anneals it to solid tin
+    [TINPEST]:  { name:"Tin Pest",type:POWDER, d:150, c1:[150,156,168], c2:[110,116,130], k:0.40 },   // re-anneal to tin handled in upTinPest (only once SETTLED — a trans would freeze it mid-fall)
     [BRONZE]:   { name:"Bronze", type:STATIC, d:1e4, c1:[205,127,50], c2:[156,90,34], k:0.32, cond:1 },
     [STEEL]:    { name:"Steel",  type:STATIC, d:1e4, c1:[188,196,210], c2:[120,130,150], k:0.44, cond:1 },
     [SILVER]:   { name:"Silver", type:STATIC, d:1e4, c1:[232,236,242], c2:[176,184,198], k:0.50, cond:1 },
@@ -186,13 +185,14 @@
   WINDF[THERMITE]=0.06; WINDF[MERCURY]=0.04; WINDF[NITRO]=0.2;
   WINDF[SULFUR]=0.07; WINDF[SALTPETER]=0.07; WINDF[GOLD]=0.04;
   WINDF[AQUA]=0.22;
-  WINDF[HYDROGEN]=1.3; WINDF[OXYGEN]=1; WINDF[ASH]=0.5; WINDF[RUST]=0.08;
+  WINDF[HYDROGEN]=1.3; WINDF[OXYGEN]=1; WINDF[ASH]=0.15; WINDF[RUST]=0.08;   // ash settles readily (low drift) rather than hanging in any faint breeze
   WINDF[SLIME]=0.04; WINDF[HONEY]=0.02; WINDF[BRINE]=0.25; WINDF[CINNABAR]=0.04;
   WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07; WINDF[CO2]=0.8; WINDF[SEED]=0.1;
   WINDF[NIGREDO]=0.04; WINDF[ALBEDO]=0.04; WINDF[CITRINITAS]=0.04; WINDF[SAPLING]=0;
   WINDF[CHLORINE]=0.8; WINDF[SODIUM]=0.06; WINDF[MAGNESIUM]=0.05;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; CHCOND[BRINE]=1;   // gold is an excellent conductor; salt water conducts too (enables chlor-alkali electrolysis)
+  CHCOND[BULB]=1;   // a bulb is an in-line circuit element — charge flows THROUGH it, so a whole multi-cell bulb lights, not just the edge touching the wire
   CHCOND[MOLTEN_METAL]=1; CHCOND[COPPER]=1; CHCOND[TIN]=1; CHCOND[BRONZE]=1; CHCOND[STEEL]=1; CHCOND[SILVER]=1; CHCOND[TINPEST]=1; CHCOND[ALUMINUM]=1;
   WINDF[TINPEST]=0.06; WINDF[ALUMINUM]=0.045;
   // Forge & foundry lookups: each solid metal's melting point, the temperature a fresh melt is seeded at,
@@ -374,6 +374,7 @@
     { id:"silver_tarnish", cat:"Phase", name:"Tarnishing", in:[SILVER,SULFUR], out:[TARNISH], note:"Lay sulfur against silver and it blackens to silver sulfide — silver tarnishes with sulfur, not water or clean air.", hint:"Bright silver meets brimstone…" },
     { id:"silver_roast", cat:"Transmutation", name:"Argentite roast", in:[TARNISH], out:[SILVER], note:"Roast silver sulfide fiercely (700°+) and the bright metal returns — closing the tarnish loop.", hint:"Heat the black ore…" },
     { id:"silver_acid", cat:"Transmutation", name:"Silver dissolution", in:[SILVER,AQUA], out:[EMPTY], note:"Royal water eats silver clean away — it simply dissolves.", hint:"Royal water meets the bright metal…" },
+    { id:"aqua_metal", cat:"Crafting", name:"Aqua regia on iron", in:[AQUA,METAL], out:[HYDROGEN], note:"Even ordinary iron dissolves in royal water, fizzing off hydrogen.", hint:"Royal water eats common iron…" },
     { id:"thermite_mix", cat:"Pyrotechnics", name:"Thermite mix", in:[ALUMINUM,RUST], out:[MOLTEN_METAL], note:"Aluminium packed against rust IS thermite — ignite it (flame, lava, or a spark) and it reduces the iron oxide to a pool of molten iron in a white-hot flash.", hint:"Silver powder against rust…" },
     { id:"aluminum_acid", cat:"Crafting", name:"Aluminium in acid", in:[ALUMINUM,ACID], out:[HYDROGEN], note:"Strong acid breaks aluminium's oxide skin and dissolves it, fizzing off hydrogen — it resists water, but not acid.", hint:"The light metal meets strong acid…" },
     // — Nuclear & energy: spontaneous decay seeds a chain; a neutron splits fuel into heat, blast, fallout, and more neutrons —
@@ -621,7 +622,7 @@
   /* ============================ Gravity / wind ===================== */
   let GX=0,GY=1,zeroG=false,WIND=0;
   const GACCEL=0.45, MAXV=9;
-  const LAVA_SOLIDUS=520, LAVA_COOL=2.5;   // lava crystallises to stone below the solidus, shedding ~this much heat/step
+  const LAVA_SOLIDUS=520, LAVA_COOL=0.5;   // lava crystallises to stone below the solidus, shedding only a little heat/step (so it flows + glows for a while, not a flash-freeze)
   let FALL,RISE,PERP;
   function dirOffsets(dx,dy){
     const str=[dy*W+dx,dx,dy];
@@ -943,7 +944,7 @@
     if(quenched) return;
     // it gives up its heat (here + via diffusion to cold neighbours) and CRYSTALLISES to stone once it cools
     // past the solidus — slow cooling → stone, a fast water-quench → obsidian (real igneous petrology)
-    if(temp[i]>LAVA_SOLIDUS){ temp[i]-=LAVA_COOL; if(rnd()<0.6) moveLiquid(x,y,i,LAVA,1); }
+    if(temp[i]>LAVA_SOLIDUS){ temp[i]-=LAVA_COOL; moveLiquid(x,y,i,LAVA,1); }   // flows every step like any liquid, so it pools into coherent rock instead of freezing scattered
     else { convert(i,STONE); discoverRecipe("lava_stone"); }
   }
   function upWater(x,y,i){
@@ -1150,7 +1151,12 @@
       if(rnd()<(seeded?0.03:0.0016)){ convert(i,TINPEST); discoverRecipe("tin_pest"); }
     }
   }
-  const upTinPest=(x,y,i)=>moveFalling(x,y,i,TINPEST);   // the warm re-anneal back to tin is the trans rule
+  const upTinPest=(x,y,i)=>{
+    // tin pest is metastable at room temperature — it stays a grey crumbly powder and only re-knits into solid
+    // tin when you actively WARM it (above 40°), and only once it has SETTLED (so it never freezes mid-fall).
+    if(temp[i]>40 && (y>=H-1 || !canDisplace(TINPEST,i+W)) && rnd()<0.03){ convert(i,TIN); return; }
+    moveFalling(x,y,i,TINPEST);
+  };
   function upBronze(x,y,i,m){ meltCheck(i,m); }          // STATIC; corrosion resistance is by omission + the upAcid guard
   // Steel: carburised iron (forged in upCoal). Here it melts (just below iron) and quench-hardens in water.
   function upSteel(x,y,i,m){
@@ -1583,7 +1589,7 @@
     let gone=false;
     forN8(x,i,(ni,nm)=>{
       if(nm===GOLD && rnd()<0.09){ convert(ni,MERCURY); temp[ni]=temp[i]; discoverRecipe("aqua_dissolve"); }
-      else if(nm===METAL && rnd()<0.07){ grid[ni]=EMPTY; }
+      else if(nm===METAL && rnd()<0.07){ grid[ni]=EMPTY; const e=emptyNeighbor(x,i); if(e>=0) spawn(e,HYDROGEN); discoverRecipe("aqua_metal"); }   // even ordinary iron dissolves in royal water, fizzing off hydrogen
       else if(nm!==EMPTY&&nm!==AQUA&&nm!==WALL&&nm!==GLASS&&TYPE[nm]!==GAS && rnd()<0.08){
         grid[ni]=EMPTY;
         if(rnd()<0.35){ grid[i]=EMPTY; gone=true; return true; }
@@ -1641,13 +1647,21 @@
       forN8(x,i,(ni,nm)=>{ if(nm===SMOKE) smoke++; return false; });
       if(smoke>=3 && rnd()<0.004){ convert(i,ACIDCLOUD); discoverRecipe("acid_rain"); return; }
     }
-    // drift with the wind (or a gentle wander when still)
-    const dir = WIND>0?1:(WIND<0?-1:(rnd()<0.5?1:-1));
-    if(rnd()<0.35){ const nx=x+dir; if(nx>0&&nx<W-1 && grid[i+dir]===EMPTY){ swap(i,i+dir); return; } }
-    // buoyancy — settle into an upper band of the sky
+    // drift COHERENTLY with the wind; only a gentle wander when calm — so a cloud travels as a clump
+    // instead of diffusing all over the sky
+    const wind = WIND>0?1:(WIND<0?-1:0);
+    if(wind!==0){ if(rnd()<0.35){ const nx=x+wind; if(nx>0&&nx<W-1 && grid[i+wind]===EMPTY){ swap(i,i+wind); return; } } }
+    else if(rnd()<0.10){ const d=rnd()<0.5?1:-1, nx=x+d; if(nx>0&&nx<W-1 && grid[i+d]===EMPTY){ swap(i,i+d); return; } }
+    // buoyancy — clouds belong HIGH; lift firmly toward an upper band (rise diagonally if capped, so a clump
+    // climbs without first smearing flat) and never drift down past it onto the land
     const band=(H*0.22)|0;
-    if(y>band && rnd()<0.05){ if(i-W>=0 && grid[i-W]===EMPTY) swap(i,i-W); }
-    else if(y<band-2 && rnd()<0.03){ if(i+W<N && grid[i+W]===EMPTY) swap(i,i+W); }
+    if(y>band){
+      if(rnd()<0.16){
+        if(i-W>=0 && grid[i-W]===EMPTY){ swap(i,i-W); return; }
+        const d=rnd()<0.5?1:-1, nx=x+d;                       // capped above → climb diagonally
+        if(nx>0 && nx<W-1 && i-W+d>=0 && grid[i-W+d]===EMPTY){ swap(i,i-W+d); return; }
+      }
+    } else if(y<band-2 && rnd()<0.03){ if(i+W<N && grid[i+W]===EMPTY) swap(i,i+W); }
   }
   function moveViscous(x,y,i,m,p,disp){ if(rnd()>p) return false; return moveLiquid(x,y,i,m,disp); }
   function upSlime(x,y,i){ moveViscous(x,y,i,SLIME,0.5,1); applyWind(x,i,SLIME); }
@@ -2183,7 +2197,7 @@
         g=(lerp(mat.c2[1],mat.c1[1],sh)*pulse)|0;
         b=Math.min(255,(lerp(mat.c2[2],mat.c1[2],sh)*pulse)|0);
       } else if(m===BULB){
-        if(life[i]>0){ const u=clamp(life[i]/24,0,1); r=255; g=lerp(208,246,u); b=lerp(118,196,u); }
+        if(life[i]>0){ const u=clamp(life[i]/24,0,1); r=255; g=lerp(232,253,u)|0; b=lerp(186,238,u)|0; }   // bright, clean warm-white filament glow — reads as an electric light, not hot rock
         else { r=lerp(mat.c1[0],mat.c2[0],sh); g=lerp(mat.c1[1],mat.c2[1],sh); b=lerp(mat.c1[2],mat.c2[2],sh); }
       } else {
         r=lerp(mat.c1[0],mat.c2[0],sh); g=lerp(mat.c1[1],mat.c2[1],sh); b=lerp(mat.c1[2],mat.c2[2],sh);
@@ -2214,7 +2228,7 @@
         else if(m===GOLD){ ge=(70<<24)|(50<<16)|(170<<8)|255; }
         else if(m===CRYSTAL){ ge=(100<<24)|(b<<16)|(g<<8)|r; }
         else if(m===PHILOSOPHER){ ge=(((150*shimmer)|0)<<24)|(120<<16)|(200<<8)|255; }
-        else if(m===BULB && life[i]>0){ const u=clamp(life[i]/24,0,1); ge=((u*230|0)<<24)|((b|0)<<16)|((g|0)<<8)|(r|0); }
+        else if(m===BULB && life[i]>0){ const u=clamp(life[i]/24,0,1); ge=(((140+u*115)|0)<<24)|(205<<16)|(244<<8)|255; }   // strong, steady warm-white halo — a bulb casts light all around it
         else if(m===NITRO && vel[i]>4){ const u=clamp((vel[i]-4)/5,0,1); ge=((u*170|0)<<24)|(50<<16)|(220<<8)|160; }
         ge=scaleGlow(ge,lf);
       }
