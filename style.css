@@ -418,7 +418,7 @@ html, body {
 
 /* ---------- Dock ---------- */
 #dock {
-  bottom: 22px;
+  bottom: calc(22px + env(safe-area-inset-bottom));   /* clear the iOS home indicator */
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -775,6 +775,7 @@ input[type="range"]::-moz-range-thumb {
   body.sheet-open #sheet-backdrop { opacity: 1; pointer-events: auto; }
   body.sheet-open #dock { display: none; }   /* the sheet's own controls + backdrop-tap suffice — avoids z-index fighting */
   body.sheet-open #summon { display: none; }   /* the open sheet IS the menu; close it by swiping the handle, tapping the backdrop, or Esc */
+  body.modal-open #summon { display: none; }   /* don't float the FAB over the About / Challenges modals */
   /* both panels become full-width bottom-sheets, slid off-screen until summoned */
   #palette, #sidepanel {
     position: fixed; left: 0; right: 0; bottom: 0; top: auto;

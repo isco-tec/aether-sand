@@ -3177,8 +3177,8 @@
     }
     renderBooklet();
   }
-  function openAbout(){ const el=document.getElementById("about"); if(!el)return; el.classList.remove("hidden"); el.setAttribute("aria-hidden","false"); }
-  function closeAbout(){ const el=document.getElementById("about"); if(!el)return; el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); }
+  function openAbout(){ const el=document.getElementById("about"); if(!el)return; el.classList.remove("hidden"); el.setAttribute("aria-hidden","false"); document.body.classList.add("modal-open"); }
+  function closeAbout(){ const el=document.getElementById("about"); if(!el)return; el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); document.body.classList.remove("modal-open"); }
   function setupAbout(){
     document.getElementById("brand-btn")?.addEventListener("click",openAbout);
     document.getElementById("about-close")?.addEventListener("click",closeAbout);
@@ -3275,11 +3275,11 @@
   function openChallenges(){
     const el=document.getElementById("challenges"); if(!el) return;
     checkChallenges(); challengesUnseen=false; renderChallenges(); updateChallengeBadge();
-    el.classList.remove("hidden"); el.setAttribute("aria-hidden","false");
+    el.classList.remove("hidden"); el.setAttribute("aria-hidden","false"); document.body.classList.add("modal-open");
   }
   function closeChallenges(){
     const el=document.getElementById("challenges"); if(!el) return;
-    el.classList.add("hidden"); el.setAttribute("aria-hidden","true");
+    el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); document.body.classList.remove("modal-open");
   }
   function setupChallenges(){
     document.getElementById("btn-challenges")?.addEventListener("click",openChallenges);
@@ -3357,7 +3357,7 @@
       else if(e.code==="ArrowRight") stepOnce=true;
       else if(e.code==="BracketRight"||e.key==="]"){ brushEl.value=Math.min(48,brush+2); syncBrush(); }
       else if(e.code==="BracketLeft"||e.key==="["){ brushEl.value=Math.max(1,brush-2); syncBrush(); }
-      else if(e.key>="1"&&e.key<="9"){ const idx=+e.key-1; const b=document.querySelectorAll(".mat")[idx]; if(b)b.click(); }
+      else if(e.key>="1"&&e.key<="9"){ const idx=+e.key-1; const b=document.querySelectorAll("#material-grid-wrap .mat")[idx]; if(b)b.click(); }   // grid only — the Recent strip's swatches must not shift the numbering
     });
 
     return {ring,syncBrush};
@@ -3461,20 +3461,23 @@
   // panels are repositioned by CSS, never moved in the DOM, so every desktop listener survives untouched).
   function setupSheets(){
     const mql=matchMedia("(max-width: 820px)"), body=document.body;
+    const panels=["palette","sidepanel"].map(id=>({el:document.getElementById(id),drag:false}));
+    const cancelDrags=()=>panels.forEach(p=>{ if(!p.el) return; p.drag=false; p.el.classList.remove("dragging"); p.el.style.transform=""; });   // drop any in-progress swipe + its stale inline transform
     const setOn=v=>document.querySelectorAll("#summon .seg").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
     const open=v=>{ body.dataset.sheet=v; body.classList.add("sheet-open"); setOn(v); };
-    const close=()=>body.classList.remove("sheet-open");
+    const close=()=>{ body.classList.remove("sheet-open"); cancelDrags(); };   // also resets drag state so an Esc/resize mid-swipe can't park the sheet
     document.querySelectorAll("#summon .seg").forEach(b=>b.addEventListener("click",()=>{
       (body.classList.contains("sheet-open") && body.dataset.sheet===b.dataset.view) ? close() : open(b.dataset.view);
     }));
     const bd=document.getElementById("sheet-backdrop"); if(bd) bd.addEventListener("click",close);
     window.addEventListener("keydown",e=>{ if(e.key==="Escape") close(); });
     // swipe-down to dismiss — scoped to the top grab-handle zone so it never hijacks the sheet's inner scroll
-    ["palette","sidepanel"].forEach(id=>{ const p=document.getElementById(id); if(!p) return; let sy=0,dy=0,drag=false;
-      p.addEventListener("pointerdown",e=>{ if(!mql.matches) return; const r=p.getBoundingClientRect(); if(e.clientY-r.top>28) return;
-        drag=true; sy=e.clientY; dy=0; p.classList.add("dragging"); try{ p.setPointerCapture(e.pointerId); }catch(_){} });
-      p.addEventListener("pointermove",e=>{ if(!drag) return; dy=Math.max(0,e.clientY-sy); p.style.transform="translateY("+dy+"px)"; });
-      p.addEventListener("pointerup",()=>{ if(!drag) return; drag=false; p.classList.remove("dragging"); p.style.transform=""; if(dy>80) close(); });
+    panels.forEach(p=>{ const el=p.el; if(!el) return; let sy=0,dy=0;
+      el.addEventListener("pointerdown",e=>{ if(!mql.matches) return; const r=el.getBoundingClientRect(); if(e.clientY-r.top>28) return;
+        p.drag=true; sy=e.clientY; dy=0; el.classList.add("dragging"); try{ el.setPointerCapture(e.pointerId); }catch(_){} });
+      el.addEventListener("pointermove",e=>{ if(!p.drag) return; dy=Math.max(0,e.clientY-sy); el.style.transform="translateY("+dy+"px)"; });
+      el.addEventListener("pointerup",()=>{ if(!p.drag) return; p.drag=false; el.classList.remove("dragging"); el.style.transform=""; if(dy>80) close(); });
+      el.addEventListener("pointercancel",()=>{ if(!p.drag) return; p.drag=false; el.classList.remove("dragging"); el.style.transform=""; });   // gesture stolen / app backgrounded mid-drag → snap back cleanly
     });
     return { mql, close };
   }
