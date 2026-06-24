@@ -1965,7 +1965,7 @@
   let pn=0;
   // Mushroom clouds: a list of active plume events + a per-frame fission accumulator that fires one for big chains
   const mushrooms=[], MUSH_MAX=4;
-  let fissBoom=0, fissBX=0, fissBY=0, mushCD=0, fissTotal=0, nextMush=100;   // fissBoom/centroid: this frame; fissTotal: cumulative (framerate-independent mushroom trigger)
+  let fissBoom=0, fissBX=0, fissBY=0, mushCD=0, fissTotal=0, nextMush=100, fissIdle=0;   // fissBoom/centroid: this frame; fissTotal: cumulative (framerate-independent mushroom trigger), reset when the chain goes cold
   function addP(x,y,vx,vy,life,r,g,b,kind){
     if(pn>=MAXP) return;
     const k=pn++; PX[k]=x;PY[k]=y;PVX[k]=vx;PVY[k]=vy;PL[k]=life;PM[k]=life;
@@ -2263,6 +2263,7 @@
       spawnMushroom(fissBX/fissBoom, fissBY/fissBoom, Math.min(2.3, 0.9+fissBoom/12));
       nextMush=fissTotal+180; mushCD=64;
     }
+    if(fissBoom>0) fissIdle=0; else if(++fissIdle>90 && fissTotal>0){ fissTotal=0; nextMush=100; }   // once a chain goes fully cold, forget its tally so the next reaction earns its own mushroom from scratch
     fissBoom=0; fissBX=0; fissBY=0;
     updateMushrooms();
     updateParticles();
@@ -2515,8 +2516,8 @@
       const a=clamp(PL[k]/PM[k],0,1), r=PR[k],g=PG[k],b=PB[k], kind=PK[k], isSmoke=kind===KSMOKE;
       const sz=kind===KROCKET?1.7:(isSmoke?4.6:1.2);
       const vx=PVX[k], vy=PVY[k], sp=vx*vx+vy*vy;
-      // motion trail — a fading streak behind fast particles (long-exposure light)
-      if(sp>1){
+      // motion trail — a fading streak behind fast particles (long-exposure light); smoke must not streak (it billows, not zips)
+      if(sp>1 && !isSmoke){
         const tl=Math.min(3.4, Math.sqrt(sp)*0.95);
         sctx.strokeStyle="rgba("+r+","+g+","+b+","+(a*0.42)+")"; sctx.lineWidth=sz*0.85;
         sctx.beginPath(); sctx.moveTo(PX[k],PY[k]); sctx.lineTo(PX[k]-vx*tl,PY[k]-vy*tl); sctx.stroke();
