@@ -44,7 +44,9 @@
         ALUMINUM=84,                             // light metal — thermite's reducer
         URANIUM=85, PLUTONIUM=86, NEUTRON=87,    // nuclear fuel, its hungrier cousin, and the chain carrier
         FALLOUT=88, CONTROL_ROD=89,              // spent fission rubble, and the boron rod that drinks neutrons
-        PLASMA=90, HELIUM=91;                    // the ionised 4th state, and the inert ash of fusion
+        PLASMA=90, HELIUM=91,                    // the ionised 4th state, and the inert ash of fusion
+        IRON_ORE=92, MALACHITE=93, CASSITERITE=94,   // ores: hematite (iron), malachite (copper), cassiterite (tin)
+        SANDSTONE=95, SLATE=96, MARBLE=97;        // the rock cycle: sedimentary, metamorphic
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -163,6 +165,13 @@
     // — Fusion & plasma: the energy arc's end (fission → fusion → helium) + the ionised 4th state —
     [PLASMA]:   { name:"Plasma", type:GAS,    d:0.9,  c1:[255,245,255], c2:[150,90,255], a:235, k:0.01, emit:0.95 },  // ionised gas: violet-white glow, conductive; low k so it holds its heat + glows out its full life before recombining
     [HELIUM]:   { name:"Helium", type:GAS,    d:0.18, c1:[255,247,224], c2:[255,214,150], a:70, k:0.05 },             // the lightest gas — inert fusion ash that rises + vents away
+    // — Geology: ores (smelt with coal + furnace heat → metal) and the rock cycle (no thermal trans on ores: heat alone must not free the metal) —
+    [IRON_ORE]: { name:"Iron Ore",type:POWDER, d:215, c1:[142,64,58], c2:[86,46,64], k:0.10 },
+    [MALACHITE]:{ name:"Malachite",type:STATIC, d:1e4, c1:[60,158,120], c2:[38,96,74], k:0.06 },
+    [CASSITERITE]:{ name:"Cassiterite",type:STATIC, d:1e4, c1:[64,54,52], c2:[34,28,28], k:0.06 },
+    [SANDSTONE]:{ name:"Sandstone",type:STATIC, d:1e4, c1:[198,168,122], c2:[164,132,88], k:0.05, trans:[{c:1,t:1250,to:LAVA,p:0.06}] },
+    [SLATE]:    { name:"Slate",  type:STATIC, d:1e4, c1:[78,84,98], c2:[54,58,70], k:0.06, trans:[{c:1,t:1300,to:LAVA,p:0.10}] },
+    [MARBLE]:   { name:"Marble", type:STATIC, d:1e4, c1:[226,224,220], c2:[196,194,190], k:0.05 },
   };
 
   // fast lookup arrays
@@ -193,7 +202,7 @@
   WINDF[SLIME]=0.04; WINDF[HONEY]=0.02; WINDF[BRINE]=0.25; WINDF[CINNABAR]=0.04;
   WINDF[QUICKLIME]=0.07; WINDF[SLAKEDLIME]=0.07; WINDF[CO2]=0.8; WINDF[SEED]=0.1;
   WINDF[NIGREDO]=0.04; WINDF[ALBEDO]=0.04; WINDF[CITRINITAS]=0.04; WINDF[SAPLING]=0;
-  WINDF[CHLORINE]=0.8; WINDF[SODIUM]=0.06; WINDF[MAGNESIUM]=0.05;
+  WINDF[CHLORINE]=0.8; WINDF[SODIUM]=0.06; WINDF[MAGNESIUM]=0.05; WINDF[IRON_ORE]=0.05;
   CHCOND[METAL]=1; CHCOND[WATER]=1; CHCOND[ACID]=1; CHCOND[GUNPOWDER]=1; CHCOND[FIREWORK]=1; CHCOND[MERCURY]=1; CHCOND[AQUA]=1;
   CHCOND[GOLD]=1; CHCOND[BRINE]=1;   // gold is an excellent conductor; salt water conducts too (enables chlor-alkali electrolysis)
   CHCOND[BULB]=1;   // a bulb is an in-line circuit element — charge flows THROUGH it, so a whole multi-cell bulb lights, not just the edge touching the wire
@@ -218,10 +227,13 @@
   // hydrogen next to a source this hot fuses with a neighbour into helium. RECOMB_T/SET: plasma cools back to gas
   // below RECOMB_T, force-set to RECOMB_SET (well under the gates) so it can't instantly re-ionise.
   const IGNITE_T=1250, RECOMB_T=700, RECOMB_SET=400, FUSE_T=1400;
+  // Geology: ores smelt above SMELT_T (with adjacent coal); sand buried under COMPACT_DEPTH cells lithifies; rock
+  // buried under METAMORPH_DEPTH AND above METAMORPH_HEAT metamorphoses. overburden() scans at most BURIAL_MAX up.
+  const SMELT_T=1150, COMPACT_DEPTH=12, METAMORPH_HEAT=550, METAMORPH_DEPTH=16, BURIAL_MAX=24;
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
-    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,COPPER,TIN,BRONZE,STEEL,SILVER,PATINA,CUPRITE,TINPEST,TARNISH,WOOD,SEED,SAPLING,PLANT,VINE,MOLD,WALL] },
+    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,SANDSTONE,SLATE,MARBLE,LIMESTONE,GLASS,OBSIDIAN,IRON_ORE,MALACHITE,CASSITERITE,METAL,COPPER,TIN,BRONZE,STEEL,SILVER,PATINA,CUPRITE,TINPEST,TARNISH,WOOD,SEED,SAPLING,PLANT,VINE,MOLD,WALL] },
     { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,HELIUM,PLASMA,NITRO,SODIUM,CHLORINE,MAGNESIUM,ALUMINUM,URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,QUICKLIME,SLAKEDLIME,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
@@ -271,6 +283,12 @@
     [CONTROL_ROD]:"Boron-cadmium safety rod — the hush in the heart of a reactor. It drinks neutrons without splitting, dropping a roaring pile below critical.",
     [PLASMA]:"The fourth state of matter — gas torn into glowing ions by ferocious heat or a lightning bolt. It blazes violet-white, conducts like a live wire, and rises like flame. Starve it of heat and it recombines into the gas it came from. It can't spread on its own.",
     [HELIUM]:"The ash of a star — crush hydrogen in a fission blast and it fuses to helium. Then it goes quiet: the lightest gas there is, rising fast yet refusing to burn, venting off the top of the world.",
+    [IRON_ORE]:"Reddish hematite, heavy with iron. Heat alone won't free the metal — pack it against burning coal at blast-furnace heat (1150°+) and the carbon strips the rock down to a pool of molten iron, leaving slag and CO₂.",
+    [MALACHITE]:"Green copper ore — the same bottle-green that grows on old copper. Pack it against charcoal in a hot furnace (700°+) and the carbon drags the copper out, pouring it molten.",
+    [CASSITERITE]:"Heavy dark tin-stone, the only ore of tin. Roast it with charcoal (600°+) and it surrenders its metal — which, melting so easily, runs out liquid the moment it's freed. Smelt both ores to forge bronze.",
+    [SANDSTONE]:"Warm tan sedimentary rock — sand buried deep and pressed until the grains cement together. Bake it deeper still and it hardens to quartzite; leave a face open to air and water and it crumbles slowly back to sand.",
+    [SLATE]:"Dark blue-grey foliated rock — stone baked and pressed deep underground, well short of melting. Roof a house with it, or let air and water gnaw an exposed face slowly back to sand.",
+    [MARBLE]:"Clean white veined rock — limestone recrystallised under deep burial and gentle heat. Roast it hard and it still calcines to quicklime like its parent; splash it with acid and it fizzes and dissolves fastest of any rock.",
     [WALL]:"Immovable barrier.",
     [VINE]:"Climbing plant — creeps up surfaces and across open space. Flammable.",
     [MOLD]:"Creeping rot — spreads over wood, plant and damp stone, then crumbles to ash.",
@@ -376,6 +394,15 @@
     { id:"steel_melt", cat:"Phase", name:"Steel melt", in:[STEEL], out:[MOLTEN_METAL], note:"Carbon makes steel melt just below pure iron, at ~1390° — barely within a forge torch.", hint:"Steel at the edge of melting…" },
     { id:"silver_melt", cat:"Phase", name:"Silver melt", in:[SILVER], out:[MOLTEN_METAL], note:"Silver melts at 962°, far below iron, into a bright liquid that casts back to pure silver.", hint:"The bright metal, molten…" },
     { id:"aluminum_melt", cat:"Phase", name:"Aluminium melt", in:[ALUMINUM], out:[MOLTEN_METAL], note:"Aluminium melts at just 660° into a bright liquid that casts back to solid metal.", hint:"The light metal, molten…" },
+    // — Geology: smelting ore from rock, and the rock cycle —
+    { id:"iron_smelt", cat:"Metallurgy", name:"Iron smelting", in:[IRON_ORE,COAL], out:[MOLTEN_METAL], note:"Pack hematite against a stoked coke bed at blast-furnace heat (1150°+) — the carbon tears the oxygen out and molten iron runs free, breathing off CO₂ and leaving slag. Each reduction burns a lump of coal.", hint:"Red rock against burning coal, hotter than lava…" },
+    { id:"smelt_copper", cat:"Metallurgy", name:"Copper smelting", in:[MALACHITE,COAL], out:[MOLTEN_METAL], note:"Pack green malachite against charcoal in a hot furnace (700°+) and the carbon drags the copper out, pouring it molten while the rock breathes off CO₂.", hint:"Green ore and charcoal, fiercely roasted…" },
+    { id:"smelt_tin", cat:"Metallurgy", name:"Tin smelting", in:[CASSITERITE,COAL], out:[MOLTEN_METAL], note:"Roast dark cassiterite against charcoal (600°+) and it surrenders its tin — which, melting at a mere 232°, runs out liquid the instant it is freed. Smelt both ores and wed copper to tin: the Bronze Age.", hint:"Dark tin-stone and charcoal, roasted…" },
+    { id:"sandstone", cat:"Geology", name:"Lithification", in:[SAND], out:[SANDSTONE], note:"Bury sand deep under its own weight and the pinned grains compact and cement into sandstone. Depth, not heat: pile it high.", hint:"Sand, buried deep and pressed…" },
+    { id:"quartzite", cat:"Geology", name:"Quartzite", in:[SANDSTONE], out:[STONE], note:"Push sandstone deeper and hotter and it metamorphoses again into dense, quartzite-hard rock.", hint:"Buried sandstone, baked harder…" },
+    { id:"slate", cat:"Geology", name:"Slate", in:[STONE], out:[SLATE], note:"Buried stone under heat and pressure foliates into dark slate — low-grade metamorphism, well short of melting.", hint:"Stone, buried hot and pressed…" },
+    { id:"marble", cat:"Geology", name:"Marble", in:[LIMESTONE], out:[MARBLE], note:"Limestone buried deep and gently baked (warm, but below its calcining roast) recrystallises into harder, whiter, veined marble.", hint:"Limestone, buried and warmed below the roast…" },
+    { id:"weather", cat:"Geology", name:"Weathering", in:[SANDSTONE,WATER], out:[SAND], note:"Any exposed rock face touching air and water slowly crumbles back to loose sand — the slowest leg of the rock cycle. Sandstone goes first; marble dissolves fastest in acid.", hint:"Bare rock, air, and water, given time…" },
     { id:"cast_iron", cat:"Phase", name:"Casting", in:[MOLTEN_METAL], out:[METAL], note:"Let a melt cool below its freezing point and it solidifies back into the very same metal it was.", hint:"Molten metal, cooling…" },
     { id:"cast_gold", cat:"Phase", name:"Gold casting", in:[MOLTEN_METAL], out:[GOLD], note:"Molten gold cools back into solid gold.", hint:"The royal melt, cooling…" },
     { id:"quench_cast", cat:"Phase", name:"Quench casting", in:[MOLTEN_METAL,WATER], out:[STEAM], note:"Plunge molten metal into water and it freezes instantly, flashing the water to steam.", hint:"Molten metal meets water…" },
@@ -486,6 +513,7 @@
     [NIGREDO]:0.92,[ALBEDO]:0.92,[CITRINITAS]:0.92,[SAPLING]:1,
     [COPPER]:1,[PATINA]:1,[CUPRITE]:1,[TIN]:1,[TINPEST]:0.9,[BRONZE]:1,[STEEL]:1,[SILVER]:1,[TARNISH]:1,[ALUMINUM]:0.9,
     [URANIUM]:1,[PLUTONIUM]:1,[NEUTRON]:0.7,[FALLOUT]:0.9,[CONTROL_ROD]:1,
+    [IRON_ORE]:0.9,[MALACHITE]:1,[CASSITERITE]:1,[SANDSTONE]:1,[SLATE]:1,[MARBLE]:1,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -1327,6 +1355,66 @@
       const e=emptyNeighbor(x,i); if(e>=0 && rnd()<0.6) spawn(e,SMOKE);
       discoverRecipe("calcine");
     }
+    // metamorphism — buried under deep, gentle heat (warm but below the calcining roast) it recrystallises to marble
+    else if(temp[i]>METAMORPH_HEAT && rnd()<0.006 && overburden(x,i)>=METAMORPH_DEPTH){ convert(i,MARBLE); discoverRecipe("marble"); }
+  }
+
+  /* ===================== Geology: ores (smelting) + the rock cycle ===================== */
+  // Carbothermic reduction: an ore freed ONLY by furnace heat AND an adjacent carbon (COAL) reducer — never heat
+  // alone (no ore has a thermal trans). The metal pours out as MOLTEN_METAL (life-tagged) via the existing casting
+  // path. Bounded: each reduction consumes one finite COAL.
+  function upIronOre(x,y,i){
+    if(temp[i]>=SMELT_T){
+      let coal=-1;
+      forN8(x,i,(ni,nm)=>{ if(nm===COAL && temp[ni]>=900){ coal=ni; return true; } return false; });   // a stoked coke bed, not a mere flame
+      if(coal>=0 && rnd()<0.05){
+        grid[coal]=EMPTY; charge[coal]=0; vel[coal]=0;
+        const e=emptyNeighbor(x,i);
+        if(rnd()<0.25){ if(e>=0){ convert(e,MOLTEN_METAL); life[e]=METAL; temp[e]=MELT_SEED[METAL]; } convert(i,STONE); }   // ~¼: leave stone slag, pour the iron out
+        else { convert(i,MOLTEN_METAL); life[i]=METAL; temp[i]=MELT_SEED[METAL]; if(e>=0 && rnd()<0.5) spawn(e,CO2); }       // ~¾: the ore itself becomes molten iron + breathes CO2
+        discoverRecipe("iron_smelt"); return;
+      }
+    }
+    moveFalling(x,y,i,IRON_ORE);
+  }
+  function upMalachite(x,y,i){
+    if(temp[i]<700) return;
+    let coal=-1;
+    forN8(x,i,(ni,nm)=>{ if(nm===COAL){ coal=ni; return true; } return false; });
+    if(coal>=0 && rnd()<0.05){
+      const cx=coal%W, e=emptyNeighbor(cx,coal); if(e>=0) spawn(e,CO2);
+      grid[coal]=EMPTY; charge[coal]=0; vel[coal]=0;
+      convert(i,MOLTEN_METAL); life[i]=COPPER; temp[i]=Math.max(temp[i],MELT_SEED[COPPER]);
+      discoverRecipe("smelt_copper");
+    }
+  }
+  function upCassiterite(x,y,i){
+    if(temp[i]<600) return;
+    let coal=-1;
+    forN8(x,i,(ni,nm)=>{ if(nm===COAL){ coal=ni; return true; } return false; });
+    if(coal>=0 && rnd()<0.06){
+      const cx=coal%W, e=emptyNeighbor(cx,coal); if(e>=0) spawn(e,CO2);
+      grid[coal]=EMPTY; charge[coal]=0; vel[coal]=0;
+      convert(i,MOLTEN_METAL); life[i]=TIN; temp[i]=Math.max(temp[i],MELT_SEED[TIN]);
+      discoverRecipe("smelt_tin");
+    }
+  }
+  function upSand(x,y,i){
+    if(moveFalling(x,y,i,SAND)) return;
+    if(rnd()<0.0008 && overburden(x,i)>=COMPACT_DEPTH){ convert(i,SANDSTONE); discoverRecipe("sandstone"); }   // buried deep under its own weight → cements into sandstone
+  }
+  function upStone(x,y,i){
+    if(weather(x,i,0.00012,0.0006)) return;
+    if(temp[i]>METAMORPH_HEAT && rnd()<0.006 && overburden(x,i)>=METAMORPH_DEPTH){ convert(i,SLATE); discoverRecipe("slate"); }   // buried + baked → foliates into slate
+  }
+  function upSandstone(x,y,i){
+    if(weather(x,i,0.0004,0.0008)) return;   // sandstone crumbles soonest
+    if(temp[i]>METAMORPH_HEAT && rnd()<0.004 && overburden(x,i)>=METAMORPH_DEPTH){ convert(i,STONE); discoverRecipe("quartzite"); }   // deeper + hotter → quartzite-hard stone
+  }
+  function upSlate(x,y,i){ weather(x,i,0.00012,0.0006); }
+  function upMarble(x,y,i){
+    if(weather(x,i,0.00018,0.004)) return;   // marble dissolves fastest in acid
+    if(temp[i]>760 && rnd()<0.03){ convert(i,QUICKLIME); const e=emptyNeighbor(x,i); if(e>=0 && rnd()<0.6) spawn(e,SMOKE); discoverRecipe("calcine"); }   // still calcines like its parent, just slower
   }
   function upQuicklime(x,y,i){
     // slaking — quicklime + water reacts VIOLENTLY (strongly exothermic): it hisses and flash-boils ALL the
@@ -1804,6 +1892,23 @@
     }
     return -1;
   }
+  // how many solid cells are stacked directly above this one — a cheap lithostatic-depth proxy (capped, no alloc)
+  function overburden(x,i){
+    let d=0, j=i;
+    for(let k=0;k<BURIAL_MAX;k++){ j-=W; if(j<0) break; const m=grid[j]; if(m===EMPTY || TYPE[m]===GAS || TYPE[m]===LIQUID) break; d++; }
+    return d;
+  }
+  // a rock cell with an EXPOSED (empty) face and a liquid touching it slowly crumbles back to loose SAND; acid eats
+  // it faster (and fizzes CO2 off carbonate marble). The slowest leg of the rock cycle. Returns true if it weathered.
+  function weather(x,i,softP,acidP){
+    if(rnd()>=acidP) return false;   // cheap coarse gate — skip the neighbour scan on the vast majority of ticks
+    let exposed=false, wet=false, acidN=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===EMPTY) exposed=true; else if(nm===WATER||nm===BRINE) wet=true; else if(nm===ACID){ wet=true; acidN=true; } return false; });
+    if(!(exposed && wet)) return false;
+    if(!acidN && rnd()*acidP>=softP) return false;   // non-acid faces erode at the softer rate
+    if(acidN && grid[i]===MARBLE){ const e=emptyNeighbor(x,i); if(e>=0 && rnd()<0.3) spawn(e,CO2); }   // carbonate fizz
+    convert(i,SAND); discoverRecipe("weather"); return true;
+  }
 
   /* ============================ Charge (electricity) ============== */
   // Electricity travels as a constant-strength pulse leaving a brief
@@ -2032,7 +2137,7 @@
   const upIceCell=(x,y,i)=>upIce(i);
   const UPDATE=new Array(MAXID);
   const reg=(fn,...ids)=>ids.forEach(id=>{ UPDATE[id]=fn; });
-  reg(upFall, SAND, RAINBOW);
+  reg(upFall, RAINBOW); reg(upSand, SAND);   // SAND split off so it can lithify under burial (RAINBOW must NOT)
   reg(upDrift, ASH, RUST);
   reg(upOil, OIL); reg(upSalt, SALT); reg(upSnow, SNOW); reg(upWater, WATER); reg(upAcid, ACID);
   reg(upLava, LAVA); reg(upFire, FIRE); reg(upSmoke, SMOKE); reg(upSteam, STEAM); reg(upPlant, PLANT);
@@ -2051,6 +2156,8 @@
   reg(upSteel, STEEL); reg(upSilver, SILVER); reg(upAluminum, ALUMINUM);
   reg(upFuel, URANIUM, PLUTONIUM); reg(upNeutron, NEUTRON); reg(upFallout, FALLOUT); reg(upControlRod, CONTROL_ROD);
   reg(upPlasma, PLASMA); reg(upHelium, HELIUM);
+  reg(upIronOre, IRON_ORE); reg(upMalachite, MALACHITE); reg(upCassiterite, CASSITERITE);
+  reg(upSandstone, SANDSTONE); reg(upSlate, SLATE); reg(upMarble, MARBLE); reg(upStone, STONE);
   // integrity check — turn the material system's SILENT failures (a material with no dispatch, no blurb, or
   // missing from the palette; a recipe/group pointing at a non-existent id) into a LOUD boot-time warning
   (function validateMaterials(){
@@ -3194,6 +3301,7 @@
     NIGREDO,ALBEDO,CITRINITAS,SAPLING,SODIUM,CHLORINE,MAGNESIUM,
     MOLTEN_METAL,COPPER,PATINA,CUPRITE,TIN,TINPEST,BRONZE,STEEL,SILVER,TARNISH,ALUMINUM,
     URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD,PLASMA,HELIUM,
+    IRON_ORE,MALACHITE,CASSITERITE,SANDSTONE,SLATE,MARBLE,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
