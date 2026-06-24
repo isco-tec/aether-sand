@@ -33,7 +33,9 @@
         COPPER=75, PATINA=76, CUPRITE=77,        // copper + its two oxides (green verdigris / brown cuprite)
         TIN=78, TINPEST=79, BRONZE=80,           // tin, its cold-rot allotrope, and the Cu+Sn alloy
         STEEL=81, SILVER=82, TARNISH=83,         // carburised iron, silver + its black sulfide
-        ALUMINUM=84;                             // light metal — thermite's reducer
+        ALUMINUM=84,                             // light metal — thermite's reducer
+        URANIUM=85, PLUTONIUM=86, NEUTRON=87,    // nuclear fuel, its hungrier cousin, and the chain carrier
+        FALLOUT=88, CONTROL_ROD=89;              // spent fission rubble, and the boron rod that drinks neutrons
   // (ids 50–57 retired with the old "Circuits" engineering kit — electricity is
   //  kept as a physical phenomenon only: sparks, lightning, charge, glowing bulbs)
 
@@ -144,6 +146,12 @@
     [TARNISH]:  { name:"Tarnish",type:STATIC, d:1e4, c1:[44,42,50], c2:[26,24,30], k:0.30,
                   trans:[{c:1,t:700,to:SILVER,p:0.05}] },   // roasting above 700°C drives off the sulfur, restoring silver
     [ALUMINUM]: { name:"Aluminum",type:POWDER, d:135, c1:[206,212,224], c2:[146,154,168], k:0.50, cond:1 },
+    // — Nuclear & energy: a provably-bounded fission kit (each fission consumes one fuel cell) —
+    [URANIUM]:  { name:"Uranium", type:STATIC, d:1e4, c1:[86,148,92], c2:[54,104,64], k:0.20, emit:0.10 },        // radioluminescent green; fissions only when struck by a neutron
+    [PLUTONIUM]:{ name:"Plutonium",type:STATIC, d:1e4, c1:[150,120,96], c2:[104,80,64], k:0.22, emit:0.18, base:120 },  // self-warm, more fissile
+    [NEUTRON]:  { name:"Neutron", type:GAS,    d:0.3, c1:[214,226,255], c2:[150,176,230], a:90, k:0.04 },         // the invisible chain carrier (finite ballistic life)
+    [FALLOUT]:  { name:"Fallout", type:POWDER, d:170, c1:[120,150,110], c2:[86,112,80], k:0.06, emit:0.06, base:60 },  // fission rubble; decays to ash
+    [CONTROL_ROD]:{ name:"Control Rod",type:STATIC, d:1e4, c1:[40,44,54], c2:[24,26,32], k:0.40 },                // boron — drinks neutrons, scrams the pile
   };
 
   // fast lookup arrays
@@ -185,11 +193,15 @@
   const MELT_SEED = {[METAL]:1600,[GOLD]:1200,[COPPER]:1200,[TIN]:300,[BRONZE]:1100,[STEEL]:1450,[SILVER]:1100,[ALUMINUM]:760};
   const MELT_RECIPE = {[METAL]:"iron_melt",[GOLD]:"gold_melt",[COPPER]:"copper_melt",[TIN]:"tin_melt",[BRONZE]:"bronze_melt",[STEEL]:"steel_melt",[SILVER]:"silver_melt",[ALUMINUM]:"aluminum_melt"};
   const CAST_RECIPE = {[METAL]:"cast_iron",[GOLD]:"cast_gold"};   // only iron/gold showcase a cast-back recipe; the rest just resolidify
+  WINDF[FALLOUT]=0.06;   // contaminated dust settles slowly (neutrons/fuel/rods ignore wind)
+  // Fission tuning. Boundedness rests on the invariants (each fission consumes one fuel cell), NOT these numbers —
+  // they only shift the critical mass: a small bare lump leaks neutrons and fizzles, a big dense block chains.
+  const CAPTURE_U=0.62, CAPTURE_PU=0.85, ABSORB=0.10, SPON_U=0.00005, SPON_PU=0.0005;
 
   // palette — grouped for UI; flat list for shortcuts
   const MAT_GROUPS = [
     { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,LIMESTONE,GLASS,OBSIDIAN,METAL,COPPER,TIN,BRONZE,STEEL,SILVER,PATINA,CUPRITE,TINPEST,TARNISH,WOOD,SEED,SAPLING,PLANT,VINE,MOLD,WALL] },
-    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,NITRO,SODIUM,CHLORINE,MAGNESIUM,ALUMINUM] },
+    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,NITRO,SODIUM,CHLORINE,MAGNESIUM,ALUMINUM,URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD] },
     { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,QUICKLIME,SLAKEDLIME,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
     { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
   ];
@@ -231,6 +243,11 @@
     [SILVER]:"The brightest electrical conductor of all. Air and water leave it gleaming; a breath of sulfur turns it black. Roast the tarnish and the shine returns.",
     [TARNISH]:"Black silver sulfide — the tarnish sulfur grows on silver. Roast it fiercely and the bright metal comes back.",
     [ALUMINUM]:"A light silver metal sealed in its own oxide skin — it shrugs off water, but pack it against rust and you have thermite. Strong acid still eats it.",
+    [URANIUM]:"Heavy green metal that hums with quiet radiation. Stack enough of it and a stray neutron starts something that won't stop — heat, blast, and fallout.",
+    [PLUTONIUM]:"Uranium's warmer, hungrier cousin — it glows with its own heat and goes critical in a far smaller lump.",
+    [NEUTRON]:"An invisible bullet hunting for a nucleus to split. It darts a few cells, splits fuel on touch, and winks out — boron drinks it, empty space loses it.",
+    [FALLOUT]:"Glowing rubble where a reactor used to be — fierce, short-lived, and soon just ash.",
+    [CONTROL_ROD]:"Boron-cadmium safety rod — the hush in the heart of a reactor. It drinks neutrons without splitting, dropping a roaring pile below critical.",
     [WALL]:"Immovable barrier.",
     [VINE]:"Climbing plant — creeps up surfaces and across open space. Flammable.",
     [MOLD]:"Creeping rot — spreads over wood, plant and damp stone, then crumbles to ash.",
@@ -351,6 +368,14 @@
     { id:"silver_acid", cat:"Transmutation", name:"Silver dissolution", in:[SILVER,AQUA], out:[EMPTY], note:"Royal water eats silver clean away — it simply dissolves.", hint:"Royal water meets the bright metal…" },
     { id:"thermite_mix", cat:"Pyrotechnics", name:"Thermite mix", in:[ALUMINUM,RUST], out:[MOLTEN_METAL], note:"Aluminium packed against rust IS thermite — ignite it (flame, lava, or a spark) and it reduces the iron oxide to a pool of molten iron in a white-hot flash.", hint:"Silver powder against rust…" },
     { id:"aluminum_acid", cat:"Crafting", name:"Aluminium in acid", in:[ALUMINUM,ACID], out:[HYDROGEN], note:"Strong acid breaks aluminium's oxide skin and dissolves it, fizzing off hydrogen — it resists water, but not acid.", hint:"The light metal meets strong acid…" },
+    // — Nuclear & energy: spontaneous decay seeds a chain; a neutron splits fuel into heat, blast, fallout, and more neutrons —
+    { id:"spontaneous", cat:"Nuclear", name:"Spontaneous decay", in:[URANIUM], out:[NEUTRON], starter:true, note:"Heavy nuclei rarely split on their own, coughing out the first free neutron that can start a chain.", hint:"Stack the green metal and wait…" },
+    { id:"u_fission", cat:"Nuclear", name:"Fission", in:[NEUTRON,URANIUM], out:[FALLOUT], note:"A free neutron splits a uranium nucleus — heat, a blast, fresh neutrons, and radioactive fallout. Enough uranium together and it cascades.", hint:"A neutron, and enough uranium to catch it…" },
+    { id:"pu_fission", cat:"Nuclear", name:"Plutonium fission", in:[NEUTRON,PLUTONIUM], out:[FALLOUT], note:"Plutonium splits more readily and throws an extra neutron — it goes critical in a far smaller lump.", hint:"Less of the warm grey metal is needed…" },
+    { id:"breeding", cat:"Nuclear", name:"Breeding", in:[URANIUM,NEUTRON], out:[PLUTONIUM], note:"Uranium that absorbs a neutron without splitting can transmute into plutonium — one neutron spent, no matter made.", hint:"Bombard uranium that won't split…" },
+    { id:"reactor_steam", cat:"Nuclear", name:"Reactor steam", in:[URANIUM,WATER], out:[STEAM], note:"Fission heat flashes coolant water to steam — a reactor is just a very dangerous kettle.", hint:"Cool a running pile with water…" },
+    { id:"fallout_decay", cat:"Nuclear", name:"Fallout decay", in:[FALLOUT], out:[ASH], note:"Radioactive rubble is fierce but fleeting — it soon cools into harmless grey ash. The chain ends here.", hint:"What a spent reactor leaves behind…" },
+    { id:"control_rod", cat:"Nuclear", name:"Control rod", in:[NEUTRON,CONTROL_ROD], out:[EMPTY], note:"A boron rod drinks the neutron flux, starving the chain. Slide it in to scram a pile; pull it out to wake it hungry.", hint:"Quench the storm of neutrons…" },
     { id:"hydrogen_boom", cat:"Pyrotechnics", name:"Knallgas", in:[HYDROGEN,FIRE], out:[FIRE], note:"Hydrogen ignites violently — far fiercer beside oxygen.", hint:"The lightest gas meets flame…" },
     { id:"oxy_fire", cat:"Pyrotechnics", name:"Oxygen feed", in:[OXYGEN,FIRE], out:[FIRE], note:"Oxygen makes flames burn hotter and longer.", hint:"Fire that can breathe…" },
     { id:"combust_o2", cat:"Pyrotechnics", name:"Combustion", in:[FIRE,OXYGEN], out:[CO2], note:"Oxygen-fed fire burns to carbon dioxide.", hint:"What fire breathes out…" },
@@ -432,6 +457,7 @@
     [LIMESTONE]:1,[QUICKLIME]:0.9,[SLAKEDLIME]:0.9,[CO2]:0.6,[SEED]:0.9,
     [NIGREDO]:0.92,[ALBEDO]:0.92,[CITRINITAS]:0.92,[SAPLING]:1,
     [COPPER]:1,[PATINA]:1,[CUPRITE]:1,[TIN]:1,[TINPEST]:0.9,[BRONZE]:1,[STEEL]:1,[SILVER]:1,[TARNISH]:1,[ALUMINUM]:0.9,
+    [URANIUM]:1,[PLUTONIUM]:1,[NEUTRON]:0.7,[FALLOUT]:0.9,[CONTROL_ROD]:1,
   };
 
   /* ============================ Canvas / state ===================== */
@@ -534,6 +560,8 @@
       case CLOUD: case ACIDCLOUD: return 6+(rnd()*9|0);  // how many times the cloud can rain before it sheds out and clears
       case CHLORINE: return 200+(rnd()*180|0);   // the toxic gas disperses over time
       case MAGNESIUM: return 90+(rnd()*70|0);     // burn budget once it ignites
+      case NEUTRON: return 6+(rnd()*7|0);         // ballistic budget — a neutron travels ~6-12 cells then expires (the keystone life bound)
+      case FALLOUT: return 600+(rnd()*400|0);     // fission rubble decays to plain ash after a while
       default: return 0;
     }
   }
@@ -1153,6 +1181,63 @@
     forN8(x,i,(ni,nm)=>{ if(nm===ACID && rnd()<0.01){ grid[i]=EMPTY; const e=emptyNeighbor(x,i); if(e>=0) spawn(e,HYDROGEN); acidGone=true; discoverRecipe("aluminum_acid"); return true; } return false; });
     if(acidGone) return;
     moveFalling(x,y,i,ALUMINUM); applyWind(x,i,ALUMINUM);
+  }
+
+  /* ===================== Nuclear: a provably-bounded fission chain ===================== */
+  // Fuel (uranium/plutonium) is STATIC and NEVER fissions from heat — only a NEUTRON strike splits it. It hums with
+  // faint self-heat and, very rarely, coughs out a spontaneous neutron that can seed a chain. Bounded: emits at most
+  // one neutron per cell per step into EMPTY space, consumes no fuel, and the neutron itself has a finite life.
+  function upFuel(x,y,i,m){
+    const isPu=(m===PLUTONIUM);
+    applySrc(i, isPu?160:60, 0.02);                              // bounded radiogenic self-heat (converges to a low target)
+    if(temp[i]>200) forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===STEAM){ discoverRecipe("reactor_steam"); return true; } return false; });   // a running pile boils its coolant
+    if(rnd() < (isPu?SPON_PU:SPON_U)){ const e=emptyNeighbor(x,i); if(e>=0){ spawn(e,NEUTRON); discoverRecipe("spontaneous"); } }
+  }
+  // The neutron: the whole chain rides on this one function. Order is load-bearing (expire → absorb → fission → drift).
+  // Boundedness: every fission converts one fuel cell to FALLOUT (1:1, irreversible) and emits ≤3 neutrons into EMPTY
+  // cells only; neutrons always expire (finite life), are drunk by control rods/matter, or are consumed on impact.
+  function upNeutron(x,y,i){
+    if(--life[i]<=0){ grid[i]=EMPTY; return; }                  // ALWAYS expires — no immortal carrier
+    // absorption first: control rods drink it, uranium occasionally breeds to plutonium, ordinary matter parasitically captures it
+    let absorbed=false;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===CONTROL_ROD && rnd()<0.95){ grid[i]=EMPTY; absorbed=true; return true; }
+      if(nm===URANIUM && rnd()<0.012){ convert(ni,PLUTONIUM); grid[i]=EMPTY; absorbed=true; discoverRecipe("breeding"); return true; }   // U-238 + n → Pu-239
+      if(nm!==EMPTY && TYPE[nm]!==GAS && nm!==NEUTRON && rnd()<ABSORB){ grid[i]=EMPTY; absorbed=true; return true; }   // parasitic loss / shielding
+      return false;
+    });
+    if(absorbed) return;
+    // fission scan: the first fuel neighbour it captures splits
+    let struck=-1, isPu=false;
+    forN8(x,i,(ni,nm)=>{
+      if(nm===URANIUM && rnd()<CAPTURE_U){ struck=ni; isPu=false; return true; }
+      if(nm===PLUTONIUM && rnd()<CAPTURE_PU){ struck=ni; isPu=true; return true; }
+      return false;
+    });
+    if(struck>=0){
+      const sx=struck%W, sy=(struck/W)|0;
+      convert(struck,FALLOUT); applySrc(struck,2200,0.6); heatN(struck,80);   // PAY one fuel cell; dump heat (clamped to 2200)
+      let placed=0, nu=isPu?3:2;
+      forN8(sx,struck,(ni,nm)=>{ if(placed>=nu) return true; if(nm===EMPTY){ spawn(ni,NEUTRON); placed++; } return false; });   // ≤nu prompt neutrons into EMPTY only
+      explode(sx,sy,2);                                          // load-bearing: the blast clears pockets in the fallout so neutrons can propagate through packed fuel (also the visible yield). LAST, so it can't clobber the fresh fallout/neutrons
+      grid[i]=EMPTY;                                             // the incident neutron is consumed
+      discoverRecipe(isPu?"pu_fission":"u_fission");
+      return;
+    }
+    moveGas(x,y,i,NEUTRON);                                      // no fuel found — drift on, ticking down
+  }
+  function upFallout(x,y,i){
+    applySrc(i,90,0.01);                                         // faint bounded decay heat
+    let wet=false;
+    forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===ICE||nm===SNOW){ wet=true; return true; } return false; });
+    if(wet) life[i]-=2;                                          // rain wash-out: settles faster (life only ever decreases)
+    if(--life[i]<=0){ convert(i,ASH); discoverRecipe("fallout_decay"); return; }   // → inert ash; the chain ends here
+    moveFalling(x,y,i,FALLOUT); applyWind(x,i,FALLOUT);
+  }
+  // Control rod: a pure neutron SINK — it only ever DELETES adjacent neutrons, never spawns anything. Sliding rods
+  // into a pile lowers k below critical (the SCRAM); it cannot make a bounded chain unbounded.
+  function upControlRod(x,y,i){
+    forN8(x,i,(ni,nm)=>{ if(nm===NEUTRON && rnd()<0.92){ grid[ni]=EMPTY; life[ni]=0; vel[ni]=0; if(temp[i]<900) temp[i]+=3; discoverRecipe("control_rod"); } return false; });
   }
   function upCinnabar(x,y,i){
     if(temp[i]>580 && rnd()<0.05){      // roasting decomposes it back to quicksilver + sulfur
@@ -1856,6 +1941,7 @@
   reg(upMolten, MOLTEN_METAL); reg(upMetalMelt, METAL); reg(upGold, GOLD);
   reg(upCopper, COPPER); reg(upTin, TIN); reg(upTinPest, TINPEST); reg(upBronze, BRONZE);
   reg(upSteel, STEEL); reg(upSilver, SILVER); reg(upAluminum, ALUMINUM);
+  reg(upFuel, URANIUM, PLUTONIUM); reg(upNeutron, NEUTRON); reg(upFallout, FALLOUT); reg(upControlRod, CONTROL_ROD);
   // integrity check — turn the material system's SILENT failures (a material with no dispatch, no blurb, or
   // missing from the palette; a recipe/group pointing at a non-existent id) into a LOUD boot-time warning
   (function validateMaterials(){
@@ -2989,6 +3075,7 @@
     SLIME,HONEY,ACIDCLOUD,BULB,VINE,MOLD,BRINE,CINNABAR,LIMESTONE,QUICKLIME,SLAKEDLIME,CO2,SEED,
     NIGREDO,ALBEDO,CITRINITAS,SAPLING,SODIUM,CHLORINE,MAGNESIUM,
     MOLTEN_METAL,COPPER,PATINA,CUPRITE,TIN,TINPEST,BRONZE,STEEL,SILVER,TARNISH,ALUMINUM,
+    URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD,
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
     paint(x,y,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintDisc(x|0,y|0,currentMat); },
