@@ -821,6 +821,7 @@
         if(ti>=0&&ti<N && canDisplace(mm,ti)) swap(i,ti);
       } }
     shakeScreen(power*0.55);
+    if(power>=5) spawnMushroom(cx,cy,power/6);   // a big single blast (gunpowder/nitro/antimatter) throws up a mushroom cloud
     expandActive(cx-r-1,cy-r-1,cx+r+1,cy+r+1);   // the blast (cells + pressure) needs simulating/redrawing
   }
 
@@ -1290,6 +1291,7 @@
       let placed=0, nu=isPu?3:2;
       forN8(sx,struck,(ni,nm)=>{ if(placed>=nu) return true; if(nm===EMPTY){ spawn(ni,NEUTRON); placed++; } return false; });   // ≤nu prompt neutrons into EMPTY only
       explode(sx,sy,2);                                          // load-bearing: the blast clears pockets so neutrons can propagate through packed fuel (also the visible yield). LAST, so it can't clobber the fresh neutrons
+      fissBoom++; fissBX+=sx; fissBY+=sy;                        // tally fissions this frame — a fierce burst throws up a mushroom cloud (see step())
       if(rnd()<0.12) convert(struck,FALLOUT);                    // re-settle a LITTLE rubble after the blast — leaves visible fallout without choking the reaction cavity (the chain is very sensitive to obstruction)
       grid[i]=EMPTY;                                             // the incident neutron is consumed
       discoverRecipe(isPu?"pu_fission":"u_fission");
@@ -1954,13 +1956,16 @@
   }
 
   /* ============================ Particle system =================== */
-  const MAXP=4500, KSPARK=0, KEMBER=1, KROCKET=2;
+  const MAXP=4500, KSPARK=0, KEMBER=1, KROCKET=2, KSMOKE=3;   // KSMOKE: buoyant smoke that floats up through matter (the mushroom-cloud body)
   const PX=new Float32Array(MAXP),PY=new Float32Array(MAXP),
         PVX=new Float32Array(MAXP),PVY=new Float32Array(MAXP),
         PL=new Float32Array(MAXP),PM=new Float32Array(MAXP),
         PR=new Uint8Array(MAXP),PG=new Uint8Array(MAXP),PB=new Uint8Array(MAXP),
         PK=new Uint8Array(MAXP);
   let pn=0;
+  // Mushroom clouds: a list of active plume events + a per-frame fission accumulator that fires one for big chains
+  const mushrooms=[], MUSH_MAX=4;
+  let fissBoom=0, fissBX=0, fissBY=0, mushCD=0, fissTotal=0, nextMush=100;   // fissBoom/centroid: this frame; fissTotal: cumulative (framerate-independent mushroom trigger)
   function addP(x,y,vx,vy,life,r,g,b,kind){
     if(pn>=MAXP) return;
     const k=pn++; PX[k]=x;PY[k]=y;PVX[k]=vx;PVY[k]=vy;PL[k]=life;PM[k]=life;
@@ -1986,11 +1991,18 @@
   function updateParticles(){
     const wpx=WIND*0.06;
     for(let k=0;k<pn;){
+      const kind=PK[k];
+      if(kind===KSMOKE){
+        PVY[k]-=GY*0.03; PVX[k]+=wpx-GX*0.03;   // buoyant — rises against gravity and drifts on the wind
+        PVX[k]*=0.95; PVY[k]*=0.95;             // heavy drag, so it billows and slows as it climbs
+        PX[k]+=PVX[k]; PY[k]+=PVY[k]; PL[k]--;
+        if(PL[k]<=0 || PX[k]<0 || PX[k]>=W || PY[k]<0){ killP(k); continue; }   // floats through matter; only dies of age or off the top
+        k++; continue;
+      }
       PVX[k]+=GX*0.05+wpx; PVY[k]+=GY*0.05;
       PVX[k]*=0.992; PVY[k]*=0.992;
       PX[k]+=PVX[k]; PY[k]+=PVY[k];
       PL[k]--;
-      const kind=PK[k];
       if(kind===KROCKET){
         if(rnd()<0.85) addP(PX[k],PY[k],(rnd()-0.5)*0.3,(rnd()-0.5)*0.3,8+rnd()*8,255,170,70,KEMBER);
         const moving=(PVX[k]*GX+PVY[k]*GY);
@@ -2010,6 +2022,34 @@
       }
       if(PL[k]<=0){ killP(k); continue; }
       k++;
+    }
+  }
+
+  // A timed mushroom-cloud plume for big detonations: a hot fireball boils up, drags a smoke stem behind it, and
+  // billows out into the iconic umbrella cap that climbs and widens. Pure particles (KEMBER fireball + KSMOKE body) —
+  // it never touches the grid, so it's spectacle with zero effect on the simulation or its boundedness.
+  function spawnMushroom(cx,cy,scale){
+    if(mushrooms.length>=MUSH_MAX) return;
+    mushrooms.push({cx,cy,age:0,life:62,scale:clamp(scale,0.6,2.4)});
+    shakeScreen(7*scale);
+  }
+  function updateMushrooms(){
+    for(let mi=mushrooms.length-1;mi>=0;mi--){
+      const m=mushrooms[mi], a=m.age++, s=m.scale, cx=m.cx, cy=m.cy;
+      if(a>m.life){ mushrooms.splice(mi,1); continue; }
+      const prog=a/m.life, stemH=58*s, capY=cy-stemH*Math.min(1,prog*1.25);
+      if(a<12){                                   // FIREBALL — a hot flash boiling up off the ground
+        for(let n=0;n<6;n++){ const ang=rnd()*6.2832, spd=(0.8+rnd()*2.6)*s;
+          addP(cx,cy,Math.cos(ang)*spd,Math.sin(ang)*spd-0.6, 12+rnd()*14, 255,170+(rnd()*70|0),50+(rnd()*40|0), KEMBER); }
+      }
+      if(a<m.life*0.72){                          // STEM — the column of smoke dragged up behind the fireball
+        for(let n=0;n<5;n++){ const jx=(rnd()-0.5)*7*s;
+          addP(cx+jx, cy-rnd()*5, (rnd()-0.5)*0.25, -0.35-rnd()*0.3, 60+rnd()*44, 158+(rnd()*28|0),144+(rnd()*24|0),126+(rnd()*22|0), KSMOKE); }
+      }
+      if(a>=6){                                   // CAP — the umbrella: smoke billowing outward at the rising stem-top, curling up
+        for(let n=0;n<8;n++){ const side=rnd()<0.5?-1:1, outV=(0.35+rnd()*0.85)*s;
+          addP(cx+(rnd()-0.5)*7*s, capY+(rnd()-0.5)*4, side*outV, -0.1-rnd()*0.2, 70+rnd()*48, 172+(rnd()*26|0),156+(rnd()*22|0),136+(rnd()*20|0), KSMOKE); }
+      }
     }
   }
 
@@ -2213,6 +2253,17 @@
     propagateCharge();
     diffuse();
     pressureStep();
+    if(mushCD>0) mushCD--;
+    fissTotal+=fissBoom;
+    // each time cumulative fissions cross the next boundary (and the reaction is still active), throw up a plume at
+    // the live fission centroid — cumulative, so it's framerate-independent; cooldown so a chain yields a column of
+    // plumes, not a wall of them. A fizzle that never reaches 100 total fissions gets none.
+    if(fissBoom>0 && fissTotal>=nextMush && mushCD<=0){
+      spawnMushroom(fissBX/fissBoom, fissBY/fissBoom, Math.min(2.3, 0.9+fissBoom/12));
+      nextMush=fissTotal+180; mushCD=64;
+    }
+    fissBoom=0; fissBX=0; fissBY=0;
+    updateMushrooms();
     updateParticles();
   }
 
@@ -2460,8 +2511,8 @@
     const lf=lightFX();
     if(lf>0) gctx.save(), gctx.globalCompositeOperation="lighter";
     for(let k=0;k<pn;k++){
-      const a=clamp(PL[k]/PM[k],0,1), r=PR[k],g=PG[k],b=PB[k];
-      const sz=PK[k]===KROCKET?1.7:1.2;
+      const a=clamp(PL[k]/PM[k],0,1), r=PR[k],g=PG[k],b=PB[k], kind=PK[k], isSmoke=kind===KSMOKE;
+      const sz=kind===KROCKET?1.7:(isSmoke?4.6:1.2);
       const vx=PVX[k], vy=PVY[k], sp=vx*vx+vy*vy;
       // motion trail — a fading streak behind fast particles (long-exposure light)
       if(sp>1){
@@ -2471,9 +2522,9 @@
         if(lf>0){ gctx.strokeStyle="rgba("+r+","+g+","+b+","+(a*0.3*lf)+")"; gctx.lineWidth=sz*1.5;
           gctx.beginPath(); gctx.moveTo(PX[k],PY[k]); gctx.lineTo(PX[k]-vx*tl,PY[k]-vy*tl); gctx.stroke(); }
       }
-      sctx.fillStyle="rgba("+r+","+g+","+b+","+a+")";
+      sctx.fillStyle="rgba("+r+","+g+","+b+","+(isSmoke?a*0.55:a)+")";   // smoke is soft + semi-transparent so puffs layer into a billow
       sctx.fillRect(PX[k]-sz*0.5,PY[k]-sz*0.5,sz,sz);
-      if(lf>0){
+      if(lf>0 && !isSmoke){   // only the bright stuff glows — grey smoke must not add light
         gctx.fillStyle="rgba("+r+","+g+","+b+","+(a*0.85*lf)+")";
         gctx.fillRect(PX[k]-sz,PY[k]-sz,sz*2,sz*2);
       }
@@ -3312,6 +3363,7 @@
     wind(w){ WIND=w; const el=document.getElementById("wind"); if(el){el.value=Math.round(w*100); document.getElementById("wind-readout").textContent=el.value;} },
     firework(x,y){ stopAttract(); launchRocket(x|0,y|0); },
     lightning(x,y){ stopAttract(); strikeLightning(x|0,y|0); },
+    explode(x,y,p){ stopAttract(); explode(x|0,y|0,p||7); },
     burst(x,y){ burst(x|0,y|0); },
     pause(p){ paused=(p==null)?!paused:!!p; const b=document.getElementById("btn-play"); if(b)b.classList.toggle("paused",paused); return paused; },
     heatMap(on){ heatMap=on==null?!heatMap:!!on; if(heatMap) pressureMap=false; document.getElementById("btn-heat").classList.toggle("on",heatMap); const pb=document.getElementById("btn-pressure"); if(pb)pb.classList.toggle("on",pressureMap); },
