@@ -234,12 +234,40 @@
   // buried under METAMORPH_DEPTH AND above METAMORPH_HEAT metamorphoses. overburden() scans at most BURIAL_MAX up.
   const SMELT_T=1150, COMPACT_DEPTH=12, METAMORPH_HEAT=550, METAMORPH_DEPTH=16, BURIAL_MAX=24;
 
-  // palette — grouped for UI; flat list for shortcuts
+  // palette — six tabs, each split into ordered sub-sections; `mats` is DERIVED so every downstream consumer
+  // (PALETTE, matsForView, validateMaterials, the booklet, shortcuts, the scripting API) keeps working unchanged.
+  const grp=(label,icon,sections)=>({ label, icon, sections, mats:sections.flatMap(s=>s.mats) });
   const MAT_GROUPS = [
-    { label:"Natural", icon:"🌍", mats:[SAND,RAINBOW,WATER,ICE,SNOW,SALT,STONE,SANDSTONE,SLATE,MARBLE,LIMESTONE,GLASS,OBSIDIAN,IRON_ORE,MALACHITE,CASSITERITE,METAL,COPPER,TIN,BRONZE,STEEL,SILVER,PATINA,CUPRITE,TINPEST,TARNISH,WOOD,SEED,SAPLING,PLANT,VINE,MOLD,WALL] },
-    { label:"Reactive", icon:"⚗️", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA,FIRE,SMOKE,CO2,HYDROGEN,OXYGEN,HELIUM,PLASMA,NITRO,SODIUM,CHLORINE,MAGNESIUM,ALUMINUM,URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD] },
-    { label:"Alchemy", icon:"✦", mats:[GOLD,DIAMOND,CINNABAR,QUICKLIME,SLAKEDLIME,CRYSTAL,PHILOSOPHER,SULFUR,SALTPETER,COAL,ASH,RUST,GUNPOWDER,THERMITE,FUSE] },
-    { label:"Tools", icon:"🛠", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD,HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
+    grp("Earth","🌍",[
+      { name:"Sand & Salt", mats:[SAND,RAINBOW,SALT] },
+      { name:"Water & Ice", mats:[WATER,ICE,SNOW] },
+      { name:"Rock", mats:[STONE,SANDSTONE,SLATE,MARBLE,LIMESTONE,OBSIDIAN,GLASS] },
+      { name:"Life", mats:[WOOD,SEED,SAPLING,PLANT,VINE,MOLD] },
+      { name:"Structure", mats:[WALL] },
+    ]),
+    grp("Metals","⛓",[
+      { name:"Ores", mats:[IRON_ORE,MALACHITE,CASSITERITE] },
+      { name:"Pure & Alloy", mats:[METAL,COPPER,TIN,BRONZE,STEEL,SILVER,ALUMINUM,GOLD] },
+      { name:"Corrosion", mats:[PATINA,CUPRITE,TINPEST,TARNISH,RUST] },
+    ]),
+    grp("Liquids & Gas","💧",[
+      { name:"Liquids", mats:[OIL,ACID,AQUA,MERCURY,BRINE,SLIME,HONEY,LAVA] },
+      { name:"Fire & Smoke", mats:[FIRE,PLASMA,SMOKE] },
+      { name:"Gases", mats:[CO2,HYDROGEN,OXYGEN,HELIUM,CHLORINE] },
+    ]),
+    grp("Reactive","⚗️",[
+      { name:"Volatile", mats:[NITRO,SODIUM,MAGNESIUM] },
+      { name:"Nuclear", mats:[URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD] },
+    ]),
+    grp("Alchemy","✦",[
+      { name:"Precious", mats:[DIAMOND,CRYSTAL,PHILOSOPHER] },
+      { name:"Reagents", mats:[CINNABAR,SULFUR,SALTPETER,QUICKLIME,SLAKEDLIME] },
+      { name:"Residue & Craft", mats:[COAL,ASH,GUNPOWDER,THERMITE,FUSE] },
+    ]),
+    grp("Tools","🛠",[
+      { name:"Emitters", mats:[FIREWORK,SPARK,LIGHTNING,BULB,CLOUD,ACIDCLOUD] },
+      { name:"Sculpting", mats:[HEAT,COOL,CLONER,VOID,ANTIMATTER,EMPTY] },
+    ]),
   ];
   const PALETTE = MAT_GROUPS.flatMap(g=>g.mats);
 
@@ -2915,6 +2943,11 @@
   const PAL_TABS = MAT_GROUPS.map(g=>g.label).concat("All");
   let activeTab = MAT_GROUPS.length;   // default to "All" so everything is visible
   let matSearch = "";
+  // Recent = the last 6 distinct UI-picked materials (zero-config favourites, persisted). Collapsed = folded sections.
+  let recent = safeParseArray("aether-recent").filter(m=>M[m]&&m!==EMPTY).slice(0,6);
+  let collapsed = new Set(safeParseArray("aether-collapsed"));
+  function pushRecent(m){ if(m===EMPTY) return; recent=[m,...recent.filter(x=>x!==m)].slice(0,6); try{ localStorage.setItem("aether-recent",JSON.stringify(recent)); }catch(_){} renderRecent(); }
+  function saveCollapsed(){ try{ localStorage.setItem("aether-collapsed",JSON.stringify([...collapsed])); }catch(_){} }
 
   function matsForView(){
     if(matSearch){
@@ -2925,6 +2958,12 @@
     if(lbl==="All") return PALETTE;
     const g=MAT_GROUPS.find(gr=>gr.label===lbl);
     return g?g.mats:PALETTE;
+  }
+  function sectionsForView(){
+    const lbl=PAL_TABS[activeTab];
+    if(lbl==="All") return MAT_GROUPS.flatMap(g=>g.sections);
+    const g=MAT_GROUPS.find(gr=>gr.label===lbl);
+    return g?g.sections:[];
   }
   function whisperFor(m){   // a teasing hint toward an as-yet-undiscovered recipe that uses this material
     for(const r of ALCHEMY_RECIPES)
@@ -2950,20 +2989,37 @@
     el.innerHTML=sw+'<span class="mat-name">'+M[m].name+'</span>';
     el.addEventListener("mouseenter",()=>setMatDesc(m));
     el.addEventListener("mouseleave",()=>setMatDesc(currentMat));
-    el.addEventListener("click",()=>{ currentMat=m; setMatDesc(m); syncPaletteActive(); });
+    el.addEventListener("click",()=>{ currentMat=m; pushRecent(m); setMatDesc(m); syncPaletteActive(); });
     return el;
   }
+  const gridOf=mats=>{ const g=document.createElement("div"); g.className="material-grid"; mats.forEach(m=>g.appendChild(buildMatButton(m))); return g; };
   function renderMatGrid(){
     const wrap=document.getElementById("material-grid-wrap"); if(!wrap) return;
-    wrap.innerHTML="";
-    const mats=matsForView();
-    if(mats.length===0){ const d=document.createElement("div"); d.className="mat-empty";
-      d.textContent='No materials match “'+matSearch+'”.'; wrap.replaceChildren(d); return; }   // textContent → the typed query can't inject markup
-    const grid=document.createElement("div");
-    grid.className="material-grid";
-    mats.forEach(m=>grid.appendChild(buildMatButton(m)));
-    wrap.appendChild(grid);
-    syncPaletteActive();
+    const frag=document.createDocumentFragment();
+    if(matSearch){   // searching → today's flat result list (sections suppressed)
+      const mats=matsForView();
+      if(!mats.length){ const d=document.createElement("div"); d.className="mat-empty";
+        d.textContent='No materials match “'+matSearch+'”.'; wrap.replaceChildren(d); return; }   // textContent → the typed query can't inject markup
+      frag.appendChild(gridOf(mats));
+    } else {   // browsing → labelled, collapsible sub-sections (a 5-7 line table of contents per tab)
+      sectionsForView().forEach(s=>{
+        const h=document.createElement("button"); h.type="button"; h.className="mat-sec"+(collapsed.has(s.name)?" collapsed":"");
+        const nm=document.createElement("span"); nm.textContent=s.name;
+        const car=document.createElement("span"); car.className="mat-sec-caret";
+        h.append(nm,car);
+        h.addEventListener("click",()=>{ collapsed.has(s.name)?collapsed.delete(s.name):collapsed.add(s.name); saveCollapsed(); renderMatGrid(); });
+        frag.appendChild(h);
+        if(!collapsed.has(s.name)) frag.appendChild(gridOf(s.mats));
+      });
+    }
+    wrap.replaceChildren(frag); syncPaletteActive();
+  }
+  function renderRecent(){
+    const el=document.getElementById("recent-strip"); if(!el) return;
+    if(!recent.length){ el.hidden=true; el.replaceChildren(); return; }
+    el.hidden=false; const frag=document.createDocumentFragment();
+    recent.forEach(m=>frag.appendChild(buildMatButton(m)));
+    el.replaceChildren(frag);
   }
   function buildPalette(){
     const tabsEl=document.getElementById("palette-tabs");
@@ -3003,6 +3059,7 @@
     const wrap=document.getElementById("material-grid-wrap");
     if(wrap) wrap.addEventListener("mouseleave",()=>setMatDesc(currentMat));
     renderMatGrid();
+    renderRecent();
     setMatDesc(currentMat);
   }
   function ingChip(m){
