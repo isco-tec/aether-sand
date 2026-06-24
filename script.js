@@ -54,6 +54,7 @@
   const STATIC=0, POWDER=1, LIQUID=2, GAS=3, TOOL=4;
 
   const AMBIENT = 20;
+  const TAU = 6.2832;   // 2π — a full turn, for random-angle particle emission
 
   /* ============================ Material table ===================== */
   // trans: phase transitions by temperature [{c:+1 above / -1 below, t, to, p}]
@@ -481,6 +482,7 @@
   const RECIPE_BY_ID = Object.fromEntries(ALCHEMY_RECIPES.map(r=>[r.id,r]));
   // never let a corrupt / tampered localStorage value throw and brick startup
   const safeParseArray = (key)=>{ try{ const a=JSON.parse(localStorage.getItem(key)||"[]"); return Array.isArray(a)?a:[]; }catch(_){ return []; } };
+  const safeSetStorage = (key,val)=>{ try{ localStorage.setItem(key,val); }catch(_){} };   // silent best-effort write (private mode / quota), mirrors safeParseArray
   let revealAll = localStorage.getItem("aether-reveal-all")==="1";
   let discoveries = new Set(safeParseArray("aether-discoveries"));
   ALCHEMY_RECIPES.filter(r=>r.starter).forEach(r=>discoveries.add(r.id));
@@ -523,7 +525,7 @@
   function discoverRecipe(id){
     if(!RECIPE_BY_ID[id] || discoveries.has(id)) return;
     discoveries.add(id);
-    try{ localStorage.setItem("aether-discoveries", JSON.stringify([...discoveries])); }catch(_){}
+    safeSetStorage("aether-discoveries", JSON.stringify([...discoveries]));
     renderBooklet();
     toast("📖 Discovered: "+RECIPE_BY_ID[id].name);
     Snd.chime();
@@ -617,7 +619,7 @@
     n=clampInt(n,0,2);
     if(n===worldSize) return;                         // already this size — do nothing (no glitchy realloc)
     worldSize=n;
-    try{ localStorage.setItem("aether-world", String(worldSize)); }catch(_){}
+    safeSetStorage("aether-world", String(worldSize));
     const og=grid, oW=W, oH=H;                        // keep the current scene before the grid is reallocated
     resize();                                          // changes SCALE / W / H / grid
     if(og && oW>0 && oH>0 && (oW!==W||oH!==H)){
@@ -659,6 +661,7 @@
   }
   function convert(i,m){ grid[i]=m; shade[i]=r255(); life[i]=defaultLife(m); vel[i]=0; moved[i]=1; }
   function spawn(i,m){ convert(i,m); temp[i]=BASET[m]; charge[i]=0; }
+  function clearCell(i){ grid[i]=EMPTY; charge[i]=0; vel[i]=0; }   // wipe a cell to empty (consumed reactant), zeroing its charge + velocity
 
   function swap(a,b){
     let t;
@@ -834,7 +837,7 @@
     }
     const cnt=24+(rnd()*22|0);
     for(let a=0;a<cnt;a++){
-      const ang=rnd()*6.2832, spd=0.8+rnd()*3.2;
+      const ang=rnd()*TAU, spd=0.8+rnd()*3.2;
       addP(cx,cy,Math.cos(ang)*spd,Math.sin(ang)*spd,22+rnd()*26,255,150+(rnd()*80|0),40,KSPARK);
     }
     // pressure shockwave — spike the field, then physically shove loose matter outward
@@ -857,26 +860,27 @@
   }
 
   /* ============================ Screen shake ====================== */
+  const FX_SHAKE = { MAX: 6, DECAY: 0.86, JITTER: 0.4 };   // screen-shake tuning: peak magnitude, per-frame decay, position jitter
   let shakeAmt=0, stageEl=null;
-  function shakeScreen(a){ if(a>shakeAmt) shakeAmt=a>6?6:a; }   // capped low — a hint of impact, not a jolt
+  function shakeScreen(a){ if(a>shakeAmt) shakeAmt=a>FX_SHAKE.MAX?FX_SHAKE.MAX:a; }   // capped low — a hint of impact, not a jolt
   function applyShake(){
     if(!stageEl) stageEl=document.getElementById("stage");
     if(!stageEl) return;
     if(shakeAmt>0.15){
-      const dx=(rnd()-0.5)*shakeAmt*0.4, dy=(rnd()-0.5)*shakeAmt*0.4;
+      const dx=(rnd()-0.5)*shakeAmt*FX_SHAKE.JITTER, dy=(rnd()-0.5)*shakeAmt*FX_SHAKE.JITTER;
       stageEl.style.transform="translate("+dx.toFixed(2)+"px,"+dy.toFixed(2)+"px)";
-      shakeAmt*=0.86;
+      shakeAmt*=FX_SHAKE.DECAY;
     } else if(shakeAmt!==0){ stageEl.style.transform=""; shakeAmt=0; }
   }
   // the vignette becomes a mood ring — warm with fire, cold with ice, sickly with acid
   let vigEl=null;
-  function updateMood(warm, cold, tox){
+  function updateMood(warmLevel, coldLevel, toxLevel){
     if(!vigEl){ vigEl=document.getElementById("vignette"); if(!vigEl) return; }
-    let col=null, str=0;
-    if(warm>=cold && warm>=tox && warm>40){ col="255,118,44"; str=Math.min(0.5, warm/520); }
-    else if(cold>warm && cold>40){ col="118,178,255"; str=Math.min(0.46, cold/640); }
-    else if(tox>26){ col="150,205,80"; str=Math.min(0.42, tox/280); }
-    vigEl.style.boxShadow = col ? ("inset 0 0 "+Math.round(60+200*str)+"px rgba("+col+","+str.toFixed(2)+")") : "none";
+    let col=null, glowStrength=0;   // (renamed from `str` to avoid shadowing the FALL/RISE.str movement fields)
+    if(warmLevel>=coldLevel && warmLevel>=toxLevel && warmLevel>40){ col="255,118,44"; glowStrength=Math.min(0.5, warmLevel/520); }
+    else if(coldLevel>warmLevel && coldLevel>40){ col="118,178,255"; glowStrength=Math.min(0.46, coldLevel/640); }
+    else if(toxLevel>26){ col="150,205,80"; glowStrength=Math.min(0.42, toxLevel/280); }
+    vigEl.style.boxShadow = col ? ("inset 0 0 "+Math.round(60+200*glowStrength)+"px rgba("+col+","+glowStrength.toFixed(2)+")") : "none";
   }
   // a soft full-screen colour bloom that fades out — for big "wow" moments
   let opusCooldown=0, flashEl=null;
@@ -891,7 +895,7 @@
   }
   // the climax of the alchemy — celebrate the birth of the Philosopher's Stone (grandest on the first ever)
   function magnumOpusCeremony(x,y){
-    for(let a=0;a<30;a++){ const ang=rnd()*6.2832, sp=0.8+rnd()*3.2;
+    for(let a=0;a<30;a++){ const ang=rnd()*TAU, sp=0.8+rnd()*3.2;
       addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,22+rnd()*26,255,212,128,KSPARK); }
     shakeScreen(7); flash(255,205,120,0.5);
     let first=false; try{ first=!localStorage.getItem("aether-first-stone"); if(first) localStorage.setItem("aether-first-stone","1"); }catch(_){}
@@ -955,7 +959,7 @@
       start,
       state:()=>({hasCtx:!!ctx, running:ctx?ctx.state:null, started, muted}),
       isMuted:()=>muted,
-      setMuted(m){ muted=m; try{ localStorage.setItem("aether-mute", m?"1":"0"); }catch(_){}
+      setMuted(m){ muted=m; safeSetStorage("aether-mute", m?"1":"0");
         if(master&&ctx) master.gain.setTargetAtTime(m?0:MASTER, ctx.currentTime, 0.06); },
       ambient(fN,wN,lN){ if(!ctx||!started) return; const t=ctx.currentTime;
         V.fire.gain.setTargetAtTime(Math.min(0.14, fN*0.0008), t, 0.3);
@@ -1401,7 +1405,7 @@
       let coal=-1;
       forN8(x,i,(ni,nm)=>{ if(nm===COAL && temp[ni]>=900){ coal=ni; return true; } return false; });   // a stoked coke bed, not a mere flame
       if(coal>=0 && rnd()<0.05){
-        grid[coal]=EMPTY; charge[coal]=0; vel[coal]=0;
+        clearCell(coal);
         const e=emptyNeighbor(x,i);
         if(rnd()<0.25){ if(e>=0){ convert(e,MOLTEN_METAL); life[e]=METAL; temp[e]=MELT_SEED[METAL]; } convert(i,STONE); }   // ~¼: leave stone slag, pour the iron out
         else { convert(i,MOLTEN_METAL); life[i]=METAL; temp[i]=Math.max(temp[i],MELT_SEED[METAL]); if(e>=0 && rnd()<0.5) spawn(e,CO2); }   // ~¾: the ore itself becomes molten iron + breathes CO2 (keep any hotter furnace heat)
@@ -1416,7 +1420,7 @@
     forN8(x,i,(ni,nm)=>{ if(nm===COAL){ coal=ni; return true; } return false; });
     if(coal>=0 && rnd()<0.05){
       const cx=coal%W, e=emptyNeighbor(cx,coal); if(e>=0) spawn(e,CO2);
-      grid[coal]=EMPTY; charge[coal]=0; vel[coal]=0;
+      clearCell(coal);
       convert(i,MOLTEN_METAL); life[i]=COPPER; temp[i]=Math.max(temp[i],MELT_SEED[COPPER]);
       discoverRecipe("smelt_copper");
     }
@@ -1427,7 +1431,7 @@
     forN8(x,i,(ni,nm)=>{ if(nm===COAL){ coal=ni; return true; } return false; });
     if(coal>=0 && rnd()<0.06){
       const cx=coal%W, e=emptyNeighbor(cx,coal); if(e>=0) spawn(e,CO2);
-      grid[coal]=EMPTY; charge[coal]=0; vel[coal]=0;
+      clearCell(coal);
       convert(i,MOLTEN_METAL); life[i]=TIN; temp[i]=Math.max(temp[i],MELT_SEED[TIN]);
       discoverRecipe("smelt_tin");
     }
@@ -1687,7 +1691,7 @@
     forN8(x,i,(ni,nm)=>{ if(nm===GOLD) gold=ni; return false; });
     if(gold>=0 && rnd()<0.05){            // perfected with gold — the matter reddens into the Stone
       convert(i,PHILOSOPHER); discoverRecipe("rubedo");
-      for(let a=0;a<12;a++){ const ang=rnd()*6.2832, sp=0.5+rnd()*2.2;
+      for(let a=0;a<12;a++){ const ang=rnd()*TAU, sp=0.5+rnd()*2.2;
         addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,16+rnd()*18,255,210,120,KSPARK); }
       if(opusCooldown<=0){ magnumOpusCeremony(x,y); opusCooldown=150; }   // one ceremony per birth, not per cell
       return;
@@ -1778,9 +1782,10 @@
   }
   function upHydrogen(x,y,i){
     if(--life[i]<=0){ grid[i]=EMPTY; return; }
-    // FUSION — hydrogen pressed against fusion-grade heat (its own OR a neighbour's — only a real 2200°-class source:
-    // a fission blast, thermite, molten metal) fuses with a neighbouring hydrogen into helium, a furious energy
-    // release (the staged H-bomb). Neighbour-gated so the blast fuses it BEFORE its own temp ramps through the 180°
+    // FUSION — hydrogen pressed against fusion-grade heat (its own OR a neighbour's temp ≥ FUSE_T, ~1400°, which only
+    // a real extreme source reaches: a fission blast, thermite, molten metal) fuses with a neighbouring hydrogen into
+    // helium and emits a furious 2200°-class energy burst (the applySrc below — that 2200 is the OUTPUT, not the
+    // trigger). The staged H-bomb. Neighbour-gated so the blast fuses it BEFORE its own temp ramps through the 180°
     // burn point; checked before the chemical-ignite block so it fuses rather than merely igniting.
     {
       let partner=-1, fusionHot=temp[i]>=FUSE_T;
@@ -1792,7 +1797,7 @@
       if(fusionHot && partner>=0){
         grid[partner]=EMPTY;                                    // consume the second nucleus (2 → 1 contraction)
         convert(i,HELIUM); applySrc(i,2200,0.5); heatN(i,40); explode(x,y,3);
-        for(let a=0;a<10;a++){ const ang=rnd()*6.2832, sp=1.5+rnd()*3; addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,18+rnd()*20,255,250,210,KSPARK); }
+        for(let a=0;a<10;a++){ const ang=rnd()*TAU, sp=1.5+rnd()*3; addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,18+rnd()*20,255,250,210,KSPARK); }
         discoverRecipe("fusion"); return;
       }
     }
@@ -1908,7 +1913,7 @@
         if(FLAM[gm]) temp[gi]+=320;
         if(CHCOND[gm] && gm!==WATER && gm!==BRINE){ charge[gi]=6; markChargeDirty(); }
         fuseSand(x,y,3);                     // a glass blob where the bolt lands (incl. nearby sand)
-        for(let a=0;a<14;a++){ const ang=rnd()*6.2832, sp=0.6+rnd()*2.4;
+        for(let a=0;a<14;a++){ const ang=rnd()*TAU, sp=0.6+rnd()*2.4;
           addP(x+0.5,y+0.5,Math.cos(ang)*sp,Math.sin(ang)*sp,12+rnd()*16,210,232,255,KSPARK); }
         break;
       }
@@ -2013,7 +2018,7 @@
     Snd.pop();
     const rainbow=rnd()<0.45, baseH=rnd()*360, count=70+(rnd()*60|0);
     for(let a=0;a<count;a++){
-      const ang=rnd()*6.2832, spd=0.5+rnd()*2.6;
+      const ang=rnd()*TAU, spd=0.5+rnd()*2.6;
       const h=(rainbow?rnd()*360:baseH+(rnd()-0.5)*46)/360;
       const c=hsl(h,1,0.62);
       addP(x,y,Math.cos(ang)*spd,Math.sin(ang)*spd,28+rnd()*42,c[0],c[1],c[2],KSPARK);
@@ -2105,7 +2110,7 @@
       // FIREBALL — the hot head, anchored at the ring underside, cooling white→orange→red
       if(t<M_FIRE_T){
         const fy=Cy+rt;
-        for(let n=0;n<M_FIRE_PER;n++){ const ang=rnd()*6.2832, spd=(0.5+rnd()*1.8)*s;
+        for(let n=0;n<M_FIRE_PER;n++){ const ang=rnd()*TAU, spd=(0.5+rnd()*1.8)*s;
           addP(cx+Math.cos(ang)*4*s, fy, Math.cos(ang)*spd, Math.sin(ang)*spd-0.9, 12+rnd()*14, 255, 205-(t*8|0), 70+(rnd()*40|0), KEMBER); }
       }
       // STEM — a narrow, necking, convergent dust column (the afterwind) feeding the cap; buoyant KSMOKE
@@ -2117,7 +2122,7 @@
       // CAP — vortex-ring tracers seeded on the tube of a random core, launched along the poloidal roll + expansion drift
       if(t>=M_CAP_START){
         for(let n=0;n<M_CAP_PER;n++){
-          const sig=(rnd()<0.5)?-1:1, phi=rnd()*6.2832;
+          const sig=(rnd()<0.5)?-1:1, phi=rnd()*TAU;
           let rr=rt*(0.35+0.65*rnd()); rr*=1+0.25*(rnd()-0.5);   // band within the tube + Rayleigh-Taylor lumpiness
           const px=cx+sig*R+Math.cos(phi)*rr, py=Cy+Math.sin(phi)*rr*0.82;   // 0.82 = flattened (oblate) cap
           const rv=ringRoll(px,py,cx,Cy,R,rt,Gamma);
@@ -2868,7 +2873,7 @@
     let p=0, idx=0;
     while(p<bytes.length && idx<target.length){
       const v=bytes[p++]; let count=0, shift=0, b;
-      do{ b=bytes[p++]; count|=(b&127)<<shift; shift+=7; }while(b&128 && p<bytes.length);
+      do{ if(p>=bytes.length) break; b=bytes[p++]; count|=(b&127)<<shift; shift+=7; }while(b&128);   // pre-read bounds guard (a 0x00 count byte is legitimate, so don't gate the loop on byte truthiness)
       for(let k=0;k<count && idx<target.length;k++) target[idx++]=v;
     }
   }
@@ -2983,8 +2988,8 @@
   // Recent = the last 6 distinct UI-picked materials (zero-config favourites, persisted). Collapsed = folded sections.
   let recent = safeParseArray("aether-recent").filter(m=>M[m]&&m!==EMPTY).slice(0,6);
   let collapsed = new Set(safeParseArray("aether-collapsed"));
-  function pushRecent(m){ if(m===EMPTY) return; recent=[m,...recent.filter(x=>x!==m)].slice(0,6); try{ localStorage.setItem("aether-recent",JSON.stringify(recent)); }catch(_){} renderRecent(); }
-  function saveCollapsed(){ try{ localStorage.setItem("aether-collapsed",JSON.stringify([...collapsed])); }catch(_){} }
+  function pushRecent(m){ if(m===EMPTY) return; recent=[m,...recent.filter(x=>x!==m)].slice(0,6); safeSetStorage("aether-recent",JSON.stringify(recent)); renderRecent(); }
+  function saveCollapsed(){ safeSetStorage("aether-collapsed",JSON.stringify([...collapsed])); }
 
   function matsForView(){
     if(matSearch){
@@ -3070,7 +3075,7 @@
           activeTab=idx; matSearch="";
           const s=document.getElementById("mat-search"); if(s) s.value="";
           const clr=document.getElementById("mat-search-clear"); if(clr) clr.classList.remove("show");
-          document.querySelectorAll(".ptab").forEach((t,j)=>t.classList.toggle("active",j===idx));
+          syncActive(".ptab", (t,j)=>j===idx);
           renderMatGrid();
         });
         tabsEl.appendChild(b);
@@ -3080,7 +3085,7 @@
     if(searchEl){
       searchEl.addEventListener("input",()=>{
         matSearch=searchEl.value.trim();
-        document.querySelectorAll(".ptab").forEach((t,j)=>t.classList.toggle("active", !matSearch && j===activeTab));
+        syncActive(".ptab", (t,j)=>!matSearch && j===activeTab);
         if(clearEl) clearEl.classList.toggle("show", !!matSearch);
         renderMatGrid();
       });
@@ -3089,7 +3094,7 @@
       clearEl.addEventListener("click",()=>{
         matSearch=""; if(searchEl){ searchEl.value=""; searchEl.focus(); }
         clearEl.classList.remove("show");
-        document.querySelectorAll(".ptab").forEach((t,j)=>t.classList.toggle("active", j===activeTab));
+        syncActive(".ptab", (t,j)=>j===activeTab);
         renderMatGrid();
       });
     }
@@ -3119,7 +3124,7 @@
   function markRecipesSeen(){
     let changed=false;
     ALCHEMY_RECIPES.forEach(r=>{ if(isRecipeKnown(r.id) && !seenRecipes.has(r.id)){ seenRecipes.add(r.id); changed=true; } });
-    if(changed){ try{ localStorage.setItem("aether-seen", JSON.stringify([...seenRecipes])); }catch(_){ } }
+    if(changed){ safeSetStorage("aether-seen", JSON.stringify([...seenRecipes])); }
   }
   function renderBooklet(){
     const total=ALCHEMY_RECIPES.length;
@@ -3208,7 +3213,7 @@
       revealEl.checked=revealAll;
       revealEl.addEventListener("change",()=>{
         revealAll=revealEl.checked;
-        try{ localStorage.setItem("aether-reveal-all", revealAll?"1":"0"); }catch(_){}
+        safeSetStorage("aether-reveal-all", revealAll?"1":"0");
         renderBooklet();
       });
     }
@@ -3244,7 +3249,7 @@
     const newly=[];
     for(const c of CHALLENGES){ if(!challengesDone.has(c.id) && c.test(s)){ challengesDone.add(c.id); newly.push(c); } }
     if(newly.length){
-      try{ localStorage.setItem("aether-challenges", JSON.stringify([...challengesDone])); }catch(_){}
+      safeSetStorage("aether-challenges", JSON.stringify([...challengesDone]));
       const open = !document.getElementById("challenges")?.classList.contains("hidden");
       if(!open) challengesUnseen=true;
       newly.forEach(celebrateChallenge);
@@ -3451,8 +3456,11 @@
     const c=M[m]&&M[m].c1; if(!c) return "232,232,240";
     return Math.min(255,c[0]+45)+","+Math.min(255,c[1]+45)+","+Math.min(255,c[2]+45);
   }
+  // re-query `selector` and toggle .active on each match by `predicate(el, index)` — the shared shape for the
+  // tab / swatch / gravity-compass active states (re-queries exactly as often as the inline code it replaces)
+  function syncActive(selector, predicate){ document.querySelectorAll(selector).forEach((el,i)=>el.classList.toggle("active", predicate(el,i))); }
   function syncPaletteActive(){
-    document.querySelectorAll(".mat").forEach(n=>n.classList.toggle("active", +n.dataset.mat===currentMat));
+    syncActive(".mat", n=>+n.dataset.mat===currentMat);
     const ring=document.getElementById("cursor-ring");
     if(ring){ const col=ringColor(currentMat);
       ring.style.borderColor="rgba("+col+",0.95)";
@@ -3474,7 +3482,7 @@
     line(x0,y0,x1,y1,m,r){ if(m!=null) currentMat=resolveMat(m); if(r) brush=r; stopAttract(); paintLine(x0|0,y0|0,x1|0,y1|0,currentMat); },
     erase(x,y,r){ if(r) brush=r; paintDisc(x|0,y|0,EMPTY); },
     clear(){ clearWorld(); },
-    gravity(gx,gy){ setGravity(gx,gy); document.querySelectorAll(".cmp").forEach(b=>b.classList.toggle("active", +b.dataset.gx===gx && +b.dataset.gy===gy)); },
+    gravity(gx,gy){ setGravity(gx,gy); syncActive(".cmp", b=>+b.dataset.gx===gx && +b.dataset.gy===gy); },
     wind(w){ WIND=w; const el=document.getElementById("wind"); if(el){el.value=Math.round(w*100); document.getElementById("wind-readout").textContent=el.value;} },
     firework(x,y){ stopAttract(); launchRocket(x|0,y|0); },
     lightning(x,y){ stopAttract(); strikeLightning(x|0,y|0); },
