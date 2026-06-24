@@ -1987,7 +1987,7 @@
   }
 
   /* ============================ Particle system =================== */
-  const MAXP=4500, KSPARK=0, KEMBER=1, KROCKET=2, KSMOKE=3;   // KSMOKE: buoyant smoke that floats up through matter (the mushroom-cloud body)
+  const MAXP=4500, KSPARK=0, KEMBER=1, KROCKET=2, KSMOKE=3, KCAP=4;   // KSMOKE: buoyant smoke (stem). KCAP: ~zero-buoyancy vortex-ring tracer (the rolling cap) — coasts its scripted launch velocity
   const PX=new Float32Array(MAXP),PY=new Float32Array(MAXP),
         PVX=new Float32Array(MAXP),PVY=new Float32Array(MAXP),
         PL=new Float32Array(MAXP),PM=new Float32Array(MAXP),
@@ -1996,6 +1996,7 @@
   let pn=0;
   // Mushroom clouds: a list of active plume events + a per-frame fission accumulator that fires one for big chains
   const mushrooms=[], MUSH_MAX=4;
+  let capActive=false;   // true while any mushroom is alive → softens KSMOKE buoyancy so the stem reads gentler
   let fissBoom=0, fissBX=0, fissBY=0, mushCD=0, fissTotal=0, nextMush=100, fissIdle=0;   // fissBoom/centroid: this frame; fissTotal: cumulative (framerate-independent mushroom trigger), reset when the chain goes cold
   function addP(x,y,vx,vy,life,r,g,b,kind){
     if(pn>=MAXP) return;
@@ -2024,10 +2025,18 @@
     for(let k=0;k<pn;){
       const kind=PK[k];
       if(kind===KSMOKE){
-        PVY[k]-=GY*0.03; PVX[k]+=wpx-GX*0.03;   // buoyant — rises against gravity and drifts on the wind
+        PVY[k]-=GY*(capActive?0.018:0.03); PVX[k]+=wpx-GX*0.03;   // buoyant — rises against gravity, gentler while a cap is feeding above it
         PVX[k]*=0.95; PVY[k]*=0.95;             // heavy drag, so it billows and slows as it climbs
         PX[k]+=PVX[k]; PY[k]+=PVY[k]; PL[k]--;
         if(PL[k]<=0 || PX[k]<0 || PX[k]>=W || PY[k]<0){ killP(k); continue; }   // floats through matter; only dies of age or off the top
+        k++; continue;
+      }
+      if(kind===KCAP){   // vortex-ring tracer: coast the scripted poloidal launch velocity, ~zero net buoyancy so the ROLL survives
+        PVX[k]*=0.985; PVY[k]*=0.985;            // light drag — it glides its short arc
+        PVY[k]-=GY*0.004;                        // a hair of residual lift so it never settles below the burst
+        PVX[k]+=wpx*0.4;                         // mild wind sway
+        PX[k]+=PVX[k]; PY[k]+=PVY[k]; PL[k]--;
+        if(PL[k]<=0 || PX[k]<0 || PX[k]>=W || PY[k]<0){ killP(k); continue; }
         k++; continue;
       }
       PVX[k]+=GX*0.05+wpx; PVY[k]+=GY*0.05;
@@ -2056,39 +2065,67 @@
     }
   }
 
-  // A timed mushroom-cloud plume for big detonations: a hot fireball boils up, drags a smoke stem behind it, and
-  // billows out into the iconic umbrella cap that climbs and widens. Pure particles (KEMBER fireball + KSMOKE body) —
-  // it never touches the grid, so it's spectacle with zero effect on the simulation or its boundedness.
+  // MUSHROOM CLOUD — a physically-grounded vortex-ring model. The cap is a buoyant thermal that has rolled into a
+  // TORUS; seen edge-on in 2D it is two counter-rotating cores at x=cx±R. We seed short-lived tracer puffs (KCAP) on
+  // the tube each tick, launched along the analytic POLOIDAL velocity (up the central hole, over the top, down the
+  // outer flank, tuck back under) — so the cap visibly ROLLS. Bulk rise decelerates; the ring radius expands ~√t; a
+  // narrower KSMOKE stem feeds the underside. Pure particles — never touches the grid — and strictly bounded.
+  const M_HRISE=64, M_KRISE=2.4, M_RISE_DENOM=1-Math.exp(-2.4), M_RISE_SHARE=0.35;   // decelerating buoyant rise
+  const M_R0=7, M_RMAX=30, M_TUBE=0.42, M_HOLE=0.8, M_EXP_MAX=0.06, M_GAMMA0=1.05;   // cap geometry + poloidal roll strength
+  const M_CAP_PER=6, M_STEM_PER=3, M_FIRE_PER=5, M_CAP_START=4, M_FIRE_T=16, M_CAP_JIT=0.15;
+  const M_CAP_L0=16, M_CAP_LR=10;   // cap tracer life 16..26 — SHORT, so each puff renders a short chord of the loop (a long life flies off tangentially + blurs the ring)
+  const M_STEM_W0=4.5, M_STEM_NECK=0.4, M_STEM_CONV=0.12, M_STEM_END=0.72, M_STEM_VY0=0.45, M_STEM_VYR=0.4, M_STEM_L0=40, M_STEM_LR=28;
+  // Poloidal roll velocity at a sample point — bounded Rankine twin-core field. Sign HAND-VERIFIED for a BUOYANT
+  // rising ring (both cores: inner flank UP, crest OUT/over, outer flank DOWN, base IN/tuck-under). Do NOT "simplify"
+  // the two `sig` multiplications away — the single-sigma shortcut fails the left-core mirror test.
+  function ringRoll(px,py,cx,Cy,R,rt,Gamma){
+    const sig=px>=cx?1:-1, dx=px-(cx+sig*R), dy=py-Cy;
+    let rho=Math.sqrt(dx*dx+dy*dy); if(rho<1e-3) rho=1e-3;
+    const vth=Gamma*(rho<rt?rho/rt:rt/rho);   // Rankine: solid-body inside the tube, 1/ρ outside, |v| ≤ Gamma everywhere
+    return [vth*sig*(-dy/rho), vth*sig*(dx/rho)];
+  }
   function spawnMushroom(cx,cy,scale){
     if(mushrooms.length>=MUSH_MAX) return;
-    mushrooms.push({cx,cy,age:0,life:62,scale:clamp(scale,0.6,2.4)});
+    mushrooms.push({cx,cy,age:0,life:76,scale:clamp(scale,0.6,2.4)});   // longer life so the decelerating, broadening tail reads
     shakeScreen(7*scale);
     flash(255,236,205, Math.min(0.5, 0.16+scale*0.16));   // the blinding detonation flash
   }
   function updateMushrooms(){
+    capActive = mushrooms.length>0;
     for(let mi=mushrooms.length-1;mi>=0;mi--){
-      const m=mushrooms[mi], a=m.age++, s=m.scale, cx=m.cx, cy=m.cy;
-      if(a>m.life){ mushrooms.splice(mi,1); continue; }
-      const prog=a/m.life, stemH=58*s, rise=Math.min(1,prog*1.3), capY=cy-stemH*rise;
-      // FIREBALL — a hot head boils up off the ground and climbs with the cap, cooling white→orange→red as it rises
-      if(a<16){
-        const fy=cy-stemH*rise*0.85;
-        for(let n=0;n<5;n++){ const ang=rnd()*6.2832, spd=(0.5+rnd()*1.8)*s;
-          addP(cx+Math.cos(ang)*4*s, fy, Math.cos(ang)*spd, Math.sin(ang)*spd-0.9, 12+rnd()*14, 255, 205-(a*8|0), 70+(rnd()*40|0), KEMBER); }
+      const m=mushrooms[mi], t=m.age++, T=m.life, s=m.scale, cx=m.cx, cy=m.cy;
+      if(t>T){ mushrooms.splice(mi,1); continue; }
+      const tau=t/T;
+      // bulk laws: decelerating rise (saturating exponential) + √t-expanding ring
+      const Zmax=Math.min(M_HRISE*s, cy*0.85), ez=Math.exp(-M_KRISE*tau);
+      const z=Zmax*(1-ez)/M_RISE_DENOM, riseV=(Zmax*M_KRISE/T)*ez/M_RISE_DENOM, Cy=cy-z;
+      const R=M_R0*s+(M_RMAX-M_R0)*s*Math.sqrt(tau), rt=Math.min(M_TUBE*R, M_HOLE*R), Gamma=M_GAMMA0*s;
+      const lit=Math.max(0,1-1.6*tau);
+      let EXP=(M_RMAX-M_R0)*s/(2*T*Math.max(R,1)*Math.sqrt(Math.max(tau,0.02))); if(EXP>M_EXP_MAX) EXP=M_EXP_MAX;
+      // FIREBALL — the hot head, anchored at the ring underside, cooling white→orange→red
+      if(t<M_FIRE_T){
+        const fy=Cy+rt;
+        for(let n=0;n<M_FIRE_PER;n++){ const ang=rnd()*6.2832, spd=(0.5+rnd()*1.8)*s;
+          addP(cx+Math.cos(ang)*4*s, fy, Math.cos(ang)*spd, Math.sin(ang)*spd-0.9, 12+rnd()*14, 255, 205-(t*8|0), 70+(rnd()*40|0), KEMBER); }
       }
-      // STEM — a narrow, DARK dust column sucked up the draught behind the rising head
-      if(a<m.life*0.72){
-        for(let n=0;n<4;n++){ const jx=(rnd()-0.5)*6*s;
-          addP(cx+jx, cy-rnd()*6, (rnd()-0.5)*0.2, -0.4-rnd()*0.35, 56+rnd()*42, 118+(rnd()*22|0),106+(rnd()*20|0),94+(rnd()*18|0), KSMOKE); }
+      // STEM — a narrow, necking, convergent dust column (the afterwind) feeding the cap; buoyant KSMOKE
+      if(tau<M_STEM_END){
+        const Wstem=M_STEM_W0*s*(1-M_STEM_NECK*tau), invW=1/Math.max(Wstem,1);
+        for(let n=0;n<M_STEM_PER;n++){ const jx=(rnd()+rnd()+rnd()-1.5)*Wstem;   // cheap ~gaussian
+          addP(cx+jx, cy-rnd()*8, -M_STEM_CONV*jx*invW, -(M_STEM_VY0+rnd()*M_STEM_VYR), M_STEM_L0+rnd()*M_STEM_LR, 118+(rnd()*22|0),106+(rnd()*20|0),94+(rnd()*18|0), KSMOKE); }
       }
-      // CAP — a flattened, billowing toroidal dome: puffs sit on a wide-but-shallow arc and roll outward, the rim
-      // curling back under (the vortex roll). Lit warm by the fireball at first, fading to grey dust as it cools.
-      if(a>=5){
-        const capR=(7+prog*24)*s, lit=Math.max(0,1-prog*1.6);
-        for(let n=0;n<8;n++){ const ang=(rnd()-0.5)*3.3, rr=capR*(0.55+rnd()*0.5), out=Math.sin(ang);
-          const px=cx+out*rr, py=capY-Math.cos(ang)*rr*0.5;             // flattened dome — wider than it is tall
-          const vx=out*(0.45+rnd()*0.5)*s, vy=-0.2-rnd()*0.2+Math.abs(out)*0.4;   // top lifts, the rim curls under
-          addP(px, py, vx, vy, 72+rnd()*54, 168+(lit*64|0)+(rnd()*16|0), 150+(lit*22|0)+(rnd()*16|0), 130+(rnd()*16|0), KSMOKE); }
+      // CAP — vortex-ring tracers seeded on the tube of a random core, launched along the poloidal roll + expansion drift
+      if(t>=M_CAP_START){
+        for(let n=0;n<M_CAP_PER;n++){
+          const sig=(rnd()<0.5)?-1:1, phi=rnd()*6.2832;
+          let rr=rt*(0.35+0.65*rnd()); rr*=1+0.25*(rnd()-0.5);   // band within the tube + Rayleigh-Taylor lumpiness
+          const px=cx+sig*R+Math.cos(phi)*rr, py=Cy+Math.sin(phi)*rr*0.82;   // 0.82 = flattened (oblate) cap
+          const rv=ringRoll(px,py,cx,Cy,R,rt,Gamma);
+          const vx=rv[0]+(px-cx)*EXP+(rnd()-0.5)*M_CAP_JIT;
+          const vy=rv[1]-riseV*M_RISE_SHARE+(rnd()-0.5)*M_CAP_JIT;
+          const under=Math.max(0,Math.sin(phi)), L=lit*(0.5+0.5*under), jn=(rnd()*22-11)|0;   // underside fireball-lit, crest greyer
+          addP(px, py, vx, vy, M_CAP_L0+rnd()*M_CAP_LR, 150+(L*95|0)+jn, 120+(L*70|0)+jn, 95+(L*20|0)+jn, KCAP);
+        }
       }
     }
   }
@@ -2560,7 +2597,7 @@
     const lf=lightFX();
     if(lf>0) gctx.save(), gctx.globalCompositeOperation="lighter";
     for(let k=0;k<pn;k++){
-      const a=clamp(PL[k]/PM[k],0,1), r=PR[k],g=PG[k],b=PB[k], kind=PK[k], isSmoke=kind===KSMOKE;
+      const a=clamp(PL[k]/PM[k],0,1), r=PR[k],g=PG[k],b=PB[k], kind=PK[k], isSmoke=(kind===KSMOKE||kind===KCAP);
       const sz=kind===KROCKET?1.7:(isSmoke?4.6:1.2);
       const vx=PVX[k], vy=PVY[k], sp=vx*vx+vy*vy;
       // motion trail — a fading streak behind fast particles (long-exposure light); smoke must not streak (it billows, not zips)
