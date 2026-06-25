@@ -250,10 +250,10 @@
   // cell, spent on metabolism + reproduction) and a strictly-decreasing SPREAD BUDGET for producers/decomposers. The
   // LOAD-BEARING boundedness inequalities (never tune away): CHILD_LIFE < REPRO_COST (every birth is net-energy-negative),
   // METAB ≥ 1 (unconditional decay), finite LIFE_MAX (clamp every gain), ALGAE budget only ever decreases, RECYCLE < 0.5.
-  const ALGAE_BUDGET_MIN=12, ALGAE_BUDGET_RND=10, ALGAE_SPREAD_COST=2, ALGAE_GROW_P=0.06, ALGAE_CROWD=5, ALGAE_LIGHT_MIN=0.2;
-  const KRILL_LIFE_MAX=240, KRILL_START=90, KRILL_METAB=1, KRILL_EAT_GAIN=70, KRILL_REPRO_FLOOR=120, KRILL_REPRO_COST=100, KRILL_CHILD_LIFE=60;
-  const GLOW_KRILL_METAB=2, GLOW_KRILL_GAIN=78;
-  const CIL_LIFE_MAX=300, CIL_START=120, CIL_METAB=2, CIL_EAT_GAIN=150, CIL_REPRO_FLOOR=220, CIL_REPRO_COST=180, CIL_CHILD_LIFE=100;
+  const ALGAE_BUDGET_MIN=35, ALGAE_BUDGET_RND=30, ALGAE_SPREAD_COST=2, ALGAE_GROW_P=0.08, ALGAE_CROWD=5, ALGAE_LIGHT_MIN=0.2;   // bigger budget + faster growth → grazed blooms recover, so the system oscillates rather than crashing
+  const KRILL_LIFE_MAX=240, KRILL_START=90, KRILL_METAB=1, KRILL_EAT_GAIN=48, KRILL_REPRO_FLOOR=140, KRILL_REPRO_COST=110, KRILL_CHILD_LIFE=60;   // need ~2 meals to breed + costlier birth → gradual boom, more reserve through the bust (CHILD<COST still holds)
+  const GLOW_KRILL_METAB=2, GLOW_KRILL_GAIN=54;
+  const CIL_LIFE_MAX=300, CIL_START=120, CIL_METAB=2, CIL_EAT_GAIN=150, CIL_REPRO_FLOOR=280, CIL_REPRO_COST=180, CIL_CHILD_LIFE=100;   // raised breeding floor → predator booms slower
   const GLOW_CIL_METAB=3, GLOW_CIL_GAIN=165;
   const CORPSE_MIN=20, BACILLUS_BUDGET_MIN=40, BACILLUS_BUDGET_RND=50, BACILLUS_RECYCLE=0.45;
   const RAD_SICK=3, DOSE_LETHAL=40, MUT_P=0.06, REVERT_P=0.004, STERILE_DOSE=25;
@@ -1670,7 +1670,7 @@
     if(life[i]<FLOOR) return false;                    // must be well-fed (energy earned from finite food)
     if(temp[i]<=2 || temp[i]>=70) return false;        // no breeding in torpor / heat-death range
     const e=emptyNeighbor(x,i); if(e<0) return false;  // no empty cell → no birth (space-limited)
-    if(rnd()>0.5) return false;                        // rate-limit
+    if(rnd()>0.35) return false;                       // rate-limit (lowered → gentler, more sustained booms)
     spawn(e,selfId); life[e]=CHILD; dose[e]=0; temp[e]=temp[i];   // child created, reserve overwritten to CHILD (< COST)
     life[i]-=COST; if(life[i]<0) life[i]=0;             // parent pays the full cost
     expandActive(x-1,y-1,x+1,y+1);
