@@ -2181,7 +2181,7 @@
     let bminx=x,bmaxx=x,bminy=y;
     while(y<H-1 && steps<H){
       const i=y*W+x;
-      temp[i]=Math.max(temp[i],420);
+      temp[i]=Math.max(temp[i], TYPE[grid[i]]===LIQUID?99:420);   // only a flash on water (below boiling) — superheating it flash-boils a steam surge that drives a cloud→lightning→steam feedback which evaporates a whole lake
       if((grid[i]===EMPTY || TYPE[grid[i]]===GAS) && rnd()<0.5){   // the bolt tears the air/gas it passes through into a glowing plasma channel
         PLASMA_SRC[i]=(grid[i]===EMPTY?SMOKE:grid[i]); spawn(i,PLASMA); temp[i]=2000; discoverRecipe("lightning_plasma");
       }
@@ -2195,7 +2195,8 @@
       y++; steps++;
       const gi=y*W+x, gm=grid[gi];
       if(gm!==EMPTY && TYPE[gm]!==GAS){
-        temp[gi]=Math.max(temp[gi],700);
+        temp[gi]=Math.max(temp[gi], TYPE[gm]===LIQUID?99:700);   // a struck water surface flashes, it does NOT flash-boil (the FLAM bonus below still ignites oil; lava stays molten via Math.max)
+        if((gm===WATER||gm===BRINE) && rnd()<0.3) convert(gi,STEAM);   // a single steam-puff sizzle where the bolt hits water — bounded 1:1, NOT a heat-chain (so it can't feed the cloud→lightning→steam runaway)
         if(FLAM[gm]) temp[gi]+=320;
         if(CHCOND[gm] && gm!==WATER && gm!==BRINE){ charge[gi]=6; markChargeDirty(); }
         fuseSand(x,y,3);                     // a glass blob where the bolt lands (incl. nearby sand)
