@@ -510,6 +510,7 @@
     { id:"silver_tarnish", cat:"Phase", name:"Tarnishing", in:[SILVER,SULFUR], out:[TARNISH], note:"Lay sulfur against silver and it blackens to silver sulfide — silver tarnishes with sulfur, not water or clean air.", hint:"Bright silver meets brimstone…" },
     { id:"silver_roast", cat:"Transmutation", name:"Argentite roast", in:[TARNISH], out:[SILVER], note:"Roast silver sulfide fiercely (700°+) and the bright metal returns — closing the tarnish loop.", hint:"Heat the black ore…" },
     { id:"silver_acid", cat:"Transmutation", name:"Silver dissolution", in:[SILVER,AQUA], out:[EMPTY], note:"Royal water eats silver clean away — it simply dissolves.", hint:"Royal water meets the bright metal…" },
+    { id:"copper_acid", cat:"Transmutation", name:"Noble metal, royal water", in:[COPPER,AQUA], out:[EMPTY], note:"Plain acid can't touch noble copper or silver — only aqua regia dissolves them.", hint:"Royal water on the red metal…" },
     { id:"aqua_metal", cat:"Crafting", name:"Aqua regia on iron", in:[AQUA,METAL], out:[HYDROGEN], note:"Even ordinary iron dissolves in royal water, fizzing off hydrogen.", hint:"Royal water eats common iron…" },
     { id:"thermite_mix", cat:"Pyrotechnics", name:"Thermite mix", in:[ALUMINUM,RUST], out:[MOLTEN_METAL], note:"Aluminium packed against rust IS thermite — ignite it (flame, lava, or a spark) and it reduces the iron oxide to a pool of molten iron in a white-hot flash.", hint:"Silver powder against rust…" },
     { id:"aluminum_acid", cat:"Crafting", name:"Aluminium in acid", in:[ALUMINUM,ACID], out:[HYDROGEN], note:"Strong acid breaks aluminium's oxide skin and dissolves it, fizzing off hydrogen — it resists water, but not acid.", hint:"The light metal meets strong acid…" },
@@ -2055,6 +2056,7 @@
       else if(nm===METAL && rnd()<0.07){ grid[ni]=EMPTY; const e=emptyNeighbor(x,i); if(e>=0) spawn(e,HYDROGEN); discoverRecipe("aqua_metal"); }   // even ordinary iron dissolves in royal water, fizzing off hydrogen
       else if(nm!==EMPTY&&nm!==AQUA&&nm!==WALL&&nm!==GLASS&&TYPE[nm]!==GAS && rnd()<0.08){
         grid[ni]=EMPTY;
+        if(nm===COPPER||nm===SILVER) discoverRecipe("copper_acid");   // noble copper/silver yield only to royal water (plain acid can't touch them)
         if(rnd()<0.35){ grid[i]=EMPTY; gone=true; return true; }
       }
       return false;
@@ -2092,7 +2094,7 @@
       return false;
     });
     if(ignite){
-      if(chl>=0){ if(grid[chl]===CHLORINE) grid[chl]=EMPTY; convert(i,ACID); explode(x,y,2); discoverRecipe("hydrogen_chloride"); return; }   // H2 + Cl2 → 2 HCl (light/spark-triggered chain); dissolved HCl is acid. 2 gases → 1 acid (bounded contraction).
+      if(chl>=0 && grid[chl]===CHLORINE){ grid[chl]=EMPTY; convert(i,ACID); explode(x,y,2); discoverRecipe("hydrogen_chloride"); return; }   // H2 + Cl2 → 2 HCl (light/spark-triggered); dissolved HCl is acid. ATOMIC 2→1: only fires if the Cl2 is still there (else falls through to the normal H2 burn), so the reaction always consumes a real chlorine cell.
       discoverRecipe("hydrogen_boom");
       if(oxy>=0){ explode(x,y,4); if(grid[oxy]===OXYGEN) convert(oxy,STEAM); } // oxy-hydrogen detonation → water vapor
       else { convert(i,FIRE); temp[i]=Math.max(temp[i],460); }
