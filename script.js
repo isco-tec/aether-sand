@@ -1700,6 +1700,8 @@
   function dieToCorpse(i){ const bio=Math.max(life[i],CORPSE_MIN); convert(i,CORPSE); life[i]=bio; dose[i]=0; }   // an organism dies → carrion carrying its leftover biomass
   // STARVATION fork (metabolic life<=0 only): a strict 1:1 relabel — either bank as a dormant resting egg (the temporal
   // refuge that bridges the bust and re-arms the cycle) or die to carrion (feeding the recycle loop). Population only FALLS here.
+  // NB a GLOW (irradiated) variant encysts to the plain cyst and hatches back PLAIN — intentional: the dormant egg carries
+  // no radiation (dose=0 below), so dormancy "heals" the mutation, consistent with the away-from-radiation REVERT_P path.
   function starve(x, i, cystId, recipeId){
     if(rnd()<ENCYST_P){
       let crowd=0; forN8(x,i,(ni,nm)=>{ if(nm===cystId) crowd++; return false; });   // only bank where the seed bank stays SPARSE — each egg needs open water around it so algae can regrow adjacent and wake it (a packed raft never gets food)
@@ -1820,11 +1822,11 @@
   // ALGAE_SPORE (the submerged producer refuge): dormant + ungrazable below the waterline; germinates 1:1 back to algae
   // when light AND an open edge return, re-greening the surface. Mortal (toxin/heat) so it cannot hoard biomass forever.
   function upSpore(x,y,i){
-    if(temp[i]>120){ if(rnd()<0.1) convert(i,ASH); return; }          // burns off like organic matter (life is 0, so corpse-free exit)
-    if(lightFX()<ALGAE_LIGHT_MIN) return;                            // dark → stay dormant (cheap no-op, survives indefinitely)
+    if(temp[i]>120){ if(rnd()<0.1) convert(i,ASH); return; }          // burns off like organic matter (life is 0 → ASH, not a phantom corpse)
+    if(lightFX()<ALGAE_LIGHT_MIN){ if(rnd()<0.001) convert(i,ASH); return; }   // dark → mostly dormant, but slowly perishes (no light, no future) so it's not an immortal slot
     let toxin=false, hasEmpty=false;
     forN8(x,i,(ni,nm)=>{ if(nm===ACID||nm===CHLORINE){ toxin=true; return true; } if(nm===EMPTY) hasEmpty=true; return false; });
-    if(toxin){ dieToCorpse(i); return; }
+    if(toxin){ convert(i,ASH); return; }                             // life is 0 → ASH (mirror the heat path; dieToCorpse would mint 20 biomass from an energyless cell)
     if(hasEmpty && rnd()<ALGAE_HATCH_P){ convert(i,ALGAE); discoverRecipe("spore_hatch"); expandActive(x-1,y-1,x+1,y+1); }   // wake at a lit open edge
   }
   // Resting CYST (the temporal consumer refuge): zero metabolism while dormant; hatches 1:1 back to the organism when food
@@ -1835,11 +1837,11 @@
     forN8(x,i,(ni,nm)=>{ if(nm===ACID||nm===CHLORINE){ toxin=true; return true; } if(nm===foodA||nm===foodB) food++; return false; });
     if(toxin){ life[i]=0; dieToCorpse(i); return; }
     const lit = lightFX()>=ALGAE_LIGHT_MIN, warm = temp[i]>2 && temp[i]<70;
-    // HATCH only into ABUNDANT food (a rebuilt bloom, not a lone creeping cell) → the whole seed bank wakes together = a re-boom.
-    if(food>=HATCH_FOOD_MIN && lit && warm && rnd()<HATCH_P){         // 1:1 relabel back to the organism, given a fresh hatchling reserve (>=3 meals → it can breed)
+    // HATCH only into real food (a rebuilt bloom, not a lone creeping cell) → the seed bank wakes into a recovering bloom.
+    if(food>=HATCH_FOOD_MIN && lit && warm && rnd()<HATCH_P){         // 1:1 relabel back to the organism, with a hatchling reserve big enough to eat & breed
       convert(i, organismId); life[i]=HATCH_LIFE; dose[i]=0; discoverRecipe(recipeHatch); expandActive(x-1,y-1,x+1,y+1); return;
     }
-    if(food<HATCH_FOOD_MIN){ if(--life[i]<=0){ dieToCorpse(i); return; } }   // dormancy clock ticks unless actively hatching (so it stays unconditionally mortal, even in eternal light)
+    if(--life[i]<=0){ dieToCorpse(i); return; }                      // dormancy clock ALWAYS ticks → unconditionally mortal (a cyst that can never hatch, e.g. perpetual dark, still perishes)
     moveFalling(x,y,i, grid[i]);                                      // drift passively, carrying the seed bank toward the regrowing frontier
   }
   function upGunpowder(x,y,i){
