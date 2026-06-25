@@ -549,7 +549,7 @@ input[type="range"]::-moz-range-thumb {
   border-color: var(--panel-brd);
 }
 .booklet-body {
-  flex: 1; overflow-y: auto; overflow-x: hidden;
+  flex: 1; overflow-y: auto; overflow-x: hidden; touch-action: pan-y;   /* restore iOS momentum scroll (html/body set touch-action:none) */
   padding: 12px 16px 8px;
   border-top: 1px solid var(--panel-brd);
 }
@@ -806,3 +806,16 @@ input[type="range"]::-moz-range-thumb {
 @media (min-width: 681px) and (max-width: 820px) and (min-height: 601px) { #palette, #sidepanel { max-height: 60vh; } }   /* portrait tablet: a shorter sheet */
 @media (max-height: 600px) { #palette, #sidepanel { max-height: 94vh; } #material-grid-wrap { max-height: 66vh; } }   /* landscape phone: use most of the scarce height */
 @media (min-width: 821px) and (max-width: 1024px) and (min-height: 601px) { .mat { min-height: 44px; } .mini { min-height: 44px; } }   /* landscape tablet keeps the desktop rails with bigger touch targets */
+
+/* === Accessibility (production-readiness review) === */
+/* Keyboard-only focus ring — :focus-visible never matches mouse/touch, so pointer users stay ring-free while keyboard
+   users get a clear ring on every control (sliders, buttons, links). */
+button:focus-visible, a:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent-2); outline-offset: 2px;
+}
+/* Honour the OS "reduce motion" setting — neutralise the looping decorative animations (CTA pulse, falling dots, rainbow
+   hue-cycle) for photosensitive / motion-sensitive users. Panel-slide transitions are kept (brief, non-flashing); the
+   full-screen flash + screen-shake are gated in JS via prefersReducedMotion(). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}

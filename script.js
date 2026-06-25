@@ -623,6 +623,8 @@
     Snd.chime();
   }
 
+  // Per-material brush-spawn probability (paint density). Materials ABSENT here intentionally default to 1 via the ??1
+  // fallback at the lookup site (SODIUM/CHLORINE/MAGNESIUM/MOLTEN_METAL/PLASMA/HELIUM and most solids paint fully).
   const SPAWN_PROB = {
     [SAND]:0.85,[RAINBOW]:0.85,[WATER]:0.9,[SNOW]:0.7,[SALT]:0.8,[OIL]:0.9,
     [ACID]:0.8,[LAVA]:0.95,[FIRE]:0.5,[SMOKE]:0.4,[GUNPOWDER]:0.85,[COAL]:0.9,
@@ -662,7 +664,7 @@
     glow.style.filter="blur("+(1.5+fx*3.5)+"px) brightness("+(0.82+fx*0.42)+")";
     const btn=document.getElementById("btn-light");
     if(btn){
-      btn.classList.toggle("on",lighting);
+      btn.classList.toggle("on",lighting); btn.setAttribute("aria-pressed",String(lighting));
       const lbl=btn.querySelector("span");
       if(lbl) lbl.textContent=lighting?"Light on":"Light off";
     }
@@ -964,9 +966,13 @@
   }
 
   /* ============================ Screen shake ====================== */
+  // Respect the OS "reduce motion" preference — gates the full-screen flash + screen shake (a genuine photosensitivity
+  // concern, WCAG 2.3.1). Live query (a function, not a snapshot) so toggling the OS setting takes effect without reload.
+  const reducedMotionMQ = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null;
+  const prefersReducedMotion = ()=> !!(reducedMotionMQ && reducedMotionMQ.matches);
   const FX_SHAKE = { MAX: 6, DECAY: 0.86, JITTER: 0.4 };   // screen-shake tuning: peak magnitude, per-frame decay, position jitter
   let shakeAmt=0, stageEl=null;
-  function shakeScreen(a){ if(a>shakeAmt) shakeAmt=a>FX_SHAKE.MAX?FX_SHAKE.MAX:a; }   // capped low — a hint of impact, not a jolt
+  function shakeScreen(a){ if(prefersReducedMotion()) return; if(a>shakeAmt) shakeAmt=a>FX_SHAKE.MAX?FX_SHAKE.MAX:a; }   // capped low — a hint of impact, not a jolt
   function applyShake(){
     if(!stageEl) stageEl=document.getElementById("stage");
     if(!stageEl) return;
@@ -989,6 +995,7 @@
   // a soft full-screen colour bloom that fades out — for big "wow" moments
   let opusCooldown=0, flashEl=null;
   function flash(r,g,b,a){
+    if(prefersReducedMotion()) return;                       // no full-screen bloom for reduced-motion users (photosensitivity)
     if(!flashEl){ flashEl=document.createElement("div"); flashEl.id="screen-flash";
       Object.assign(flashEl.style,{position:"fixed",inset:"0",zIndex:35,pointerEvents:"none",opacity:"0",mixBlendMode:"screen"});
       document.body.appendChild(flashEl); }
@@ -2695,7 +2702,7 @@
   let ppx0=0,ppy0=0,ppx1=-1,ppy1=-1;   // previous frame's particle bounding box
   function markRenderFull(){ renderFull=true; }
   // wipe every field to its empty/ambient default (the canonical "blank canvas" — one source of truth)
-  function clearWorld(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); pn=0; markRenderFull(); }
+  function clearWorld(){ grid.fill(EMPTY); life.fill(0); charge.fill(0); temp.fill(AMBIENT); vel.fill(0); pres.fill(0); dose.fill(0); PLASMA_SRC.fill(0); pn=0; markRenderFull(); }
   function scaleGlow(ge,lf){
     if(!ge||lf>=0.999) return ge;
     if(lf<=0) return 0;
@@ -2952,7 +2959,6 @@
   // creative-director + technical pass: life is grounded, particles have a source.)
   let attract=true, attractT=0, attractStage=0, titleCells=[], dissolveIdx=0;
   let titleBox={x0:0,x1:0,y0:0,y1:0}, terrainTop=null, philoSet=false, fwFlash=false;
-  function cineClear(){ clearWorld(); }
   // rasterise text into material cells; return its bounding box (for pouring sand on it)
   function stampText(text,cx,cy,mat,fontPx){
     const oc=document.createElement("canvas"); oc.width=W; oc.height=H;
@@ -2996,7 +3002,7 @@
     const t=attractT, cx=(W/2)|0, ty=(H*0.3)|0, baseY=(H*0.78)|0;
     // stage 0 → a barren land, then the title materialises out of a soft violet bloom, big and centred
     if(attractStage===0 && t>=0.05){
-      cineClear(); titleCells.length=0; dissolveIdx=0;
+      clearWorld(); titleCells.length=0; dissolveIdx=0;
       philoSet=fwFlash=false;
       buildTerrain();
       flash(184,132,228,0.4);                                  // the void breathes
@@ -3067,7 +3073,8 @@
       Object.assign(el.style,{position:"fixed",left:"50%",top:"76px",transform:"translateX(-50%)",
         zIndex:50,padding:"8px 16px",borderRadius:"999px",font:"600 12px Inter,sans-serif",
         color:"#eef0f7",background:"rgba(18,18,28,0.7)",border:"1px solid rgba(255,255,255,0.1)",
-        backdropFilter:"blur(16px)",transition:"opacity .4s ease",pointerEvents:"none"}); }
+        backdropFilter:"blur(16px)",transition:"opacity .4s ease",pointerEvents:"none"});
+      el.setAttribute("role","status"); el.setAttribute("aria-live","polite"); }   // announce save/load/discovery/challenge feedback to screen readers
     el.textContent=msg; el.style.opacity="1";
     clearTimeout(el._t); el._t=setTimeout(()=>{el.style.opacity="0";},1400);
   }
@@ -3108,8 +3115,8 @@
   function loadScene(){
     const s=localStorage.getItem("aether-sand-scene"); if(!s){ toast("No saved scene"); return; }
     try{ const o=JSON.parse(s),g=unb64(o.g);
-      if(!(o.w>0)||!(o.h>0)) throw new Error("bad save");
-      grid.fill(EMPTY); charge.fill(0);
+      if(!(o.w>0)||!(o.h>0)||o.w>MAX_SCENE_DIM||o.h>MAX_SCENE_DIM) throw new Error("bad save");
+      grid.fill(EMPTY); charge.fill(0); life.fill(0); pres.fill(0); temp.fill(AMBIENT); vel.fill(0); dose.fill(0); PLASMA_SRC.fill(0); pn=0;   // full reset (mirror applySceneBytes) — else temp/pres/vel/dose/PLASMA_SRC bleed in from outside the loaded region
       const cw=Math.min(o.w,W),chh=Math.min(o.h,H);
       for(let y=0;y<chh;y++)for(let x=0;x<cw;x++){ const i=y*W+x,m=g[y*o.w+x];
         if(m>=MAXID || !M[m]){ grid[i]=EMPTY; continue; }   // guard corrupt / foreign-version ids
@@ -3136,6 +3143,7 @@
     while(p<bytes.length && idx<target.length){
       const v=bytes[p++]; let count=0, shift=0, b;
       do{ if(p>=bytes.length) break; b=bytes[p++]; count|=(b&127)<<shift; shift+=7; }while(b&128);   // pre-read bounds guard (a 0x00 count byte is legitimate, so don't gate the loop on byte truthiness)
+      count=count>>>0;   // coerce unsigned — a crafted 5+-byte VLQ could set bit 31 (negative count → run skipped); >>> makes it a big positive the idx<target.length guard caps harmlessly
       for(let k=0;k<count && idx<target.length;k++) target[idx++]=v;
     }
   }
@@ -3154,7 +3162,7 @@
     else { off=4; w=all[0]|(all[1]<<8); h=all[2]|(all[3]<<8); }   // legacy (pre-version) payload: 4-byte header
     if(w<=0||h<=0||w>MAX_SCENE_DIM||h>MAX_SCENE_DIM) throw new Error("bad scene");   // reject oversized dims (DoS) before allocating
     const flat=new Uint8Array(w*h); rleDecode(all.subarray(off), flat);
-    grid.fill(EMPTY); charge.fill(0); life.fill(0); pres.fill(0); temp.fill(AMBIENT); vel.fill(0); pn=0;
+    grid.fill(EMPTY); charge.fill(0); life.fill(0); pres.fill(0); temp.fill(AMBIENT); vel.fill(0); dose.fill(0); PLASMA_SRC.fill(0); pn=0;
     const cw=Math.min(w,W), chh=Math.min(h,H);
     for(let y=0;y<chh;y++)for(let x=0;x<cw;x++){
       const i=y*W+x, m=flat[y*w+x];
@@ -3179,7 +3187,7 @@
     const m=/[#&]s=([^&]+)/.exec(location.hash||"");
     if(!m) return false;
     try{ applySceneBytes(unb64url(m[1])); stopAttract(); return true; }
-    catch(e){ return false; }
+    catch(e){ toast("Couldn't load the shared scene — the link may be corrupted."); return false; }
   }
 
   /* ============================ Loop ============================== */
@@ -3214,12 +3222,12 @@
     applyShake();
     frames++;
     if(now-fpsT>=500){
-      fpsEl.textContent=Math.round((frames*1000)/(now-fpsT)); frames=0; fpsT=now;
+      if(fpsEl) fpsEl.textContent=Math.round((frames*1000)/(now-fpsT)); frames=0; fpsT=now;   // guarded: this block is OUTSIDE the try/catch + before the rAF re-queue, so a null el here would halt the loop forever
       let c=0,fN=0,wN=0,lN=0,coldN=0,toxN=0;
       for(let i=0;i<N;i++){ const m=grid[i]; if(m!==EMPTY){ c++;
         if(m===FIRE)fN++; else if(m===WATER||m===BRINE)wN++; else if(m===LAVA)lN++;
         else if(m===ICE||m===SNOW)coldN++; else if(m===ACIDCLOUD||m===ACID)toxN++; } }
-      countEl.textContent=(c+pn).toLocaleString();
+      if(countEl) countEl.textContent=(c+pn).toLocaleString();
       Snd.ambient(fN,wN,lN);
       updateMood(fN+lN*2, coldN, toxN);
       checkChallenges();
@@ -3290,7 +3298,7 @@
     el.style.setProperty("--swatch", m===EMPTY?"#3a3a48":"rgb("+(M[m].c1[0])+","+(M[m].c1[1])+","+(M[m].c1[2])+")");
     const sw = m===RAINBOW ? '<span class="mat-swatch rainbow"></span>'
                            : '<span class="mat-swatch" style="--swatch-bg:'+swatchBg(m)+'"></span>';
-    el.innerHTML=sw+'<span class="mat-name">'+M[m].name+'</span>';
+    el.innerHTML=sw+'<span class="mat-name">'+escapeHTML(M[m].name)+'</span>';
     el.addEventListener("mouseenter",()=>setMatDesc(m));
     el.addEventListener("mouseleave",()=>setMatDesc(currentMat));
     el.addEventListener("click",()=>{ currentMat=m; pushRecent(m); setMatDesc(m); syncPaletteActive(); });
@@ -3367,7 +3375,7 @@
     setMatDesc(currentMat);
   }
   function ingChip(m){
-    return '<span class="ing"><span class="ing-sw" style="background:'+swatchBg(m)+'"></span>'+M[m].name+'</span>';
+    return '<span class="ing"><span class="ing-sw" style="background:'+swatchBg(m)+'"></span>'+escapeHTML(M[m].name)+'</span>';
   }
   function ingUnknown(){ return '<span class="ing ing-q"><span class="ing-sw ing-sw-q">?</span></span>'; }
   function recipeChips(r,known){
@@ -3404,7 +3412,7 @@
         const kc=list.filter(r=>isRecipeKnown(r.id)).length;
         const group=document.createElement("div");
         group.className="recipe-group";
-        group.innerHTML='<div class="recipe-group-title">'+cat+'<span class="recipe-group-count">'+kc+'/'+list.length+'</span></div>';
+        group.innerHTML='<div class="recipe-group-title">'+escapeHTML(cat)+'<span class="recipe-group-count">'+kc+'/'+list.length+'</span></div>';
         list.forEach(r=>{
           const knownR=isRecipeKnown(r.id);
           const isNew=knownR && !seenRecipes.has(r.id);
@@ -3413,9 +3421,9 @@
           row.innerHTML=
             '<div class="recipe-badge">'+(knownR?"✦":"?")+'</div>'+
             '<div class="recipe-main">'+
-              '<div class="recipe-name">'+(knownR?r.name:"<span class=\"locked-name\">??? </span>")+(isNew?'<span class="recipe-new">NEW</span>':'')+'</div>'+
+              '<div class="recipe-name">'+(knownR?escapeHTML(r.name):"<span class=\"locked-name\">??? </span>")+(isNew?'<span class="recipe-new">NEW</span>':'')+'</div>'+
               recipeChips(r,knownR)+
-              '<div class="recipe-note'+(knownR?"":" unknown")+'">'+(knownR?r.note:(r.hint||"Experiment to unlock…"))+'</div>'+
+              '<div class="recipe-note'+(knownR?"":" unknown")+'">'+(knownR?escapeHTML(r.note):escapeHTML(r.hint||"Experiment to unlock…"))+'</div>'+
             '</div>';
           group.appendChild(row);
         });
@@ -3428,20 +3436,42 @@
       MAT_GROUPS.forEach(grp=>{
         const group=document.createElement("div");
         group.className="recipe-group";
-        group.innerHTML='<div class="recipe-group-title">'+grp.label+'</div>';
+        group.innerHTML='<div class="recipe-group-title">'+escapeHTML(grp.label)+'</div>';
         grp.mats.forEach(m=>{
           if(m===EMPTY) return;
           const row=document.createElement("div");
           row.className="mat-entry";
           row.innerHTML=
             '<div class="mat-entry-swatch" style="background:'+swatchBg(m)+'"></div>'+
-            '<div><div class="mat-entry-name">'+M[m].name+'</div>'+
-            '<div class="mat-entry-desc">'+(MAT_BLURB[m]||"")+'</div></div>';
+            '<div><div class="mat-entry-name">'+escapeHTML(M[m].name)+'</div>'+
+            '<div class="mat-entry-desc">'+escapeHTML(MAT_BLURB[m]||"")+'</div></div>';
           group.appendChild(row);
         });
         matsEl.appendChild(group);
       });
     }
+  }
+  // ---- Modal focus management (a11y): remember the opener, move focus into the dialog, trap Tab inside it, restore on close ----
+  let modalReturnFocus=null, trappedPanel=null;
+  function focusablesIn(panel){ return [...panel.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null); }
+  function onTrapKeydown(e){
+    if(e.key!=="Tab" || !trappedPanel) return;
+    const f=focusablesIn(trappedPanel); if(!f.length){ e.preventDefault(); return; }
+    const first=f[0], last=f[f.length-1], inside=trappedPanel.contains(document.activeElement);
+    if(e.shiftKey){ if(!inside || document.activeElement===first){ e.preventDefault(); last.focus(); } }
+    else if(!inside || document.activeElement===last){ e.preventDefault(); first.focus(); }
+  }
+  function trapFocus(panel){
+    modalReturnFocus=document.activeElement;
+    trappedPanel=panel;
+    const f=focusablesIn(panel), tgt=f[0]||panel; if(tgt && tgt.focus) tgt.focus();
+    document.addEventListener("keydown", onTrapKeydown, true);
+  }
+  function releaseFocus(){
+    document.removeEventListener("keydown", onTrapKeydown, true);
+    trappedPanel=null;
+    if(modalReturnFocus && modalReturnFocus.focus){ try{ modalReturnFocus.focus(); }catch(_){} }
+    modalReturnFocus=null;
   }
   function openBooklet(){
     const el=document.getElementById("booklet");
@@ -3449,6 +3479,7 @@
     renderBooklet();
     el.classList.remove("hidden");
     el.setAttribute("aria-hidden","false");
+    trapFocus(el);
   }
   function closeBooklet(){
     const el=document.getElementById("booklet");
@@ -3456,6 +3487,7 @@
     markRecipesSeen();
     el.classList.add("hidden");
     el.setAttribute("aria-hidden","true");
+    releaseFocus();
   }
   function setupBooklet(){
     document.getElementById("btn-book")?.addEventListener("click",openBooklet);
@@ -3483,8 +3515,8 @@
   }
   // show/hide a modal overlay; withModalOpen toggles body.modal-open (hides the mobile summon FAB) — passed for the
   // About + Challenges dialogs but NOT the booklet, which intentionally keeps the FAB reachable above it.
-  function showModal(id, withModalOpen){ const el=document.getElementById(id); if(!el) return; el.classList.remove("hidden"); el.setAttribute("aria-hidden","false"); if(withModalOpen) document.body.classList.add("modal-open"); }
-  function hideModal(id, withModalOpen){ const el=document.getElementById(id); if(!el) return; el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); if(withModalOpen) document.body.classList.remove("modal-open"); }
+  function showModal(id, withModalOpen){ const el=document.getElementById(id); if(!el) return; el.classList.remove("hidden"); el.setAttribute("aria-hidden","false"); if(withModalOpen) document.body.classList.add("modal-open"); trapFocus(el); }
+  function hideModal(id, withModalOpen){ const el=document.getElementById(id); if(!el) return; el.classList.add("hidden"); el.setAttribute("aria-hidden","true"); if(withModalOpen) document.body.classList.remove("modal-open"); releaseFocus(); }
   function openAbout(){ showModal("about", true); }
   function closeAbout(){ hideModal("about", true); }
   function setupAbout(){
@@ -3536,6 +3568,7 @@
         chip.querySelector(".nc-icon").textContent=next.icon;
         chip.querySelector(".nc-title").textContent=next.title;
         chip.title="Next challenge: "+next.title+" — "+next.desc;
+        chip.setAttribute("aria-label","Next challenge: "+next.title+". Click to open challenges.");
       } else chip.style.display="none";
     }
   }
@@ -3545,7 +3578,17 @@
     {name:"Adept",      ids:["glass","obsidian","vermilion","slaked","snuffed","freeze","lights","fulgurite","garden"]},
     {name:"Alchemist",  ids:["gold","acidrain","boom","pressure","inferno","tree"]},
     {name:"Grandmaster",ids:["diamond","antimatter","magnum_opus","projection"]},
+    {name:"Naturalist", ids:["smelter","lithify","metamorph","bloom","swarm","boombust","predator","foodweb","mutant","seedbank","dormancy","revival"]},   // the earth + life sciences (geology + ecosystem)
+    {name:"Artificer",  ids:["alkali","whitefire","saltsynth","chloralkali","foundry","bronzeage","steelmaking","verdigris","tinpest","thermite","fission","breeder","scram","fusion","plasma"]},   // forge, reactive chemistry, the atom
   ];
+  // Invariant: every challenge must live in exactly one tier, or it's invisible to the next-challenge nudge. Boot-warn if not.
+  (function validateChallengeTiers(){
+    const tiered=CHALLENGE_TIERS.flatMap(t=>t.ids), seen=new Set(tiered);
+    const missing=CHALLENGES.filter(c=>!seen.has(c.id)).map(c=>c.id);
+    const dupes=tiered.filter((id,i)=>tiered.indexOf(id)!==i);
+    if(missing.length) console.warn("Aether: challenges not in any CHALLENGE_TIER (won't surface as the next-challenge nudge):", missing.join(", "));
+    if(dupes.length) console.warn("Aether: challenge ids in more than one CHALLENGE_TIER:", [...new Set(dupes)].join(", "));
+  })();
   function nextChallenge(){
     for(const tier of CHALLENGE_TIERS) for(const id of tier.ids)
       if(!challengesDone.has(id)){ const c=CHALLENGES.find(x=>x.id===id); if(c) return c; }
@@ -3556,8 +3599,8 @@
     const row=document.createElement("div");
     row.className="challenge"+(ok?" done":"");
     row.innerHTML='<div class="challenge-icon">'+c.icon+'</div>'+
-      '<div class="challenge-main"><div class="challenge-title">'+c.title+'</div>'+
-      '<div class="challenge-desc">'+c.desc+'</div></div>'+
+      '<div class="challenge-main"><div class="challenge-title">'+escapeHTML(c.title)+'</div>'+
+      '<div class="challenge-desc">'+escapeHTML(c.desc)+'</div></div>'+
       '<div class="challenge-check">'+(ok?"✓":"")+'</div>';
     return row;
   }
@@ -3573,7 +3616,7 @@
       if(!items.length) continue;
       const tdone=items.filter(c=>challengesDone.has(c.id)).length;
       const head=document.createElement("div"); head.className="challenge-tier";
-      head.innerHTML='<span>'+tier.name+'</span><span class="challenge-tier-count">'+tdone+'/'+items.length+'</span>';
+      head.innerHTML='<span>'+escapeHTML(tier.name)+'</span><span class="challenge-tier-count">'+tdone+'/'+items.length+'</span>';
       body.appendChild(head);
       items.forEach(c=>{ placed.add(c.id); body.appendChild(challengeRow(c)); });
     }
@@ -3596,7 +3639,7 @@
   function setupUI(){
     fpsEl=document.getElementById("fps"); countEl=document.getElementById("count");
     const playBtn=document.getElementById("btn-play");
-    playBtn.addEventListener("click",()=>{ paused=!paused; playBtn.classList.toggle("paused",paused); });
+    playBtn.addEventListener("click",()=>{ paused=!paused; playBtn.classList.toggle("paused",paused); playBtn.setAttribute("aria-pressed",String(paused)); playBtn.setAttribute("aria-label",paused?"Play":"Pause"); });
     document.getElementById("btn-step").addEventListener("click",()=>{ stepOnce=true; });
     document.getElementById("btn-clear").addEventListener("click",()=>{ clearWorld(); });
 
@@ -3618,8 +3661,9 @@
     // scene buttons
     const heatBtn=document.getElementById("btn-heat");
     const pressBtn=document.getElementById("btn-pressure");
-    heatBtn.addEventListener("click",()=>{ heatMap=!heatMap; if(heatMap) pressureMap=false; heatBtn.classList.toggle("on",heatMap); pressBtn.classList.toggle("on",pressureMap); });
-    pressBtn.addEventListener("click",()=>{ pressureMap=!pressureMap; if(pressureMap) heatMap=false; pressBtn.classList.toggle("on",pressureMap); heatBtn.classList.toggle("on",heatMap); });
+    const syncMapPressed=()=>{ heatBtn.setAttribute("aria-pressed",String(heatMap)); pressBtn.setAttribute("aria-pressed",String(pressureMap)); };
+    heatBtn.addEventListener("click",()=>{ heatMap=!heatMap; if(heatMap) pressureMap=false; heatBtn.classList.toggle("on",heatMap); pressBtn.classList.toggle("on",pressureMap); syncMapPressed(); });
+    pressBtn.addEventListener("click",()=>{ pressureMap=!pressureMap; if(pressureMap) heatMap=false; pressBtn.classList.toggle("on",pressureMap); heatBtn.classList.toggle("on",heatMap); syncMapPressed(); });
     const lightBtn=document.getElementById("btn-light");
     lightBtn.addEventListener("click",()=>{ lighting=!lighting; syncLightUI(); toast(lighting?"Lighting on":"Lighting off"); });
     const lightEl=document.getElementById("light");
@@ -3641,7 +3685,7 @@
     document.getElementById("btn-save").addEventListener("click",saveScene);
     document.getElementById("btn-load").addEventListener("click",loadScene);
     const soundBtn=document.getElementById("btn-sound");
-    const syncSound=()=>{ const m=Snd.isMuted(); soundBtn.classList.toggle("on",!m);
+    const syncSound=()=>{ const m=Snd.isMuted(); soundBtn.classList.toggle("on",!m); soundBtn.setAttribute("aria-pressed",String(!m));
       soundBtn.querySelector("span").innerHTML=m?"Sound&nbsp;off":"Sound&nbsp;on"; };
     soundBtn.addEventListener("click",()=>{ Snd.start(); Snd.setMuted(!Snd.isMuted()); syncSound(); });
     syncSound();
@@ -3654,7 +3698,7 @@
       else if(e.code==="KeyM"){ const sb=document.getElementById("btn-sound"); if(sb) sb.click(); }
       else if(e.code==="KeyC") document.getElementById("btn-clear").click();
       else if(e.code==="KeyH") heatBtn.click();
-      else if(e.code==="KeyL"){ lighting=!lighting; syncLightUI(); toast(lighting?"Lighting on":"Lighting off"); }
+      else if(e.code==="KeyL") lightBtn.click();   // delegate to the button (single source of truth) like every other hotkey
       else if(e.code==="KeyB"){ const b=document.getElementById("booklet"); if(b&&b.classList.contains("hidden")) openBooklet(); else closeBooklet(); }
       else if(e.code==="KeyG"){ const c=document.getElementById("challenges"); if(c&&c.classList.contains("hidden")) openChallenges(); else closeChallenges(); }
       else if(e.code==="Escape"){ closeBooklet(); closeAbout(); closeChallenges(); }
@@ -3722,6 +3766,11 @@
   // re-query `selector` and toggle .active on each match by `predicate(el, index)` — the shared shape for the
   // tab / swatch / gravity-compass active states (re-queries exactly as often as the inline code it replaces)
   function syncActive(selector, predicate){ document.querySelectorAll(selector).forEach((el,i)=>el.classList.toggle("active", predicate(el,i))); }
+  // Escape a string before innerHTML interpolation. Every field routed through this is compile-time-constant author data
+  // TODAY (no XSS exists), but this is the CONVENTION: any user-visible string written into innerHTML goes through escapeHTML,
+  // so adding a runtime-editable field later (named scenes, imported recipe packs) can't introduce XSS by omission.
+  const HTML_ESC={ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" };
+  function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>HTML_ESC[c]); }
   function syncPaletteActive(){
     syncActive(".mat", n=>+n.dataset.mat===currentMat);
     const ring=document.getElementById("cursor-ring");
@@ -3754,7 +3803,7 @@
     lightning(x,y){ stopAttract(); strikeLightning(x|0,y|0); },
     explode(x,y,p){ stopAttract(); explode(x|0,y|0,p||7); },
     burst(x,y){ burst(x|0,y|0); },
-    pause(p){ paused=(p==null)?!paused:!!p; const b=document.getElementById("btn-play"); if(b)b.classList.toggle("paused",paused); return paused; },
+    pause(p){ paused=(p==null)?!paused:!!p; const b=document.getElementById("btn-play"); if(b){ b.classList.toggle("paused",paused); b.setAttribute("aria-pressed",String(paused)); b.setAttribute("aria-label",paused?"Play":"Pause"); } return paused; },
     heatMap(on){ heatMap=on==null?!heatMap:!!on; if(heatMap) pressureMap=false; document.getElementById("btn-heat").classList.toggle("on",heatMap); const pb=document.getElementById("btn-pressure"); if(pb)pb.classList.toggle("on",pressureMap); },
     pressureMap(on){ pressureMap=on==null?!pressureMap:!!on; if(pressureMap) heatMap=false; const pb=document.getElementById("btn-pressure"); if(pb)pb.classList.toggle("on",pressureMap); document.getElementById("btn-heat").classList.toggle("on",heatMap); return pressureMap; },
     lights(on){ lighting=on==null?!lighting:!!on; syncLightUI(); return lighting; },
