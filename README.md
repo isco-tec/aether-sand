@@ -2,12 +2,12 @@
 
 <p align="center">
   <a href="https://isco-tec.github.io/aether-sand/">
-    <img src="./assets/hero.png" alt="Aether Sand — a glowing lava mound, fireworks, falling snow and water at night" width="100%" />
+    <img src="./assets/hero-title.png" alt="Aether Sand by Ori Iscovici — the title rendered in glowing diamond over a moonlit oasis" width="100%" />
   </a>
 </p>
 
 <p align="center">
-  <b>A living particle playground where sand, fire, storms and alchemy obey a handful of simple rules — and surprise you anyway.</b>
+  <b>A living particle playground where sand, fire, storms, metal, life and alchemy obey a handful of simple rules — and surprise you anyway.</b>
 </p>
 
 <p align="center">
@@ -16,37 +16,53 @@
   <a href="https://labs.iscovici.com">Made in Iscovici Labs</a>
 </p>
 
-Aether Sand is a physics-rich **falling-sand simulator** written from scratch in pure vanilla JavaScript. No libraries. No framework. No build step. Underneath the glow is a cellular-automata engine with density-based fluid dynamics, a real per-cell **temperature field**, a **pressure** system, **electricity**, emergent chemistry, and a ballistic particle layer for fireworks and explosions — drop a pixel of sand and watch a world react.
+Aether Sand is a physics-rich **falling-sand simulator** written from scratch in pure vanilla JavaScript. No libraries. No framework. No build step. Underneath the glow is a cellular-automata engine with density-based fluid dynamics, a real per-cell **temperature field**, a **pressure** system, **electricity**, a **nuclear** chain reaction, deep emergent chemistry — and a whole **living aquatic ecosystem**. Drop a pixel of sand and watch a world react: smelt ore in a furnace, breed a thunderstorm, grow a forest, run a reactor, or chase the Magnum Opus.
 
-> Three files — `index.html` / `style.css` / `script.js` — that paste straight into CodePen's HTML / CSS / JS panels, or deploy as a static site (it ships on GitHub Pages).
+> Three files — `index.html` / `style.css` / `script.js` — that paste straight into CodePen's HTML / CSS / JS panels (there's a ready-to-paste **`codepen-html.txt`** in this repo), or deploy as a static site (it ships on GitHub Pages).
 
 ## ✨ Features
 
-- **Cellular-automata core.** Typed-array grids with density-based displacement — sand sinks through water, water floats on oil, gases rise — and a bias-free alternating scan order so nothing drifts sideways.
-- **Real thermodynamics.** A per-cell heat field with diffusion drives phase changes that *emerge* rather than scripting them: water ⇄ ice ⇄ steam, sand → glass, stone ⇄ lava, metal melting, spontaneous ignition.
-- **Blackbody incandescence.** Anything hot enough self-glows — heated metal and stone smoulder red → orange → yellow → white as the temperature climbs.
-- **Combustion that needs air.** Fire burns hotter in **oxygen** (breathing it out as **carbon dioxide**), suffocates when sealed away from air, and is snuffed by CO₂ — a heavy gas that sinks, pools low, and smothers the flames it settles on.
-- **Pressure & shockwaves.** Gases build real pressure and jet through gaps; explosions emit a shockwave that physically shoves loose matter outward and can shatter glass back into sand. Toggle the pressure-map overlay with `P`.
-- **Electricity.** Charge is a *physical phenomenon*, not a circuit kit: a **spark** tool energizes any conductor — metal, gold, water, acid, mercury — and the current races through it; **lightning** strikes scorch and electrify; **bulbs** glow when charge reaches them; **fulgurite** forms where a bolt fuses sand into glass; and charge drives **electrolysis**, splitting water into hydrogen and oxygen.
-- **Weather.** Paint **storm clouds** that drift on the wind, shed rain, and hurl **lightning**; pollute a cloud with smoke and it sours into an **acid-rain cloud**. A dedicated **Lightning** tool calls strikes on demand.
-- **A living world.** Drop **seeds** on damp soil and they germinate into **saplings** that climb a wooden trunk toward the light and burst into a leafy **crown** — real trees you can grow and then burn. **Plants** drink water and reach for the light, withering to ash when buried in the dark; **vines** climb walls and creep across surfaces; **mold** spreads over wood, plant and damp stone, then crumbles to ash; **wildfire** races cell-to-cell through any connected forest until the fuel runs out; and the **ash** it leaves enriches the soil, so the next seeds sprout faster — a whole forest cycle.
-- **45+ materials & tools** across four families — **Natural · Reactive · Alchemy · Tools** — including sand, rainbow sand, water, ice, snow, salt, stone, limestone, glass, obsidian, metal, rust, wood, seed, sapling, plant, vine, mold, wall; oil, acid, aqua regia, mercury, brine, slime, honey, lava, fire, smoke, carbon dioxide, hydrogen, oxygen, nitro; gold, diamond, cinnabar, quicklime, slaked lime, crystal, philosopher's stone, sulfur, saltpeter, coal, ash, gunpowder, thermite, fuse; firework, spark, lightning, bulb, storm cloud, acid cloud, heat torch, freeze, **Cloner**, **Void**, **Antimatter** and eraser.
-- **Real, reversible chemistry & alchemy.** Salt dissolves into **brine** and crystallises straight back out when the brine boils dry; mercury + sulfur marry into **cinnabar**, and roasting the cinnabar gives the mercury back; **limestone** calcines to caustic **quicklime**, which slakes violently in water (heat and steam) into a mild base that then neutralises acid into salt. Lava + water → obsidian (+ steam); coal → diamond under furious heat; metal + water → rust; wood chars to charcoal; acid + metal releases hydrogen; spent fuel → ash. Then the deeper alchemy: acid + mercury → gold; **aqua regia** (acid + saltpeter) dissolves gold back to mercury; a **philosopher's stone** catalyses transmutation nearby; crystal grows on water; smoke + sulfur → acid; sulfur + saltpeter + coal → gunpowder — with thermite, fuse and nitro for the pyrotechnics, and antimatter that annihilates matter in a burst of energy.
-- **The Magnum Opus.** The philosopher's stone is no longer just painted — it can be *earned*. Put the **tria prima** (mercury + sulfur + salt) to the fire and the Great Work begins: the matter blackens (**nigredo**), washes white in water (**albedo**), ripens gold in the fire (**citrinitas**), and — perfected with gold — reddens into the **Philosopher's Stone** itself (**rubedo**). Four stages, discovered the way the old alchemists worked: by doing the work. And the Stone you earn is no mere trinket — lay it against base matter and it **projects**, perfecting stone, rust and coal into gold.
-- **Dynamic lighting.** Every emitter — fire, lava, red-hot metal, sparks, fireworks, bulbs — casts coloured light onto the matter around it, layered over emissive bloom, so a stone wall beside a lava pool actually warms to orange. Tune it with the Light slider (defaults to ~54%) or toggle with `L`.
-- **Ballistic particles & screen-shake.** A floating-point particle layer drives fireworks, embers and explosions with smooth motion on top of the grid — and a big blast punches the whole screen.
-- **Procedural sound.** A fully synthesized soundtrack — no audio files — built live with the Web Audio API: fire crackles, water runs and lava rumbles in ambient voices that track the world, while explosions thud, lightning cracks, fireworks pop, and a soft chime rings every time you discover new alchemy. It starts on your first touch and remembers your mute preference (toggle with the speaker button or `M`).
-- **Gravity & wind.** Point gravity in any of 8 directions, flip to zero-G, and blow particles around with adjustable wind, all from a compact compass.
-- **Scales to bigger worlds.** A **World** control (Cozy / Balanced / Grand) trades cell size for canvas detail. Under the hood, an **active-region tracker** bounds both the heavy simulation passes *and* the rendering — recompute and re-upload only the part of the world that's actually doing something — so a sprawling, mostly-quiet world stays smooth.
-- **Challenges.** A mastery ladder of bite-sized objectives — *light 5 bulbs at once, forge a diamond, quench obsidian, complete the Magnum Opus* — grouped into **Apprentice → Adept → Alchemist → Grandmaster** tiers, ticking off as you play with progress saved locally and a little confetti when you nail one. A **Next** nudge in the top bar always shows your next goal, so there's a reason to come back.
-- **Shareable links, share cards & saves.** Hit **Share link** to pack your entire scene into a URL (run-length compressed, so it stays short) — send it to anyone and the world rebuilds itself the moment they open it. Or hit **Share card** for a one-tap branded PNG — your artwork above a footer with the wordmark, the live URL and your scene's stats, ready to post. Plus save and restore scenes locally.
-- **An interface that stays out of the way.** A **tabbed, searchable material palette** (Natural / Reactive / Alchemy / Tools / All) with full-width readable buttons and a live description of whatever you've selected — complete with a **whisper** teasing an undiscovered recipe; live FPS + particle counters; heat-map and pressure-map overlays; and an **Alchemy Book** that reveals recipes as you discover them through play — ingredient swatch-chips, a discovery progress bar, **NEW** badges, and a sandbox "reveal all" toggle. Plus an About panel, full keyboard shortcuts, mouse + touch, and responsive resize that preserves your artwork.
+### The engine
+- **Cellular-automata core.** Typed-array grids with density-based displacement — sand sinks through water, water floats on oil, gases rise and *bubble up through liquids* — plus a bias-free alternating scan order so nothing drifts sideways. An **active-region tracker** bounds both simulation and rendering to just the part of the world that's actually doing something, so a sprawling, mostly-quiet world stays smooth.
+- **Real thermodynamics.** A per-cell heat field with diffusion drives phase changes that *emerge* rather than being scripted: water ⇄ ice ⇄ steam ⇄ cloud ⇄ rain, sand → glass, stone ⇄ lava, the metal foundry, spontaneous ignition. **Blackbody incandescence** makes anything hot enough self-glow — metal and stone smoulder red → orange → yellow → white as the temperature climbs.
+- **Combustion that needs air.** Fire burns hotter in **oxygen** (breathing it out as **carbon dioxide**), suffocates when sealed, is snuffed by CO₂ (a heavy gas that sinks and smothers), and races cell-to-cell as **wildfire** through any connected fuel.
+- **Pressure & shockwaves.** Gases build real pressure and jet through gaps; explosions emit a shockwave that physically shoves matter outward and can shatter glass back into sand. Toggle the pressure-map overlay with `P`.
+- **Electricity.** Charge is a *physical phenomenon*, not a circuit kit: a **spark** energizes any conductor (metal, gold, water, brine, mercury) and the current races through it; **lightning** scorches and electrifies; **bulbs** glow when charge reaches them; charge drives **electrolysis**, splitting water into hydrogen + oxygen and brine into hydrogen + chlorine.
+- **Weather & the water cycle.** Paint **storm clouds** that drift on the wind, gather a finite reserve of rain, and hurl **lightning** whose frequency emerges from the storm's size; pollute a cloud with smoke and it sours into an **acid-rain cloud**. Lightning sizzles water rather than boiling it away — a real water cycle, not a runaway.
+
+### Worlds within the world
+- **🔥 The foundry & metallurgy.** Eight metals — iron, copper, tin, **bronze**, **steel**, silver, gold, aluminium — each melt at scientifically re-scaled points into a shared **molten metal** that remembers its source and **casts back** to the exact solid (flash-casting in water). Alloy copper + tin into bronze, carburize iron + coal into steel, watch copper green to **patina**, silver darken to **tarnish**, tin crumble to **tin pest** in the cold. Acid tells noble from base: gold, silver and copper resist plain acid and yield only to **aqua regia**.
+- **⛏️ Geology & the rock cycle.** Smelt **iron ore, malachite and cassiterite** against burning coal (carbothermic reduction — heat alone won't free the metal). Bury sand until it cements to **sandstone**; cook rock under heat + pressure into **slate, marble and quartzite**; weather it all back to sand. Grow **crystals**, forge **diamond** from coal, fuse **fulgurite** where lightning strikes sand.
+- **☢️ Nuclear.** Seed a neutron into a **uranium** pile and start a self-sustaining **fission chain** — every fission splits one fuel cell, dumps heat, and emits prompt neutrons; **plutonium** is twitchier, **control rods** drink the neutrons to scram it, water moderates them, and the fuel breeds Pu under flux. A fierce enough burst throws up a physically-modelled **mushroom cloud** (a real edge-on vortex ring). Spent fuel decays through **fallout** to ash.
+- **🌟 Fusion & plasma.** Crush **hydrogen** in a fission blast to fuse it into **helium**; tear any gas into glowing violet **plasma** with extreme heat or a lightning bolt — which cools back into the very gas it came from.
+- **⚗️ Reactive chemistry.** Drop **sodium** in water for an alkali eruption, burn **magnesium** in a flare you can't drown, combine sodium + **chlorine** into table salt, run the chlor-alkali process, spark hydrogen + chlorine into acid.
+- **🌱 A living world.** Sow **seeds** on damp soil — but not in brine, and salt withers what grows. They germinate into **saplings** that climb a trunk toward the light and burst into a leafy **crown**; **plants** photosynthesise (CO₂ → O₂) and reach for the light; **vines** climb; **mold** spreads and rots; **wildfire** sweeps through forests, and the **ash** it leaves enriches the soil so the next seeds sprout faster — a whole forest cycle.
+- **🦠 A living aquatic ecosystem.** A genuinely emergent, provably-bounded food web: **algae** drinks water + light, **krill** graze it, **ciliates** hunt the krill, **carrion** sinks and **bacillus** recycles it to nutrient — populations boom, bust and recover. Irradiate the water and plankton mutate into glowing strains; starve them and they bank into dormant **resting cysts** and **spores** that wait out the famine. A whole pond you tend.
+
+### Alchemy & spectacle
+- **Real, reversible chemistry & alchemy.** Salt dissolves into **brine** and crystallises back when the brine boils dry; mercury + sulfur marry into **cinnabar** and roast back apart; **limestone** calcines to **quicklime**, slakes violently into a base, then **carbonates** back to limestone — a closed lime cycle. Lava + water → obsidian; acid + mercury → gold; **aqua regia** dissolves gold to mercury; smoke + sulfur → acid; sulfur + saltpeter + coal → gunpowder; with **thermite**, **fuse**, **nitro** and matter-annihilating **antimatter** for the pyrotechnics.
+- **The Magnum Opus.** The Philosopher's Stone can be *earned*. Put the **tria prima** (mercury + sulfur + salt) to the fire and the Great Work begins: matter blackens (**nigredo**), washes white (**albedo**), ripens gold (**citrinitas**), and — perfected with gold — reddens into the **Stone** (**rubedo**). Lay it against base matter and it **projects**, perfecting stone, rust and coal into gold.
+- **A cinematic first run.** The world introduces itself: the title materialises in glowing diamond, a stream of sand pours across it, it dissolves into water that fills the basins, gold dust rains, trees spring up around the oasis, and dawn breaks over the lakes — then rests, inviting you to *get in your element*.
+- **Dynamic lighting, ballistic particles & screen-shake.** Every emitter — fire, lava, red-hot metal, plasma, sparks, fireworks, bulbs — casts coloured light onto nearby matter, layered over emissive bloom. A floating-point particle layer drives fireworks, embers and explosions, and a big blast punches the whole screen (with a `prefers-reduced-motion` opt-out).
+- **Procedural sound.** A fully synthesized soundtrack — no audio files — built live with the Web Audio API: fire crackle, water trickle and lava rumble track the world while explosions thud, lightning cracks, and a chime rings on every new discovery.
+
+### The package
+- **100+ materials & tools** across six tabbed, searchable categories — **Earth · Metals · Liquids & Gas · Reactive · Alchemy · Tools** — with full-width readable buttons and a live description (plus a *whisper* teasing an undiscovered recipe) for whatever you've selected.
+- **An Alchemy Book** of 130+ recipes that reveal themselves as you discover them through play — ingredient swatch-chips, a discovery progress bar, **NEW** badges, grouped by category, with a sandbox "reveal all" toggle.
+- **51 Challenges** across six mastery tiers — *Apprentice → Adept → Alchemist → Grandmaster → Naturalist → Artificer* — from *light 5 bulbs at once* and *forge a diamond* to *trigger a fission chain*, *run a full food web* and *complete the Magnum Opus*; progress saves locally, a **Next** nudge always shows your goal, and a little confetti fires when you nail one.
+- **Shareable links, share cards & saves.** Pack an entire scene into a (run-length-compressed) URL and send it — the world rebuilds itself the moment it opens. Or grab a one-tap branded **share card** PNG. Plus local save/restore.
+- **Gravity & wind** in any of 8 directions plus zero-G, a **World** control (Cozy / Balanced / Grand), heat-map and pressure-map overlays, and full mouse + touch with responsive, artwork-preserving resize.
+- **Accessibility.** Keyboard-operable controls with a visible focus ring, `aria-pressed` toggles, ARIA-labelled icon buttons, focus-trapped dialogs, an `aria-live` status region, a `prefers-reduced-motion` guard on the flash + shake, and notched-device safe-area support.
 
 ## 🖼️ Gallery
 
-| The interface | Live heat-map overlay |
+| Molten thermodynamics — lava meets water → obsidian + steam | A living aquatic food web — algae, krill & glowing mutants |
 | --- | --- |
-| ![Glassmorphism UI with material palette, force controls and live counters](./assets/interface.png) | ![Temperature field showing white-hot lava, burning fire and frozen ice](./assets/heatmap.png) |
+| ![Glowing molten lava pooled beside water, steam rising at the boundary](./assets/scene-lava.png) | ![A pond with an algae bloom, grazing krill and a glowing pink ciliate by a radiation source](./assets/scene-ecosystem.png) |
+| **Spectacle at night** — lava, fireworks, snow & water | **The live temperature field** (heat-map overlay) |
+| ![A glowing lava mound with fireworks, falling snow and water at night](./assets/hero.png) | ![Temperature field showing white-hot lava, burning fire and frozen ice](./assets/heatmap.png) |
+
+<p align="center"><img src="./assets/interface.png" alt="The glassmorphism interface — searchable material palette, force controls and live counters" width="80%" /></p>
 
 ## 🎮 Controls
 
@@ -78,7 +94,7 @@ python3 -m http.server 8000
 # then visit http://localhost:8000
 ```
 
-Or paste each file into the matching panel on [CodePen](https://codepen.io). That's the whole setup.
+**On CodePen:** paste each file into its panel — `style.css` → **CSS**, `script.js` → **JS**, and the body markup → **HTML** (this repo ships **`codepen-html.txt`**, the body already stripped of the `<link>`/`<script>` tags so the panels don't double-load). No external libraries to add — it's pure vanilla JS.
 
 ## 🧰 Embed &amp; extend — the `AetherSand` API
 
@@ -87,41 +103,40 @@ Aether Sand exposes a small `window.AetherSand` API so you can script, automate,
 ```js
 const A = window.AetherSand;
 
-A.setMaterial("lava");          // select by name (or A.LAVA)
-A.paint(x, y, "water", 6);      // paint a disc (material + brush optional)
-A.paint(x, y, "heat", 8);       // torch — paint temperature (or "freeze")
+A.setMaterial("lava");            // select by name (or A.LAVA)
+A.paint(x, y, "water", 6);        // paint a disc (material + brush optional)
+A.paint(x, y, "heat", 8);         // torch — paint temperature (or "freeze")
 A.line(x0, y0, x1, y1, "metal", 2);
 
-A.paint(x, y, "cloner");        // duplicates whatever it touches ("void" devours)
-A.paint(x, y, "mercury", 5);    // dense shimmering liquid that amalgamates metal
-A.paint(x, y, "philosopher");   // catalyst — accelerates nearby transmutations
-A.paint(x, y, "aqua", 4);       // aqua regia — dissolves gold back into mercury
-A.paint(x, y, "crystal", 3);    // grows by consuming adjacent water
-A.paint(x, y, "sulfur", 3);     // sulfur + saltpeter + coal → gunpowder
-A.paint(x, y, "thermite", 4);   // ignite it to burn through metal
-A.line(x0, y0, x1, y1, "fuse"); // slow-burning cord to a gunpowder cache
-A.paint(x, y, "bulb", 1);       // glows when a spark or lightning charges a nearby conductor
-A.paint(x, y, "hydrogen", 5);   // splits from water by electrolysis; detonates near flame
-A.paint(x, y, "cloud", 5);      // storm cloud — drifts on the wind, rains, and strikes
-A.paint(x, y, "antimatter");    // annihilates any matter it touches (contain with walls)
+A.paint(x, y, "iron_ore", 5);     // smelt it against hot coal → molten iron → cast it
+A.paint(x, y, "uranium", 6);      // seed a "neutron" beside it for a fission chain
+A.paint(x, y, "algae", 4);        // a pond producer — feed "krill", then "ciliate"
+A.paint(x, y, "mercury", 5);      // dense liquid metal that amalgamates
+A.paint(x, y, "philosopher");     // catalyst — accelerates nearby transmutations
+A.paint(x, y, "aqua", 4);         // aqua regia — dissolves gold/silver/copper
+A.paint(x, y, "thermite", 4);     // ignite it to burn through metal
+A.line(x0, y0, x1, y1, "fuse");   // slow-burning cord to a gunpowder cache
+A.paint(x, y, "cloud", 5);        // storm cloud — drifts, rains, and strikes
+A.paint(x, y, "antimatter");      // annihilates any matter it touches
+A.paint(x, y, "cloner");          // duplicates whatever it touches ("void" devours)
 
-A.firework(x, y);               // launch a firework rocket
-A.lightning(x, y);              // call down a lightning bolt
-A.gravity(0, -1);               // flip gravity up (8-way, plus 0,0 for zero-G)
-A.wind(0.8);                    // -1..1
+A.firework(x, y);                 // launch a firework rocket
+A.lightning(x, y);                // call down a lightning bolt
+A.gravity(0, -1);                 // flip gravity up (8-way, plus 0,0 for zero-G)
+A.wind(0.8);                      // -1..1
 
-A.heatMap(true);                // toggle the temperature overlay
-A.lights(false);                // toggle dynamic lighting
-A.lightLevel(0.4);              // dim bloom + coloured light (0..1 or 0..100)
+A.heatMap(true);                  // toggle the temperature overlay
+A.lights(false);                  // toggle dynamic lighting
+A.lightLevel(0.4);                // dim bloom + coloured light (0..1 or 0..100)
 
 A.clear(); A.save(); A.load(); A.snapshot();
-A.share();                      // copy a shareable link (whole scene packed into the URL)
-A.info();                       // { cells, particles, gravity, wind, ... }
+A.share();                        // copy a shareable link (whole scene packed into the URL)
+A.info();                         // { cells, particles, gravity, wind, ... }
 ```
 
 ## 🧪 How it works
 
-The world is a grid of cells. Each frame, every cell runs a few simple local rules — fall, flow, rise, react — and complex, lifelike behaviour **emerges** from those rules plus a shared temperature field and pressure field. Nothing is choreographed; it's just neighbours talking to neighbours.
+The world is a grid of cells. Each frame, every cell runs a few simple local rules — fall, flow, rise, react — and complex, lifelike behaviour **emerges** from those rules plus shared temperature and pressure fields. Nothing is choreographed; it's just neighbours talking to neighbours. The hard rule the whole project is built on: **every reaction is provably bounded** — no chain runs away, no cell spawns from nothing.
 
 The renderer writes the grid into an `ImageData` buffer scaled up with crisp pixels. Emissive materials also paint into a separate glow canvas that's blurred and screen-blended for bloom, and those same emitters splat into a low-res light buffer that's blurred and added back onto nearby matter for true coloured illumination. A lightweight floating-point particle layer rides on top for sparks, embers and fireworks.
 

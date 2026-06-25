@@ -1,0 +1,241 @@
+<!-- Aether Sand by Ori Iscovici — paste this into CodePen's HTML panel.
+     CSS panel = the whole of style.css   |   JS panel = the whole of script.js
+     No external libraries needed (pure vanilla JS). The <link>/<script src> were removed so the panels don't double-load. -->
+
+  <!-- Simulation canvas stack -->
+  <div id="stage">
+    <canvas id="sim"></canvas>
+    <canvas id="glow"></canvas>
+    <div id="vignette"></div>
+    <div id="cursor-ring"></div>
+  </div>
+
+  <!-- Top brand bar -->
+  <header id="topbar">
+    <button class="brand" id="brand-btn" title="About Aether Sand" aria-label="About Aether Sand">
+      <div class="brand-mark" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="brand-text">
+        <h1>Aether&nbsp;Sand</h1>
+        <p>a living particle playground</p>
+      </div>
+    </button>
+    <div class="topbar-right">
+      <button class="next-chip" id="next-challenge" type="button" title="Your next challenge — click to open" style="display:none">
+        <span class="nc-label">Next</span>
+        <span class="nc-icon"></span>
+        <span class="nc-title"></span>
+      </button>
+      <button class="trophy-btn" id="btn-challenges" title="Challenges (G)" aria-label="Open challenges">
+        <svg viewBox="0 0 24 24"><path d="M6 3h12v2h3v3a4 4 0 0 1-4 4h-.3A6 6 0 0 1 13 16.9V19h3v2H8v-2h3v-2.1A6 6 0 0 1 7.3 12H7a4 4 0 0 1-4-4V5h3V3zm0 4H5v1a2 2 0 0 0 1 1.73V7zm12 0v1.73A2 2 0 0 0 19 8V7h-1z"/></svg>
+        <span class="trophy-count" id="challenge-count">0/51</span>
+      </button>
+      <div class="stats" id="stats">
+        <div class="stat"><span class="stat-val" id="fps">60</span><span class="stat-label">fps</span></div>
+        <div class="stat"><span class="stat-val" id="count">0</span><span class="stat-label">particles</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Material palette -->
+  <aside id="palette" class="panel">
+    <div class="palette-head">
+      <div class="panel-title">Materials</div>
+      <button class="palette-book" id="btn-book" title="Alchemy book (B)" aria-label="Open alchemy book">
+        <svg viewBox="0 0 24 24"><path d="M6 4h12a2 2 0 0 1 2 2v14l-4-2-4 2-4-2-4 2V6a2 2 0 0 1 2-2z"/></svg>
+      </button>
+    </div>
+    <div class="palette-search">
+      <svg class="search-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.9 10.6l4.2 4.2 1.4-1.4-4.2-4.2A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
+      <input id="mat-search" type="text" placeholder="Search materials…" autocomplete="off" spellcheck="false" />
+      <button id="mat-search-clear" class="search-clear" type="button" aria-label="Clear search">×</button>
+    </div>
+    <div class="palette-tabs" id="palette-tabs"></div>
+    <div class="recent-strip" id="recent-strip" hidden></div>
+    <div id="material-grid-wrap"></div>
+    <div class="palette-desc" id="mat-desc">
+      <span class="mat-desc-name"></span>
+      <span class="mat-desc-text"></span>
+    </div>
+  </aside>
+
+  <!-- Forces + scene panel -->
+  <aside id="sidepanel" class="panel">
+    <div class="panel-title">Forces</div>
+
+    <div class="field">
+      <span class="field-label">Gravity</span>
+      <div class="compass" id="compass">
+        <button class="cmp" data-gx="0"  data-gy="-1" title="Gravity up" aria-label="Gravity up">↑</button>
+        <button class="cmp" data-gx="-1" data-gy="0"  title="Gravity left" aria-label="Gravity left">←</button>
+        <button class="cmp cmp-zero" data-gx="0" data-gy="0" title="Zero-G" aria-label="Zero gravity">○</button>
+        <button class="cmp" data-gx="1"  data-gy="0"  title="Gravity right" aria-label="Gravity right">→</button>
+        <button class="cmp active" data-gx="0" data-gy="1" title="Gravity down" aria-label="Gravity down">↓</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Wind <em id="wind-readout">0</em></span>
+      <input type="range" id="wind" min="-100" max="100" value="0" />
+    </div>
+
+    <div class="field">
+      <span class="field-label">Light <em id="light-readout">54</em>%</span>
+      <input type="range" id="light" min="0" max="100" value="54" title="Bloom + dynamic lighting intensity" />
+    </div>
+
+    <div class="field">
+      <span class="field-label">World</span>
+      <div class="seg" id="world-seg" title="World size — bigger means more cells & finer detail">
+        <button type="button" data-world="0">Cozy</button>
+        <button type="button" data-world="1">Balanced</button>
+        <button type="button" data-world="2">Grand</button>
+      </div>
+    </div>
+
+    <div class="panel-title" style="margin-top:6px">Scene</div>
+    <div class="btn-col">
+      <button class="mini on" id="btn-light" title="Toggle lighting (L)" aria-pressed="true">
+        <svg viewBox="0 0 24 24"><path d="M12 3a1 1 0 0 1 1 1v1.07A7 7 0 0 1 19.93 11H21a1 1 0 0 1 0 2h-1.07A7 7 0 0 1 13 19.93V21a1 1 0 0 1-2 0v-1.07A7 7 0 0 1 4.07 13H3a1 1 0 0 1 0-2h1.07A7 7 0 0 1 11 5.07V4a1 1 0 0 1 1-1z"/></svg>
+        <span>Light&nbsp;on</span>
+      </button>
+      <button class="mini" id="btn-heat" title="Toggle heat-map (H)" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M12 2s5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 1-3s-1 4 2 4 2-4 2-4 0-4-2-7z"/></svg>
+        <span>Heat&nbsp;map</span>
+      </button>
+      <button class="mini" id="btn-pressure" title="Toggle pressure map (P)" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5a1 1 0 0 0-2 0v5.6l3.3 1.9 1-1.7L13 11.4V7z"/></svg>
+        <span>Pressure</span>
+      </button>
+      <button class="mini on" id="btn-sound" title="Toggle sound (M)" aria-pressed="true">
+        <svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5zm4.5 3.5a5 5 0 0 1 0 7l1.4 1.4a7 7 0 0 0 0-9.8l-1.4 1.4z"/></svg>
+        <span>Sound&nbsp;on</span>
+      </button>
+      <button class="mini" id="btn-snap" title="Download a branded share card (PNG)">
+        <svg viewBox="0 0 24 24"><path d="M9 4l-1 2H4v14h16V6h-4l-1-2H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/></svg>
+        <span>Share&nbsp;card</span>
+      </button>
+      <button class="mini" id="btn-share" title="Copy a shareable link to this scene">
+        <svg viewBox="0 0 24 24"><path d="M18 16a3 3 0 0 0-2.4 1.2l-6.1-3.1a3 3 0 0 0 0-2.2l6.1-3.1a3 3 0 1 0-.9-1.8L8.6 10.2a3 3 0 1 0 0 3.6l6.1 3.1A3 3 0 1 0 18 16z"/></svg>
+        <span>Share&nbsp;link</span>
+      </button>
+      <div class="btn-row">
+        <button class="mini" id="btn-save" title="Save scene">Save</button>
+        <button class="mini" id="btn-load" title="Load saved scene">Load</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Control dock -->
+  <nav id="dock" class="panel">
+    <div class="dock-group">
+      <button class="ctrl" id="btn-play" title="Play / Pause (Space)" aria-pressed="false" aria-label="Pause">
+        <svg viewBox="0 0 24 24" class="ic-pause"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        <svg viewBox="0 0 24 24" class="ic-play"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="ctrl" id="btn-step" title="Step one frame (→)">
+        <svg viewBox="0 0 24 24"><path d="M7 5v14l9-7zM17 5h2v14h-2z"/></svg>
+      </button>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <div class="dock-group brush-group">
+      <span class="dock-label">Brush</span>
+      <input type="range" id="brush" min="1" max="48" value="10" />
+      <span class="dock-readout" id="brush-readout">10</span>
+    </div>
+
+    <div class="dock-divider"></div>
+
+    <div class="dock-group">
+      <button class="ctrl ctrl-text" id="btn-clear" title="Clear (C)">
+        <svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7zm3-3h6l1 2H8l1-2z"/></svg>
+        <span>Clear</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Mobile/tablet chrome: a backdrop + a 2-segment FAB that summons the Materials/Forces bottom-sheets (hidden on desktop) -->
+  <div id="sheet-backdrop"></div>
+  <div id="summon" class="summon panel">
+    <button type="button" class="seg on" data-view="mat" aria-label="Open materials menu">◈ Materials</button>
+    <button type="button" class="seg" data-view="force" aria-label="Open forces menu">⛯ Forces</button>
+  </div>
+
+  <!-- First-run hint -->
+  <div id="hint">
+    <kbd>Click + drag</kbd> to pour · <kbd>Right-click</kbd> to erase · <kbd>Space</kbd> pause · <kbd>B</kbd> alchemy book
+  </div>
+
+  <!-- Alchemy booklet -->
+  <div id="booklet" class="booklet hidden" aria-hidden="true">
+    <div class="booklet-backdrop" id="booklet-backdrop"></div>
+    <div class="booklet-panel panel" role="dialog" aria-modal="true" aria-labelledby="booklet-title">
+      <header class="booklet-head">
+        <div class="booklet-head-text">
+          <h2 id="booklet-title">Alchemy Book</h2>
+          <p id="discover-count">0 discovered</p>
+          <div class="booklet-progress"><span id="discover-bar"></span></div>
+        </div>
+        <button class="booklet-close" id="btn-book-close" aria-label="Close book">×</button>
+      </header>
+      <div class="booklet-tabs">
+        <button class="btab active" data-tab="recipes">Recipes</button>
+        <button class="btab" data-tab="materials">Materials</button>
+      </div>
+      <div class="booklet-body" id="booklet-recipes"></div>
+      <div class="booklet-body hidden" id="booklet-materials"></div>
+      <footer class="booklet-foot">
+        <label class="reveal-toggle">
+          <input type="checkbox" id="reveal-all" />
+          <span>Reveal all recipes (sandbox mode)</span>
+        </label>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Challenges -->
+  <div id="challenges" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="challenges-backdrop"></div>
+    <div class="challenges-panel panel" role="dialog" aria-modal="true" aria-labelledby="challenges-title">
+      <header class="booklet-head">
+        <div class="booklet-head-text">
+          <h2 id="challenges-title">Challenges</h2>
+          <p id="challenge-progress-text">0 / 51 complete</p>
+          <div class="booklet-progress"><span id="challenge-bar"></span></div>
+        </div>
+        <button class="booklet-close" id="challenges-close" aria-label="Close challenges">×</button>
+      </header>
+      <div class="booklet-body" id="challenge-list"></div>
+    </div>
+  </div>
+
+  <!-- About -->
+  <div id="about" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="about-backdrop"></div>
+    <div class="about-panel panel" role="dialog" aria-modal="true" aria-labelledby="about-title">
+      <button class="booklet-close about-close" id="about-close" aria-label="Close">×</button>
+      <div class="about-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+      <h2 class="about-title" id="about-title">Aether&nbsp;Sand</h2>
+      <p class="about-tag">a living particle playground</p>
+      <p class="about-body">
+        A from-scratch falling-sand simulator — sand, fire, water, storms and alchemy,
+        where lifelike behaviour <em>emerges</em> from a handful of simple rules.
+        Built in pure vanilla JavaScript: no libraries, no build step, just three files.
+      </p>
+      <p class="about-sign">Crafted by <strong>Ori&nbsp;Iscovici</strong></p>
+      <div class="about-links">
+        <a class="about-cta" href="https://labs.iscovici.com" target="_blank" rel="noopener noreferrer">
+          Explore&nbsp;my&nbsp;Labs <span class="about-arrow">↗</span>
+        </a>
+        <a class="about-link2" href="https://github.com/isco-tec/aether-sand" target="_blank" rel="noopener noreferrer">View the source on GitHub</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Persistent author credit -->
+  <a id="credit" href="https://labs.iscovici.com" target="_blank" rel="noopener noreferrer"
+     title="Made by Ori Iscovici — Iscovici Labs">by <strong>Ori&nbsp;Iscovici</strong>&nbsp;↗</a>
+
