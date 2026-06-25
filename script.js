@@ -606,6 +606,9 @@
     { id:"predator", icon:"🦠", title:"Top of the Web", desc:"Set a ciliate loose to hunt the krill.", test:s=>s.disc.has("ciliate_hunt") },
     { id:"foodweb", icon:"🔗", title:"Food Web", desc:"Run the whole chain: algae → krill → ciliate, with bacillus recycling the dead.", test:s=>s.disc.has("krill_graze")&&s.disc.has("ciliate_hunt")&&s.disc.has("decompose") },
     { id:"mutant", icon:"🧬", title:"Irradiated", desc:"Mutate plankton into a glowing strain beside fallout or a reactor.", test:s=>s.disc.has("krill_mutate")||s.disc.has("ciliate_mutate") },
+    { id:"seedbank", icon:"🌰", title:"Seed Bank", desc:"Sink algae deep underwater so it banks itself as a grazer-proof spore.", test:s=>s.disc.has("algae_spore") },
+    { id:"dormancy", icon:"🥚", title:"Dormancy", desc:"Starve a krill swarm gently so survivors freeze into dormant resting eggs.", test:s=>s.disc.has("krill_encyst") },
+    { id:"revival", icon:"🐣", title:"Revival", desc:"Wake a resting egg back to life by regrowing a bloom around it.", test:s=>s.disc.has("krill_hatch")||s.disc.has("spore_hatch") },
   ];
   let challengesDone = new Set(safeParseArray("aether-challenges"));
   let challengesUnseen = false;  // a challenge completed since the panel was last opened
@@ -3735,6 +3738,7 @@
     URANIUM,PLUTONIUM,NEUTRON,FALLOUT,CONTROL_ROD,PLASMA,HELIUM,
     IRON_ORE,MALACHITE,CASSITERITE,SANDSTONE,SLATE,MARBLE,
     NUTRIENT,ALGAE,KRILL,CILIATE,CORPSE,BACILLUS,GLOW_KRILL,GLOW_CILIATE,
+    ALGAE_SPORE,KRILL_CYST,CILIATE_CYST,
     census(){ const c=new Int32Array(MAXID); for(let i=0;i<N;i++)c[grid[i]]++; return { nutrient:c[NUTRIENT], algae:c[ALGAE]+c[ALGAE_SPORE], krill:c[KRILL]+c[GLOW_KRILL]+c[KRILL_CYST], ciliate:c[CILIATE]+c[GLOW_CILIATE]+c[CILIATE_CYST], corpse:c[CORPSE], bacillus:c[BACILLUS], spore:c[ALGAE_SPORE], krillCyst:c[KRILL_CYST], ciliateCyst:c[CILIATE_CYST] }; },
     setMaterial(m){ currentMat=resolveMat(m); syncPaletteActive(); return M[currentMat]?.name; },
     setBrush(r){ const b=document.getElementById("brush"); b.value=r; b.dispatchEvent(new Event("input")); },
