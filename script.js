@@ -560,6 +560,36 @@
     { id:"magnum_opus", icon:"🜍", title:"The Great Work", desc:"Complete the Magnum Opus: nigredo → albedo → citrinitas → the Stone.", test:s=>s.disc.has("nigredo")&&s.disc.has("albedo")&&s.disc.has("citrinitas")&&s.disc.has("rubedo") },
     { id:"projection", icon:"👑", title:"Projection", desc:"Use the Philosopher's Stone to project base matter into gold.", test:s=>s.disc.has("projection") },
     { id:"wildfire", icon:"🌲", title:"Wildfire", desc:"Burn a forest of wood, plant or vine.", test:s=>s.disc.has("wildfire") },
+    // — Reactive chemistry —
+    { id:"alkali", icon:"🧨", title:"Alkali Eruption", desc:"Drop sodium into water and watch it erupt.", test:s=>s.disc.has("sodium_water") },
+    { id:"whitefire", icon:"✨", title:"White Fire", desc:"Ignite magnesium — a flare you cannot drown.", test:s=>s.disc.has("magnesium_burn") },
+    { id:"saltsynth", icon:"🧪", title:"Sodium Chloride", desc:"Combine sodium and chlorine gas into table salt.", test:s=>s.disc.has("salt_synthesis") },
+    { id:"chloralkali", icon:"⚗️", title:"Chlor-Alkali", desc:"Run a charge through brine to split off chlorine.", test:s=>s.disc.has("chlor_alkali") },
+    // — Metallurgy & the foundry —
+    { id:"foundry", icon:"🫗", title:"Foundry", desc:"Melt a metal into a glowing molten pour.", test:s=>s.disc.has("iron_melt")||s.disc.has("copper_melt")||s.disc.has("gold_melt")||s.disc.has("aluminum_melt") },
+    { id:"bronzeage", icon:"🛡️", title:"Bronze Age", desc:"Wed copper and tin into bronze.", test:s=>s.disc.has("bronze")||s.count(BRONZE)>=12 },
+    { id:"steelmaking", icon:"⚔️", title:"Steelmaking", desc:"Carburise iron with coal into steel.", test:s=>s.disc.has("steel")||s.count(STEEL)>=12 },
+    { id:"verdigris", icon:"🟢", title:"Verdigris", desc:"Let copper weather to green patina.", test:s=>s.disc.has("patina") },
+    { id:"tinpest", icon:"🥶", title:"Tin Pest", desc:"Let tin crumble to grey dust in the deep cold.", test:s=>s.disc.has("tin_pest") },
+    { id:"thermite", icon:"🔆", title:"Thermite", desc:"Ignite aluminium against rust into molten iron.", test:s=>s.disc.has("thermite_mix")||s.disc.has("thermite_slag") },
+    // — Geology: ore & the rock cycle —
+    { id:"smelter", icon:"⛏️", title:"Smelter", desc:"Smelt metal from raw ore packed against burning coal.", test:s=>s.disc.has("iron_smelt")||s.disc.has("smelt_copper")||s.disc.has("smelt_tin") },
+    { id:"lithify", icon:"🏜️", title:"Lithification", desc:"Bury sand deep under its own weight until it cements to sandstone.", test:s=>s.disc.has("sandstone") },
+    { id:"metamorph", icon:"🗿", title:"Metamorphosis", desc:"Cook buried rock into slate, marble or quartzite.", test:s=>s.disc.has("slate")||s.disc.has("marble")||s.disc.has("quartzite") },
+    // — Nuclear —
+    { id:"fission", icon:"☢️", title:"Critical Mass", desc:"Seed a neutron into a uranium pile and start a chain reaction.", test:s=>s.disc.has("u_fission")||s.disc.has("pu_fission") },
+    { id:"breeder", icon:"🔬", title:"Breeder", desc:"Breed plutonium from uranium under neutron flux.", test:s=>s.disc.has("breeding") },
+    { id:"scram", icon:"🛑", title:"SCRAM", desc:"Choke a reactor's chain reaction with a control rod.", test:s=>s.disc.has("control_rod") },
+    // — Fusion & plasma —
+    { id:"fusion", icon:"🌟", title:"Stellar Fire", desc:"Crush hydrogen in a fission blast to fuse it into helium.", test:s=>s.disc.has("fusion") },
+    { id:"plasma", icon:"💜", title:"Fourth State", desc:"Tear a gas into glowing plasma with extreme heat or a bolt.", test:s=>s.disc.has("ionise")||s.disc.has("lightning_plasma") },
+    // — Living ecosystem (how-to is in the wording) —
+    { id:"bloom", icon:"🟩", title:"Algal Bloom", desc:"Paint algae on water with the light on — let a green film spread.", test:s=>s.disc.has("algae_grow") },
+    { id:"swarm", icon:"🦐", title:"Swarm", desc:"Sprinkle krill onto an algae bloom until the swarm multiplies.", test:s=>s.disc.has("krill_breed") },
+    { id:"boombust", icon:"📉", title:"Boom and Bust", desc:"Let a krill swarm overgraze its algae and crash to carrion.", test:s=>s.disc.has("krill_breed")&&s.disc.has("krill_die") },
+    { id:"predator", icon:"🦠", title:"Top of the Web", desc:"Set a ciliate loose to hunt the krill.", test:s=>s.disc.has("ciliate_hunt") },
+    { id:"foodweb", icon:"🔗", title:"Food Web", desc:"Run the whole chain: algae → krill → ciliate, with bacillus recycling the dead.", test:s=>s.disc.has("krill_graze")&&s.disc.has("ciliate_hunt")&&s.disc.has("decompose") },
+    { id:"mutant", icon:"🧬", title:"Irradiated", desc:"Mutate plankton into a glowing strain beside fallout or a reactor.", test:s=>s.disc.has("krill_mutate")||s.disc.has("ciliate_mutate") },
   ];
   let challengesDone = new Set(safeParseArray("aether-challenges"));
   let challengesUnseen = false;  // a challenge completed since the panel was last opened
