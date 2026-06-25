@@ -342,7 +342,9 @@ html, body {
 .palette-desc {
   border-top: 1px solid var(--panel-brd); padding-top: 9px;
   display: flex; flex-direction: column; gap: 3px;
-  height: 64px; flex: 0 0 auto; overflow: hidden;
+  height: 90px; flex: 0 0 auto; overflow: hidden;   /* room for a full 3-line blurb + the whisper hint (was 64px → clipped the 3rd line) */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 13px), transparent);   /* a rare extra-long blurb trails off in a soft fade instead of a hard mid-word cut */
+          mask-image: linear-gradient(to bottom, #000 calc(100% - 13px), transparent);
 }
 .mat-desc-name { font-size: 12px; font-weight: 700; color: var(--text); }
 .mat-desc-text { font-size: 10px; line-height: 1.4; color: var(--text-dim); }

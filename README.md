@@ -56,13 +56,13 @@ Aether Sand is a physics-rich **falling-sand simulator** written from scratch in
 
 ## 🖼️ Gallery
 
-| Molten thermodynamics — lava meets water → obsidian + steam | A living aquatic food web — algae, krill & glowing mutants |
+| Molten thermodynamics — lava meets water → obsidian + steam | A living aquatic food web — algae, krill & a glowing mutant |
 | --- | --- |
 | ![Glowing molten lava pooled beside water, steam rising at the boundary](./assets/scene-lava.png) | ![A pond with an algae bloom, grazing krill and a glowing pink ciliate by a radiation source](./assets/scene-ecosystem.png) |
-| **Spectacle at night** — lava, fireworks, snow & water | **The live temperature field** (heat-map overlay) |
-| ![A glowing lava mound with fireworks, falling snow and water at night](./assets/hero.png) | ![Temperature field showing white-hot lava, burning fire and frozen ice](./assets/heatmap.png) |
-
-<p align="center"><img src="./assets/interface.png" alt="The glassmorphism interface — searchable material palette, force controls and live counters" width="80%" /></p>
+| **Wildfire on the wind** — a forest catches, embers drift | **Spectacle at night** — lava, fireworks, snow & water |
+| ![A forest at dusk with one tree ablaze and embers drifting on the breeze](./assets/scene-wildfire.png) | ![A glowing lava mound with fireworks, falling snow and water at night](./assets/hero.png) |
+| **The live temperature field** (heat-map overlay) | **The glassmorphism interface** |
+| ![Temperature field showing white-hot lava, burning fire and frozen ice](./assets/heatmap.png) | ![The glassmorphism interface — searchable material palette, force controls and live counters](./assets/interface.png) |
 
 ## 🎮 Controls
 
