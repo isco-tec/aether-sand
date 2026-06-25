@@ -82,7 +82,7 @@
     [FIRE]:     { name:"Fire",   type:GAS,    d:1,   c1:[255,230,150], c2:[255,80,24], k:0.2, base:650 },
     [SMOKE]:    { name:"Smoke",  type:GAS,    d:2,   c1:[54,54,62], c2:[28,28,34], a:150, k:0.05 },
     [STEAM]:    { name:"Steam",  type:GAS,    d:3,   c1:[210,218,230], c2:[170,180,196], a:120, k:0.08, base:110,
-                  trans:[{c:-1,t:95,to:WATER,p:0.02}] },
+                  trans:[{c:-1,t:95,to:WATER,p:0.08}] },   // condense back to water below 95C (raised from 0.02 — the cycle was visibly leaking mass when boiling); the life[] dispersal split still bounds open-air fog
     [WOOD]:     { name:"Wood",   type:STATIC, d:1e4, c1:[120,79,46], c2:[92,58,32], k:0.02, flam:1,
                   trans:[{c:1,t:255,to:COAL,p:0.05},{c:1,t:250,to:FIRE,p:0.4}] },
     [PLANT]:    { name:"Plant",  type:STATIC, d:1e4, c1:[86,176,74], c2:[54,128,52], k:0.03, flam:1,
@@ -105,8 +105,8 @@
     [THERMITE]: { name:"Thermite",type:POWDER,d:215, c1:[150,116,88], c2:[100,78,60], k:0.05 },
     [FUSE]:     { name:"Fuse",   type:STATIC, d:1e4, c1:[122,98,62], c2:[86,66,42], k:0.03, flam:1 },
     [GOLD]:     { name:"Gold",   type:POWDER, d:240, c1:[255,212,64], c2:[196,148,20], k:0.25 },
-    [NITRO]:    { name:"Nitro",  type:LIQUID, d:95,  disp:3, c1:[180,255,90], c2:[120,210,50], a:220, k:0.04, flam:1 },
-    [SULFUR]:   { name:"Sulfur", type:POWDER, d:180, c1:[255,228,48], c2:[210,178,24], k:0.05, flam:1 },
+    [NITRO]:    { name:"Nitro",  type:LIQUID, d:112, disp:3, c1:[180,255,90], c2:[120,210,50], a:220, k:0.04, flam:1 },   // SG ~1.6 → sinks below water (was wrongly floating)
+    [SULFUR]:   { name:"Sulfur", type:POWDER, d:180, c1:[255,228,48], c2:[210,178,24], k:0.05, flam:1, trans:[{c:1,t:250,to:FIRE,p:0.3}] },   // ignites ~250C (burns blue) — the box's classic flammable powder now actually burns
     [SALTPETER]:{ name:"Saltpeter",type:POWDER,d:170, c1:[248,248,255], c2:[210,208,228], k:0.05 },
     [CRYSTAL]:  { name:"Crystal", type:STATIC, d:1e4, c1:[190,150,255], c2:[130,96,220], a:215, k:0.08, emit:0.18 },
     [PHILOSOPHER]:{ name:"Philosopher",type:STATIC,d:1e4,c1:[255,130,210],c2:[180,70,255],k:0.06,emit:0.45 },
@@ -145,7 +145,7 @@
     [SAPLING]:  { name:"Sapling", type:STATIC, d:1e4, c1:[120,184,86], c2:[92,150,64], k:0.04, flam:1,
                   trans:[{c:1,t:200,to:FIRE,p:0.35}] },
     [SODIUM]:   { name:"Sodium",  type:POWDER, d:95,  c1:[208,210,218], c2:[150,152,166], k:0.09 },   // soft alkali metal, just lighter than water
-    [CHLORINE]: { name:"Chlorine",type:GAS,    d:1.4, c1:[196,224,96],  c2:[150,182,64],  a:165, k:0.04 },   // toxic halogen gas, heavier than air
+    [CHLORINE]: { name:"Chlorine",type:GAS,    d:6,   c1:[196,224,96],  c2:[150,182,64],  a:165, k:0.04 },   // toxic halogen gas — densest common gas (above CO2's 5), famously pools low
     [MAGNESIUM]:{ name:"Magnesium",type:POWDER, d:122, c1:[212,214,220], c2:[156,158,168], k:0.1, flam:1 },
     // — Forge & foundry: a shared molten liquid (remembers its metal via life[]) and the metals that melt into it —
     [MOLTEN_METAL]:{ name:"Molten Metal",type:LIQUID, d:235, disp:1, c1:[255,170,80], c2:[150,120,140], k:0.30, base:1600, emit:0.9, a:255 },
@@ -425,6 +425,7 @@
     { id:"rubedo", cat:"Magnum Opus", name:"IV · Rubedo", in:[CITRINITAS,GOLD], out:[PHILOSOPHER], note:"The reddening — perfected with gold, the matter is reborn as the Philosopher's Stone.", hint:"Perfect the yellow matter with gold…" },
     { id:"calcine", cat:"Phase", name:"Calcination", in:[LIMESTONE], out:[QUICKLIME], note:"Fierce heat drives the breath (CO₂) from limestone, leaving caustic quicklime.", hint:"Roast the soft pale rock…" },
     { id:"slake", cat:"Phase", name:"Slaking", in:[QUICKLIME,WATER], out:[SLAKEDLIME], note:"Quicklime meets water and reacts hard — heat, hiss, and slaked lime.", hint:"Splash the white powder…" },
+    { id:"carbonation", cat:"Phase", name:"Carbonation", in:[SLAKEDLIME,CO2], out:[LIMESTONE], note:"Slaked lime slowly drinks CO₂ back into limestone — how lime mortar sets, closing the lime cycle.", hint:"Let the lime breathe the air…" },
     { id:"neutralise", cat:"Phase", name:"Neutralisation", in:[ACID,SLAKEDLIME], out:[SALT], note:"Acid meets a base and the two cancel into salt and water.", hint:"Acid against a mild base…" },
     { id:"smoke_acid", cat:"Crafting", name:"Sulfurous acid", in:[SMOKE,SULFUR], out:[ACID], note:"Gas and yellow powder brew a corrosive liquid.", hint:"Smoke meets yellow powder…" },
     { id:"electrolysis", cat:"Crafting", name:"Electrolysis", in:[WATER,SPARK], out:[HYDROGEN,OXYGEN], note:"A current splits water into hydrogen and oxygen gas.", hint:"Charge run through water…" },
@@ -466,8 +467,10 @@
     { id:"sodium_water", cat:"Pyrotechnics", name:"Alkali eruption", in:[SODIUM,WATER], out:[HYDROGEN], note:"Sodium tears hydrogen out of water and the heat ignites it — a violent eruption.", hint:"Soft metal, meet water…" },
     { id:"salt_synthesis", cat:"Phase", name:"Salt synthesis", in:[SODIUM,CHLORINE], out:[SALT], note:"Sodium burns in chlorine to make ordinary table salt — straight from its elements.", hint:"A metal and a poison gas make a seasoning…" },
     { id:"chlor_alkali", cat:"Crafting", name:"Chlor-alkali", in:[BRINE,SPARK], out:[CHLORINE], note:"Run a current through salt water and it splits into hydrogen and chlorine gas.", hint:"Electrolyse the brine…" },
+    { id:"hydrogen_chloride", cat:"Crafting", name:"Hydrogen chloride", in:[HYDROGEN,CHLORINE], out:[ACID], note:"A spark fuses hydrogen and chlorine — hydrogen chloride, a strong acid in solution.", hint:"Spark the two coloured gases together…" },
     { id:"chlorine_acid", cat:"Phase", name:"Chlorine water", in:[CHLORINE,WATER], out:[ACID], note:"Chlorine dissolves into water to make a corrosive acid.", hint:"The green gas meets the sea…" },
     { id:"chlorine_kill", cat:"Growth", name:"Chemical blight", in:[CHLORINE,PLANT], out:[ASH], note:"Toxic chlorine gas withers anything living it touches.", hint:"Poison gas over a garden…" },
+    { id:"salt_blight", cat:"Growth", name:"Salt the earth", in:[SALT,PLANT], out:[ASH], note:"Salt and brine osmotically wither plants to ash and stop seeds from sprouting — salting the earth.", hint:"Sow salt on a garden…" },
     { id:"magnesium_burn", cat:"Pyrotechnics", name:"White fire", in:[MAGNESIUM,FIRE], out:[ASH], note:"Magnesium burns a blinding white — and you can't put it out: it burns through water and CO₂ alike.", hint:"A flare you cannot drown…" },
     { id:"freeze", cat:"Phase", name:"Frost spread", in:[ICE,WATER], out:[ICE], note:"Ice chills the water around it until a frost rim creeps outward.", hint:"Cold begets cold…" },
     { id:"condense", cat:"Phase", name:"Condensation", in:[STEAM], out:[WATER], note:"Vapour cools on cold surfaces into dew, and gathers high in the sky into rain clouds — the water cycle.", hint:"Where vapour gathers and cools…" },
@@ -523,6 +526,7 @@
     { id:"recombine", cat:"Phase", name:"Recombination", in:[PLASMA], out:[OXYGEN], note:"Starve plasma of heat and its ions recombine back into the gas they came from, the violet glow guttering out.", hint:"Let the arc cool…" },
     { id:"lightning_plasma", cat:"Pyrotechnics", name:"Lightning channel", in:[LIGHTNING], out:[PLASMA], note:"A lightning bolt rips the air it passes through into a fading violet plasma channel.", hint:"Where the bolt tears the sky…" },
     { id:"hydrogen_boom", cat:"Pyrotechnics", name:"Knallgas", in:[HYDROGEN,FIRE], out:[FIRE], note:"Hydrogen ignites violently — far fiercer beside oxygen.", hint:"The lightest gas meets flame…" },
+    { id:"oil_fire", cat:"Pyrotechnics", name:"Oil fire", in:[FIRE,OIL], out:[FIRE], note:"A flame on a fuel pool catches and races across the slick.", hint:"Set a flame to the oil…" },
     { id:"oxy_fire", cat:"Pyrotechnics", name:"Oxygen feed", in:[OXYGEN,FIRE], out:[FIRE], note:"Oxygen makes flames burn hotter and longer.", hint:"Fire that can breathe…" },
     { id:"combust_o2", cat:"Pyrotechnics", name:"Combustion", in:[FIRE,OXYGEN], out:[CO2], note:"Oxygen-fed fire burns to carbon dioxide.", hint:"What fire breathes out…" },
     { id:"carbonate_acid", cat:"Phase", name:"Effervescence", in:[ACID,LIMESTONE], out:[CO2], note:"Acid on carbonate rock fizzes — it dissolves away, releasing carbon dioxide.", hint:"Vinegar on chalk…" },
@@ -890,6 +894,11 @@
   }
   function moveGas(x,y,i,m){
     if(zeroG) return brownian(x,y,i,m);
+    // bubble UP through a liquid directly above (every gas is lighter than every liquid, so canDisplace would never allow it) —
+    // gases are spawned underwater constantly (electrolysis, boiling, slaking, photosynthesis), so they must rise out, not
+    // freeze in place. Pure 1:1 swap (position-conserving → bounded). Uses the gravity-aware RISE offset so flipped-G still works.
+    const up=RISE.str, ux=x+up[1], uy=y+up[2];
+    if(ux>=0&&ux<W&&uy>=0&&uy<H && TYPE[grid[i+up[0]]]===LIQUID && rnd()<0.35){ swap(i,i+up[0]); return true; }
     const cand=[RISE.str];
     const dl=RISE.dias; if(rnd()<0.5){cand.push(dl[0],dl[1]);} else {cand.push(dl[1],dl[0]);}
     for(const d of cand){
@@ -1107,6 +1116,10 @@
         temp[ni]+=42;
         if(temp[ni]>140 && rnd()<0.07){ convert(ni,FIRE); discoverRecipe("wildfire"); }
       }
+      else if(FLAM[nm] && TYPE[nm]===LIQUID){   // oil/honey: a direct flame lights a fuel pool — rnd-gated (not raw heat) so a slick spreads, doesn't flash over instantly. Bounded: each fuel cell → 1 life-limited FIRE.
+        temp[ni]+=60;
+        if(rnd()<0.1){ convert(ni,FIRE); discoverRecipe("oil_fire"); }
+      }
       if(nm===CO2) co2=true;
       else if(nm===OXYGEN) oxy=ni;
       else if(nm===EMPTY || TYPE[nm]===GAS) air=true;   // somewhere to draw breath / vent
@@ -1190,7 +1203,8 @@
       if(nm===LIMESTONE && rnd()<0.04){ grid[ni]=EMPTY; const e=emptyNeighbor(x,i); if(e>=0) spawn(e,CO2); convert(i,WATER); gone=true; discoverRecipe("carbonate_acid"); return true; }
       // acid eats iron and fizzes off hydrogen (the classic acid+metal reaction)
       if(nm===METAL && rnd()<0.05){ grid[ni]=EMPTY; const e=emptyNeighbor(x,i); if(e>=0) spawn(e,HYDROGEN); discoverRecipe("acid_metal"); if(rnd()<0.4){ grid[i]=EMPTY; gone=true; return true; } return false; }
-      if(nm!==EMPTY&&nm!==ACID&&nm!==WALL&&nm!==GLASS&&nm!==GOLD&&nm!==AQUA&&nm!==WATER&&nm!==BRONZE&&nm!==PATINA&&nm!==CUPRITE&&TYPE[nm]!==GAS && rnd()<0.05){
+      // silver + copper are noble enough to resist plain (non-oxidising) acid — they need aqua regia (upAqua handles them); base metals iron/tin/steel/aluminium stay acid-soluble
+      if(nm!==EMPTY&&nm!==ACID&&nm!==WALL&&nm!==GLASS&&nm!==GOLD&&nm!==AQUA&&nm!==WATER&&nm!==BRONZE&&nm!==PATINA&&nm!==CUPRITE&&nm!==SILVER&&nm!==COPPER&&TYPE[nm]!==GAS && rnd()<0.05){
         grid[ni]=EMPTY;
         if(rnd()<0.4){ grid[i]=EMPTY; gone=true; return true; }
       }
@@ -1372,8 +1386,7 @@
   function upSilver(x,y,i,m){
     if(meltCheck(i,m)) return;
     forN8(x,i,(ni,nm)=>{
-      if(nm===AQUA && rnd()<0.06){ grid[i]=EMPTY; discoverRecipe("silver_acid"); return true; }
-      if(nm===ACID && rnd()<0.02){ grid[i]=EMPTY; return true; }
+      if(nm===AQUA && rnd()<0.06){ grid[i]=EMPTY; discoverRecipe("silver_acid"); return true; }   // silver dissolves only in aqua regia, not plain acid (noble metal)
       if(nm===SULFUR){ const p=temp[i]>120?0.02:0.006; if(rnd()<p){ grid[ni]=EMPTY; convert(i,TARNISH); discoverRecipe("silver_tarnish"); return true; } }
       return false;
     });
@@ -1420,7 +1433,7 @@
     forN8(x,i,(ni,nm)=>{
       if(nm===CONTROL_ROD && rnd()<0.95){ grid[i]=EMPTY; absorbed=true; return true; }
       if(nm===URANIUM && rnd()<0.012){ convert(ni,PLUTONIUM); grid[i]=EMPTY; absorbed=true; discoverRecipe("breeding"); return true; }   // U-238 + n → Pu-239
-      if(nm!==EMPTY && TYPE[nm]!==GAS && nm!==NEUTRON && rnd()<ABSORB){ grid[i]=EMPTY; absorbed=true; return true; }   // parasitic loss / shielding
+      if(nm!==EMPTY && TYPE[nm]!==GAS && nm!==NEUTRON && nm!==WATER && nm!==BRINE && nm!==ICE && nm!==SNOW && rnd()<ABSORB){ grid[i]=EMPTY; absorbed=true; return true; }   // parasitic loss / shielding — but light water MODERATES (lets the neutron pass), it doesn't absorb. Still fuel-bounded.
       return false;
     });
     if(absorbed) return;
@@ -1580,6 +1593,9 @@
         convert(ni,SALT); convert(i,WATER); temp[i]+=36;
         reacted=true; discoverRecipe("neutralise"); return true;
       }
+      // carbonation — slaked lime slowly reabsorbs CO2 back into limestone (exactly how lime mortar sets), closing the lime cycle.
+      // Bounded: consumes one finite, already-decaying CO2 cell + re-skins this cell in place 1:1 (no spawn, no spread).
+      if(nm===CO2 && rnd()<0.02){ grid[ni]=EMPTY; convert(i,LIMESTONE); reacted=true; discoverRecipe("carbonation"); return true; }
       return false;
     });
     if(reacted) return;
@@ -1598,11 +1614,12 @@
     });
   }
   function upPlant(x,y,i){
-    let water=-1; let lit=false, co2=-1, kin=0; const empties=[];
+    let water=-1; let lit=false, co2=-1, kin=0, salty=false; const empties=[];
     forN8(x,i,(ni,nm)=>{
       if(nm===WATER){ water=ni; lit=true; }
       else if(nm===EMPTY){ empties.push(ni); lit=true; }
       else if(nm===CO2) co2=ni;
+      else if(nm===SALT||nm===BRINE) salty=true;   // salting the earth — brine no longer counts as a life source
       else {
         if(nm===PLANT||nm===WOOD||nm===VINE||nm===SAPLING) kin++;   // neighbouring foliage = shade
         // alive if it can reach air, light (through liquids/ice/glass), or its own kind — only opaque burial wilts it
@@ -1610,6 +1627,7 @@
       }
       return false;
     });
+    if(salty && rnd()<0.012){ convert(i,ASH); discoverRecipe("salt_blight"); return; }   // osmotic salt stress withers it to ash (1:1, only while finite salt/brine sits adjacent)
     // photosynthesis — a plant sealed in the dark (buried, no air/light, no kin) withers to ash
     if(!lit){ if(rnd()<0.004){ convert(i,ASH); discoverRecipe("wilt"); } return; }
     // a lit, watered leaf breathes CO2 in and oxygen out (the carbon/oxygen cycle)
@@ -1631,7 +1649,7 @@
     if(i+W<N){ const b=grid[i+W]; if(b===SAND||b===LIMESTONE||b===STONE||b===PLANT||b===SLAKEDLIME||b===ASH) soil=true; }
     if(soil){
       let water=false, rich=false;
-      forN8(x,i,(ni,nm)=>{ if(nm===WATER||nm===BRINE) water=true; if(nm===ASH) rich=true; return false; });
+      forN8(x,i,(ni,nm)=>{ if(nm===WATER) water=true; else if(nm===ASH) rich=true; return false; });   // only FRESH water germinates — salting the earth (brine) blocks it
       if(water && rnd()<(rich?0.12:0.07)){ convert(i,SAPLING); discoverRecipe("germinate"); return; }  // ash-rich soil sprouts faster
     }
     moveFalling(x,y,i,SEED);
@@ -1641,7 +1659,7 @@
     const up=i-W;
     const above=(y>0)? grid[up] : WALL;
     if(above===SAPLING || above===WOOD){ convert(i,WOOD); return; }   // a lower trunk segment — just harden
-    const clear = (above===EMPTY || above===WATER || above===BRINE);   // it can push up through air or water
+    const clear = (above===EMPTY || above===WATER);   // climbs through air or fresh water — NOT brine (saltwater kills it)
     if(life[i]<=0 || y<=2 || !clear){ growCanopy(x,y,i); return; }   // the tip: budget spent, sky reached, or blocked → crown
     // climb: leave trunk behind, advance the tip upward (capture the budget BEFORE convert resets life[i])
     const budget=life[i]-1, t=temp[i];
@@ -1672,6 +1690,7 @@
   }
   function upVine(x,y,i){
     if(life[i]<=0) return;                       // tendril spent — it just clings
+    if(rnd()<0.03){ let salty=false; forCard(i,(ni)=>{ const nm=grid[ni]; if(nm===SALT||nm===BRINE){ salty=true; return true; } return false; }); if(salty){ convert(i,ASH); discoverRecipe("salt_blight"); return; } }   // salt/brine osmotically withers the vine (cheap gated check)
     if(rnd()>0.06) return;
     const dirs=[[0,-1],[-1,-1],[1,-1],[-1,0],[1,0]];   // climb up & sideways
     const cands=[];
@@ -2065,13 +2084,15 @@
       }
     }
     if(tryIonise(x,y,i)) return;   // very hot hydrogen next to a hotter source ionises into plasma
-    let ignite = temp[i]>180 || charge[i]>0, oxy=-1;
+    let ignite = temp[i]>180 || charge[i]>0, oxy=-1, chl=-1;
     forN8(x,i,(ni,nm)=>{
       if(nm===FIRE||nm===LAVA||(charge[ni]>0&&CHCOND[nm])) ignite=true;
       if(nm===OXYGEN) oxy=ni;
+      else if(nm===CHLORINE) chl=ni;
       return false;
     });
     if(ignite){
+      if(chl>=0){ if(grid[chl]===CHLORINE) grid[chl]=EMPTY; convert(i,ACID); explode(x,y,2); discoverRecipe("hydrogen_chloride"); return; }   // H2 + Cl2 → 2 HCl (light/spark-triggered chain); dissolved HCl is acid. 2 gases → 1 acid (bounded contraction).
       discoverRecipe("hydrogen_boom");
       if(oxy>=0){ explode(x,y,4); if(grid[oxy]===OXYGEN) convert(oxy,STEAM); } // oxy-hydrogen detonation → water vapor
       else { convert(i,FIRE); temp[i]=Math.max(temp[i],460); }
@@ -2245,7 +2266,7 @@
           const e=emptyNeighbor(x,i); if(e>=0) spawn(e,CHLORINE);
           discoverRecipe("chlor_alkali"); continue;
         }
-        forCard(i,(ni)=>{ if(charge[ni]===0 && CHCOND[grid[ni]]) charge[ni]=4; });
+        forCard(i,(ni)=>{ const nm=grid[ni]; if(charge[ni]===0 && CHCOND[nm]) charge[ni]=4; else if(FLAM[nm] && !CHCOND[nm] && TYPE[nm]!==GAS) temp[ni]+=70; });   // also ARC: a live conductor heats an adjacent fuel (oil) to its ignition point in a few ticks. Bounded: a fixed temp bump from finite, self-decaying charge — spawns/converts nothing.
         const nc=c-1;
         charge[i]= nc>0 ? nc : -3;
       }
